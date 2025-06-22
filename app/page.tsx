@@ -4,10 +4,12 @@ import { useState } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+// import { AgentMarketplace } from "@/components/sections/agent-marketplace" // Removed for now
 import { EnhancedVirtualOffice } from "@/components/sections/enhanced-virtual-office"
 import { LangSmithMonitoring } from "@/components/sections/langsmith-monitoring"
 import { UserOnboarding } from "@/components/sections/user-onboarding"
-import { Network, Users, Monitor, Settings, BarChart3, Plus, Activity } from "lucide-react"
+import { Network, Users, Monitor, Settings, BarChart3, Plus, Activity, Briefcase } from "lucide-react"
+import { NewTaskForm } from "@/components/forms/new-task-form" // Import the new form
 
 export default function AgentFlowPro() {
   const [activeTab, setActiveTab] = useState("virtual-office")
@@ -78,10 +80,8 @@ export default function AgentFlowPro() {
                 <BarChart3 className="w-3 h-3 mr-1" />
                 94% Success Rate
               </Badge>
-              <Button size="sm" className="bg-gradient-to-r from-blue-600 to-purple-600">
-                <Plus className="w-4 h-4 mr-2" />
-                New Task
-              </Button>
+              {/* Replace static button with the NewTaskForm component */}
+              <NewTaskForm />
             </div>
           </div>
         </div>
@@ -89,7 +89,7 @@ export default function AgentFlowPro() {
 
       <div className="container mx-auto px-4 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4 bg-white dark:bg-slate-800 shadow-sm">
+          <TabsList className="grid w-full grid-cols-3 bg-white dark:bg-slate-800 shadow-sm">
             <TabsTrigger value="virtual-office" className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               Virtual Office
@@ -98,10 +98,10 @@ export default function AgentFlowPro() {
               <Monitor className="w-4 h-4" />
               Live Monitoring
             </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center gap-2">
+            {/* <TabsTrigger value="analytics" className="flex items-center gap-2">
               <BarChart3 className="w-4 h-4" />
               Analytics
-            </TabsTrigger>
+            </TabsTrigger> */}
             <TabsTrigger value="settings" className="flex items-center gap-2">
               <Settings className="w-4 h-4" />
               Settings
@@ -118,8 +118,8 @@ export default function AgentFlowPro() {
             <LangSmithMonitoring />
           </TabsContent>
 
-          {/* Analytics */}
-          <TabsContent value="analytics">
+          {/* Analytics - Removed for now, was a placeholder */}
+          {/* <TabsContent value="analytics">
             <div className="space-y-6">
               <div>
                 <h2 className="text-3xl font-bold">Analytics & Performance</h2>
