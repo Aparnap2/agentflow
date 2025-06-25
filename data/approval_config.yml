@@ -1,0 +1,19 @@
+approval_mode:
+  finance_agent:
+    api_calls: manual
+    memory_write: manual
+  marketing_agent:
+    api_calls: auto
+    memory_write: auto
+  product_agent:
+    api_calls: auto
+    memory_write: manual
+  legal_agent:
+    api_calls: manual
+    memory_write: manual
+  cofounder_agent:
+    api_calls: auto
+    memory_write: auto
+  manager_agent:
+    api_calls: auto
+    memory_write: auto
