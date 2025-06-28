@@ -3,7 +3,7 @@ Web search tool using Crawl4AI for real-time content
 """
 
 import asyncio
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from crawl4ai import AsyncWebCrawler
 from langchain.tools import BaseTool
 from loguru import logger
@@ -12,10 +12,7 @@ class WebSearchTool(BaseTool):
     """Tool for web searching and content extraction using Crawl4AI"""
     name: str = "web_search"
     description: str = "Search web for current information and extract content"
-    
-    def __init__(self):
-        super().__init__()
-        self.crawler = None
+    crawler: Optional[AsyncWebCrawler] = None
     
     async def _get_crawler(self):
         """Get or create crawler instance"""
