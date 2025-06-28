@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Brain, ArrowRight, Lightbulb } from 'lucide-react'
-import api from '../lib/api'
+import { api } from '../lib/api'
 
 const StartPage = () => {
   const [vision, setVision] = useState('')
@@ -15,14 +15,14 @@ const StartPage = () => {
     
     setLoading(true)
     try {
-      const response = await api.startProject({
+      const response = await api.post('/start-project', {
         vision: vision.trim(),
         user_name: userName.trim() || 'User',
         approval_mode: 'manual'
       })
       
-      if (response.status === 'started') {
-        navigate('/agents')
+      if (response.data.status === 'started') {
+        navigate('/vision')
       }
     } catch (error) {
       console.error('Failed to start project:', error)

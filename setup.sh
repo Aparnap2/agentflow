@@ -14,18 +14,18 @@ echo "🐍 Setting up Python backend..."
 cd backend
 python -m venv venv
 source venv/bin/activate
-pip install -r requirements.txt
+
 cd ..
 
 # Setup frontend
 echo "⚛️  Setting up React frontend..."
 cd frontend
-npm install
+pnpm install
 cd ..
 
 # Start services
-echo "🐳 Starting Docker services..."
-docker-compose up -d
+
+
 
 echo "✅ Setup complete!"
 echo ""

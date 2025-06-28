@@ -6,7 +6,7 @@ import os
 from dotenv import load_dotenv
 
 from flows.orchestrator import AgentOrchestrator
-from memory.graph_memory import GraphMemory
+from memory.memory_manager import MemoryManager
 from approvals.approval_manager import ApprovalManager
 
 load_dotenv()
@@ -27,7 +27,7 @@ app.add_middleware(
 
 # Initialize core components
 orchestrator = AgentOrchestrator()
-memory = GraphMemory()
+memory_manager = MemoryManager()
 approval_manager = ApprovalManager()
 
 class ProjectRequest(BaseModel):
@@ -38,6 +38,11 @@ class ProjectRequest(BaseModel):
 class ApprovalResponse(BaseModel):
     action: str  # approve, deny, edit, retry
     feedback: Optional[str] = None
+
+class SearchRequest(BaseModel):
+    query: str
+    agent: Optional[str] = None
+    limit: Optional[int] = 5
 
 @app.get("/")
 async def root():
@@ -64,15 +69,42 @@ async def get_agents_status():
 @app.get("/api/memory/graph")
 async def get_memory_graph():
     """Get the current memory graph state"""
-    return await memory.get_graph_state()
+    return await memory_manager.graph_memory.get_graph_state()
+
+@app.get("/api/memory/stats")
+async def get_memory_stats():
+    """Get memory system statistics"""
+    return await memory_manager.get_memory_stats()
+
+@app.post("/api/memory/export")
+async def export_memory():
+    """Export all memory data"""
+    try:
+        exported_files = await memory_manager.export_all_outputs()
+        return {"status": "exported", "files": exported_files}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/memory/search")
+async def search_memory(query: str, agent: Optional[str] = None, limit: int = 5):
+    """Semantic search across memory"""
+    try:
+        results = await memory_manager.semantic_search(
+            query=query,
+            agent_name=agent,
+            limit=limit
+        )
+        return {"results": results}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/api/outputs")
 async def get_outputs():
     """Get all generated outputs"""
     return await orchestrator.get_outputs()
 
-@app.post("/api/approvals/{approval_id}")
-async def handle_approval(approval_id: str, response: ApprovalResponse):
+@app.post("/api/approvals/{approval_id}/respond")
+async def handle_approval_response(approval_id: str, response: ApprovalResponse):
     """Handle approval response"""
     try:
         result = await approval_manager.handle_response(
@@ -86,6 +118,27 @@ async def handle_approval(approval_id: str, response: ApprovalResponse):
 async def get_timeline():
     """Get execution timeline"""
     return await orchestrator.get_timeline()
+
+@app.get("/api/approvals/pending")
+async def get_pending_approvals():
+    """Get all pending approvals"""
+    approvals = await approval_manager.get_pending_approvals()
+    return {"approvals": approvals}
+
+@app.delete("/api/memory/clear")
+async def clear_memory():
+    """Clear all memory - USE WITH CAUTION"""
+    try:
+        await memory_manager.clear_all_memory()
+        return {"status": "cleared", "message": "All memory cleared"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    """Clean up resources on shutdown"""
+    orchestrator.close()
+    memory_manager.close()
 
 if __name__ == "__main__":
     import uvicorn

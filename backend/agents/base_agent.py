@@ -5,8 +5,7 @@ import asyncio
 from datetime import datetime
 from loguru import logger
 
-from memory.graph_memory import GraphMemory
-from memory.vector_memory import VectorMemory
+from memory.memory_manager import MemoryManager
 from tools.tool_registry import ToolRegistry
 
 class AgentStatus(Enum):
@@ -20,22 +19,22 @@ class AgentStatus(Enum):
 class BaseAgent(ABC):
     """Base class for all AgentFlow agents"""
     
-    def __init__(self, name: str, role: str, personality: Dict[str, Any]):
+    def __init__(self, name: str, role: str, memory_manager: MemoryManager, approval_manager, personality: Optional[Dict[str, Any]] = None):
         self.name = name
         self.role = role
-        self.personality = personality
+        self.personality = personality or {}
         self.status = AgentStatus.IDLE
-        self.confidence_threshold = personality.get("confidence_threshold", 0.8)
-        self.retry_limit = personality.get("retry_limit", 3)
+        self.confidence_threshold = self.personality.get("confidence_threshold", 0.8)
+        self.retry_limit = self.personality.get("retry_limit", 3)
         self.current_task = None
         self.outputs = {}
         
-        # Memory systems
-        self.graph_memory = GraphMemory()
-        self.vector_memory = VectorMemory()
+        # Memory and approval systems
+        self.memory_manager = memory_manager
+        self.approval_manager = approval_manager
         
-        # Tools
-        self.tools = ToolRegistry(agent_name=name)
+        # Tools - to be initialized by subclasses
+        self.tools = []
         
         logger.info(f"Initialized {name} agent with role: {role}")
     
@@ -44,10 +43,9 @@ class BaseAgent(ABC):
         """Process assigned task - implemented by each agent"""
         pass
     
-    @abstractmethod
     def get_system_prompt(self) -> str:
         """Get agent's system prompt based on personality"""
-        pass
+        return f"You are {self.name}, a {self.role}. {self.personality.get('description', '')}"
     
     async def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """Main execution method with error handling and retries"""
@@ -59,7 +57,7 @@ class BaseAgent(ABC):
                 logger.info(f"{self.name} starting task attempt {attempt + 1}")
                 
                 # Process the task
-                result = await self.process_task(task)
+                result = await self.process_task(task) # process_task will use self.tools._arun
                 
                 # Check confidence
                 confidence = result.get("confidence", 1.0)
@@ -84,41 +82,32 @@ class BaseAgent(ABC):
                 await asyncio.sleep(2 ** attempt)  # Exponential backoff
     
     async def _store_result(self, result: Dict[str, Any]):
-        """Store result in both private and shared memory"""
-        # Private memory - detailed result
-        await self.graph_memory.write_private_memory(
+        """Store result in memory systems"""
+        # Store detailed result in private memory
+        await self.memory_manager.store_agent_memory(
             agent_name=self.name,
             memory_type="task_result",
-            content=result
+            content=result,
+            is_shared=False
         )
         
-        # Shared memory - key outputs only
+        # Store key outputs in shared memory
         if "output" in result:
-            await self.graph_memory.write_shared_memory(
+            await self.memory_manager.store_agent_memory(
                 agent_name=self.name,
                 memory_type=f"{self.name.lower()}_output",
                 content=result["output"],
-                confidence=result.get("confidence", 1.0)
-            )
-        
-        # Vector memory - for semantic search
-        if "summary" in result:
-            await self.vector_memory.store_document(
-                text=result["summary"],
+                is_shared=True,
+                confidence=result.get("confidence", 1.0),
                 metadata={
-                    "type": "agent_output",
-                    "timestamp": datetime.now().isoformat(),
-                    "task_id": self.current_task.get("id")
-                },
-                agent=self.name
+                    "task_id": self.current_task.get("id"),
+                    "timestamp": datetime.now().isoformat()
+                }
             )
     
     async def _request_approval(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """Request human approval for low-confidence results"""
-        from approvals.approval_manager import ApprovalManager
-        
-        approval_manager = ApprovalManager()
-        approval_id = await approval_manager.create_approval_request(
+        approval_id = await self.approval_manager.create_approval_request(
             agent_name=self.name,
             action_type="task_completion",
             content=result,
@@ -131,18 +120,26 @@ class BaseAgent(ABC):
             "result": result
         }
     
-    async def get_context(self, context_type: Optional[str] = None) -> List[Dict[str, Any]]:
-        """Get relevant context from shared memory"""
-        return await self.graph_memory.query_shared_memory(
-            memory_type=context_type,
-            min_confidence=0.6
+    async def _get_shared_context(self) -> Dict[str, Any]:
+        """Get current shared context for this agent"""
+        return await self.memory_manager.get_shared_context()
+    
+    async def _search_knowledge(self, query: str, limit: int = 3) -> List[Dict[str, Any]]:
+        """Search semantic knowledge base"""
+        return await self.memory_manager.semantic_search(
+            query=query,
+            agent_name=self.name,
+            limit=limit
         )
     
-    async def search_knowledge(self, query: str, limit: int = 3) -> List[Dict[str, Any]]:
-        """Search semantic knowledge base"""
-        return await self.vector_memory.semantic_search(
-            query=query,
-            limit=limit
+    async def _log_error(self, message: str):
+        """Log error message"""
+        logger.error(f"{self.name}: {message}")
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="error_log",
+            content={"message": message, "timestamp": datetime.now().isoformat()},
+            is_shared=False
         )
     
     def get_status(self) -> Dict[str, Any]:

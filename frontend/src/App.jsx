@@ -2,22 +2,92 @@ import { Routes, Route } from 'react-router-dom'
 import StartPage from './pages/StartPage'
 import VisionPage from './pages/VisionPage'
 import AgentsPage from './pages/AgentsPage'
+import GraphPage from './pages/GraphPage'
+import TimelinePage from './pages/TimelinePage'
 import OutputsPage from './pages/OutputsPage'
+import SettingsPage from './pages/SettingsPage'
 import Navigation from './components/Navigation'
+import ApprovalModal from './components/ApprovalModal'
+import { useState, useEffect } from 'react'
+import { api } from './lib/api'
 
 function App() {
+  const [pendingApprovals, setPendingApprovals] = useState([])
+  const [showApprovalModal, setShowApprovalModal] = useState(false)
+  const [currentApproval, setCurrentApproval] = useState(null)
+
+  // Poll for pending approvals
+  useEffect(() => {
+    const pollApprovals = async () => {
+      try {
+        const response = await api.get('/approvals/pending')
+        const approvals = response.data.approvals || []
+        setPendingApprovals(approvals)
+        
+        // Show modal for first pending approval
+        if (approvals.length > 0 && !showApprovalModal) {
+          setCurrentApproval(approvals[0])
+          setShowApprovalModal(true)
+        }
+      } catch (error) {
+        console.error('Failed to fetch pending approvals:', error)
+      }
+    }
+
+    // Poll every 5 seconds
+    const interval = setInterval(pollApprovals, 5000)
+    pollApprovals() // Initial call
+
+    return () => clearInterval(interval)
+  }, [showApprovalModal])
+
+  const handleApprovalResponse = async (approvalId, action, feedback) => {
+    try {
+      await api.post(`/approvals/${approvalId}/respond`, {
+        action,
+        feedback
+      })
+      
+      // Remove from pending list
+      setPendingApprovals(prev => prev.filter(a => a.id !== approvalId))
+      setShowApprovalModal(false)
+      setCurrentApproval(null)
+      
+      // Show next approval if any
+      const remaining = pendingApprovals.filter(a => a.id !== approvalId)
+      if (remaining.length > 0) {
+        setCurrentApproval(remaining[0])
+        setShowApprovalModal(true)
+      }
+    } catch (error) {
+      console.error('Failed to respond to approval:', error)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
-      <Navigation />
+      <Navigation pendingApprovalsCount={pendingApprovals.length} />
       <main className="container mx-auto px-4 py-8">
         <Routes>
           <Route path="/" element={<StartPage />} />
           <Route path="/start" element={<StartPage />} />
           <Route path="/vision" element={<VisionPage />} />
           <Route path="/agents" element={<AgentsPage />} />
+          <Route path="/graph" element={<GraphPage />} />
+          <Route path="/timeline" element={<TimelinePage />} />
           <Route path="/outputs" element={<OutputsPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Routes>
       </main>
+      
+      {/* Approval Modal */}
+      {showApprovalModal && currentApproval && (
+        <ApprovalModal
+          approval={currentApproval}
+          onResponse={handleApprovalResponse}
+          onClose={() => setShowApprovalModal(false)}
+        />
+      )}
     </div>
   )
 }

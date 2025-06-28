@@ -24,7 +24,7 @@ Built for portfolio/freelance showcasing, not commercial use.
 | Memory (Structured) | Neo4j + Graphiti                      | Agent memory + cross-agent shared context |
 | Memory (Semantic)   | Qdrant (free-tier)                    | Semantic document search, RAG             |
 | Web Crawling        | Crawl4AI                              | Web data extraction tool                  |
-| LLM Runtime         | OpenRouter (Gemini 1.5, Claude)       | Agent LLMs                                |
+| LLM Runtime         | OpenRouter (Gemini 1.5, deepseek/deepseek-chat:free)       | Agent LLMs                                |
 | Storage             | Local JSON/YAML + Supabase (optional) | Outputs, auth, config                     |
 | Dev Tools           | MCP + Windsurf                        | Scaffold, edit, manage structure          |
 

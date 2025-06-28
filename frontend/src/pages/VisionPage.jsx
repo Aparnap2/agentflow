@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Eye, CheckCircle, Clock } from 'lucide-react'
-import api from '../lib/api'
+import { apiMethods } from '../lib/api'
 
 const VisionPage = () => {
   const [outputs, setOutputs] = useState({})
@@ -12,7 +12,8 @@ const VisionPage = () => {
   
   const fetchOutputs = async () => {
     try {
-      const data = await api.getOutputs()
+      const data = await apiMethods.getOutputs()
+      console.log('Fetched outputs:', data)
       setOutputs(data)
     } catch (error) {
       console.error('Failed to fetch outputs:', error)
@@ -56,9 +57,9 @@ const VisionPage = () => {
               <div>
                 <h3 className="font-semibold text-gray-900 mb-3">Target Users</h3>
                 <div className="space-y-3">
-                  {cofounderData.target_users?.map((user, index) => (
+                  {cofounderData.target_user_personas?.map((user, index) => (
                     <div key={index} className="p-3 bg-gray-50 rounded-md">
-                      <h4 className="font-medium text-gray-900">{user.persona}</h4>
+                      <h4 className="font-medium text-gray-900">{user.name}</h4>
                       <p className="text-sm text-gray-600">{user.description}</p>
                     </div>
                   ))}
@@ -71,7 +72,10 @@ const VisionPage = () => {
                   {cofounderData.strategic_priorities?.map((priority, index) => (
                     <li key={index} className="flex items-center text-gray-700">
                       <CheckCircle className="h-4 w-4 text-green-500 mr-2 flex-shrink-0" />
-                      {priority}
+                      <div>
+                        <span className="font-medium">{priority.priority}:</span>
+                        <span className="ml-1">{priority.description}</span>
+                      </div>
                     </li>
                   ))}
                 </ul>

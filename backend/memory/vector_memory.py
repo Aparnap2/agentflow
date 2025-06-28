@@ -3,7 +3,7 @@ from qdrant_client.models import Distance, VectorParams, PointStruct
 from typing import List, Dict, Any, Optional
 import os
 import hashlib
-from sentence_transformers import SentenceTransformer
+import google.generativeai as genai
 from loguru import logger
 
 class VectorMemory:
@@ -13,7 +13,8 @@ class VectorMemory:
         self.url = os.getenv("QDRANT_URL", "http://localhost:6333")
         self.api_key = os.getenv("QDRANT_API_KEY")
         self.client = QdrantClient(url=self.url, api_key=self.api_key)
-        self.encoder = SentenceTransformer('all-MiniLM-L6-v2')
+        genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
+        self.embedding_model = "models/embedding-001"
         self.collection_name = "agentflow_memory"
         self._setup_collection()
     
@@ -24,7 +25,7 @@ class VectorMemory:
             if not any(col.name == self.collection_name for col in collections):
                 self.client.create_collection(
                     collection_name=self.collection_name,
-                    vectors_config=VectorParams(size=384, distance=Distance.COSINE)
+                    vectors_config=VectorParams(size=768, distance=Distance.COSINE)
                 )
                 logger.info(f"Created Qdrant collection: {self.collection_name}")
         except Exception as e:
@@ -38,7 +39,7 @@ class VectorMemory:
         """Store document with semantic embedding"""
         try:
             # Generate embedding
-            embedding = self.encoder.encode(text).tolist()
+            embedding = genai.embed_content(model=self.embedding_model, content=text, task_type="retrieval_document")["embedding"]
             
             # Create point
             point_id = self._generate_id(text, agent)
@@ -71,7 +72,7 @@ class VectorMemory:
         """Perform semantic search"""
         try:
             # Generate query embedding
-            query_embedding = self.encoder.encode(query).tolist()
+            query_embedding = genai.embed_content(model=self.embedding_model, content=query, task_type="retrieval_query")["embedding"]
             
             # Build filter
             filter_conditions = None
@@ -141,3 +142,68 @@ class VectorMemory:
         except Exception as e:
             logger.error(f"Failed to delete agent documents: {e}")
             return False
+    
+    async def get_collection_info(self) -> Dict[str, Any]:
+        """Get collection information and statistics"""
+        try:
+            collection_info = self.client.get_collection(self.collection_name)
+            return {
+                "vectors_count": collection_info.vectors_count,
+                "status": "ready",
+                "collection_name": self.collection_name
+            }
+        except Exception as e:
+            logger.error(f"Failed to get collection info: {e}")
+            return {"vectors_count": 0, "status": "error"}
+    
+    async def clear_collection(self):
+        """Clear all documents from collection"""
+        try:
+            self.client.delete_collection(self.collection_name)
+            self._setup_collection()
+            logger.info("Cleared vector memory collection")
+        except Exception as e:
+            logger.error(f"Failed to clear collection: {e}")
+    
+    async def add_document(self, text: str, metadata: Dict[str, Any], doc_id: str):
+        """Add document with specific ID"""
+        try:
+            embedding = genai.embed_content(model=self.embedding_model, content=text, task_type="retrieval_document")["embedding"]
+            
+            point = PointStruct(
+                id=doc_id,
+                vector=embedding,
+                payload={"text": text, **metadata}
+            )
+            
+            self.client.upsert(
+                collection_name=self.collection_name,
+                points=[point]
+            )
+            
+            logger.info(f"Added document with ID: {doc_id}")
+        except Exception as e:
+            logger.error(f"Failed to add document: {e}")
+    
+    async def search(self, query: str, limit: int = 5, filter_conditions: Optional[Dict] = None) -> List[Dict[str, Any]]:
+        """Search with optional filters"""
+        try:
+            query_embedding = genai.embed_content(model=self.embedding_model, content=query, task_type="retrieval_query")["embedding"]
+            
+            results = self.client.search(
+                collection_name=self.collection_name,
+                query_vector=query_embedding,
+                query_filter=filter_conditions,
+                limit=limit,
+                with_payload=True
+            )
+            
+            return [{
+                "text": result.payload["text"],
+                "score": result.score,
+                "metadata": {k: v for k, v in result.payload.items() if k != "text"}
+            } for result in results]
+            
+        except Exception as e:
+            logger.error(f"Search failed: {e}")
+            return []

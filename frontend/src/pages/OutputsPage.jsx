@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { FileText, Download, Eye, Calendar } from 'lucide-react'
-import api from '../lib/api'
+import { apiMethods } from '../lib/api'
 
 const OutputsPage = () => {
   const [outputs, setOutputs] = useState({})
@@ -13,7 +13,7 @@ const OutputsPage = () => {
   
   const fetchOutputs = async () => {
     try {
-      const data = await api.getOutputs()
+      const data = await apiMethods.getOutputs()
       setOutputs(data)
     } catch (error) {
       console.error('Failed to fetch outputs:', error)
@@ -40,6 +40,16 @@ const OutputsPage = () => {
       generated_at: new Date().toISOString()
     }
     downloadOutput('agentflow_outputs.json', allData)
+  }
+  
+  const exportAll = async () => {
+    try {
+      await apiMethods.exportMemory()
+      await fetchOutputs()
+      alert('All outputs exported successfully!')
+    } catch (error) {
+      console.error('Failed to export outputs:', error)
+    }
   }
   
   if (loading) {

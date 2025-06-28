@@ -2,26 +2,34 @@ from typing import Dict, List, Any, Optional
 import asyncio
 import json
 from datetime import datetime
+import os
 from loguru import logger
 
 from agents.cofounder_agent import CofounderAgent
 from agents.manager_agent import ManagerAgent
 from agents.product_agent import ProductAgent
 from agents.finance_agent import FinanceAgent
-# from agents.marketing_agent import MarketingAgent
-# from agents.legal_agent import LegalAgent
+from agents.marketing_agent import MarketingAgent
+from agents.legal_agent import LegalAgent
+from memory.memory_manager import MemoryManager
+from approvals.approval_manager import ApprovalManager
 
 class AgentOrchestrator:
     """Orchestrates agent execution following the PRD DAG workflow"""
     
     def __init__(self):
+        # Initialize shared systems
+        self.memory_manager = MemoryManager()
+        self.approval_manager = ApprovalManager()
+        
+        # Initialize agents with shared systems
         self.agents = {
-            "Cofounder": CofounderAgent(),
-            "Manager": ManagerAgent(),
-            "Product": ProductAgent(),
-            "Finance": FinanceAgent(),
-            # "Marketing": MarketingAgent(),
-            # "Legal": LegalAgent()
+            "Cofounder": CofounderAgent(self.memory_manager, self.approval_manager),
+            "Manager": ManagerAgent(self.memory_manager, self.approval_manager),
+            "Product": ProductAgent(self.memory_manager, self.approval_manager),
+            "Finance": FinanceAgent(self.memory_manager, self.approval_manager),
+            "Marketing": MarketingAgent(self.memory_manager, self.approval_manager),
+            "Legal": LegalAgent(self.memory_manager, self.approval_manager)
         }
         self.execution_timeline = []
         self.current_project_id = None
@@ -93,7 +101,7 @@ class AgentOrchestrator:
         specialist_tasks = []
         
         # Create tasks for available specialist agents
-        for agent_name in ["Product", "Finance"]:  # Add "Marketing", "Legal" when implemented
+        for agent_name in ["Product", "Finance", "Marketing", "Legal"]:
             if agent_name in agent_assignments and agent_name in self.agents:
                 task = {
                     "id": f"task_{agent_name.lower()}_{project_id}",
@@ -125,33 +133,27 @@ class AgentOrchestrator:
         return results
     
     async def _generate_outputs(self, project_id: str, all_results: Dict[str, Any]):
-        """Generate final output files as specified in PRD deliverables"""
+        """Generate final output files using memory manager"""
         
-        outputs_dir = f"/home/aparna/Desktop/agentflow/data"
+        # Use memory manager to export all outputs
+        exported_files = await self.memory_manager.export_all_outputs()
         
-        # Generate individual agent outputs
-        for agent_name, result in all_results.items():
-            if "output" in result:
-                output_file = f"{outputs_dir}/{agent_name}.json"
-                with open(output_file, 'w') as f:
-                    json.dump({
-                        "agent": agent_name,
-                        "project_id": project_id,
-                        "timestamp": result.get("timestamp"),
-                        "confidence": result.get("confidence"),
-                        "data": result["output"]
-                    }, f, indent=2)
+        # Log the export
+        logger.info(f"Generated {len(exported_files)} output files for project {project_id}")
         
-        # Generate timeline
-        timeline_file = f"{outputs_dir}/timeline.json"
-        with open(timeline_file, 'w') as f:
-            json.dump({
+        # Store project completion in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name="Orchestrator",
+            memory_type="project_completion",
+            content={
                 "project_id": project_id,
-                "execution_timeline": self.execution_timeline,
-                "generated_at": datetime.now().isoformat()
-            }, f, indent=2)
-        
-        logger.info(f"Generated outputs for project {project_id}")
+                "agents_executed": list(all_results.keys()),
+                "exported_files": exported_files,
+                "completion_time": datetime.now().isoformat()
+            },
+            is_shared=True,
+            confidence=1.0
+        )
     
     def _log_execution(self, agent_name: str, result: Dict[str, Any]):
         """Log agent execution to timeline"""
@@ -173,21 +175,57 @@ class AgentOrchestrator:
         return status
     
     async def get_outputs(self) -> Dict[str, Any]:
-        """Get all generated outputs"""
-        outputs_dir = "/home/aparna/Desktop/agentflow/data"
-        outputs = {}
-        
+        """Get all generated outputs in frontend-expected format"""
         try:
-            import os
-            for filename in os.listdir(outputs_dir):
-                if filename.endswith('.json'):
-                    with open(f"{outputs_dir}/{filename}", 'r') as f:
-                        outputs[filename] = json.load(f)
+            # Get shared context which contains agent outputs
+            shared_context = await self.memory_manager.get_shared_context()
+            
+            # Format outputs for frontend - prioritize data directory files
+            formatted_outputs = {}
+            
+            # Check for exported files in data directory (primary source)
+            data_dir = "data"
+            if os.path.exists(data_dir):
+                for filename in os.listdir(data_dir):
+                    if filename.endswith('.json'):
+                        filepath = os.path.join(data_dir, filename)
+                        try:
+                            with open(filepath, 'r') as f:
+                                file_data = json.load(f)
+                                
+                                # Extract the actual output data
+                                if "outputs" in file_data:
+                                    # Get the first output key (e.g., "cofounder_output")
+                                    output_key = list(file_data["outputs"].keys())[0]
+                                    output_content = file_data["outputs"][output_key]
+                                    
+                                    formatted_outputs[filename] = {
+                                        "agent": file_data.get("agent", "Unknown"),
+                                        "data": output_content.get("content", {}),
+                                        "confidence": output_content.get("confidence", 0.8),
+                                        "timestamp": output_content.get("timestamp", file_data.get("exported_at", datetime.now().isoformat()))
+                                    }
+                                else:
+                                    # Fallback for direct format
+                                    formatted_outputs[filename] = {
+                                        "agent": file_data.get("agent", "Unknown"),
+                                        "data": file_data,
+                                        "confidence": file_data.get("confidence", 0.8),
+                                        "timestamp": file_data.get("timestamp", datetime.now().isoformat())
+                                    }
+                        except Exception as e:
+                            logger.error(f"Failed to read {filename}: {e}")
+            
+            return formatted_outputs
+            
         except Exception as e:
-            logger.error(f"Failed to load outputs: {e}")
-        
-        return outputs
+            logger.error(f"Failed to get outputs: {e}")
+            return {"error": str(e)}
     
     async def get_timeline(self) -> List[Dict[str, Any]]:
         """Get execution timeline"""
         return self.execution_timeline
+    
+    def close(self):
+        """Close all connections"""
+        self.memory_manager.close()

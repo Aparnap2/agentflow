@@ -1,0 +1,48 @@
+{
+  "agent": "Legal",
+  "outputs": {
+    "legal_output": {
+      "content": {
+        "business_overview": {
+          "model": "",
+          "target_users": "",
+          "risk_profile": "Low"
+        },
+        "identified_risks": [],
+        "general_recommendations": [
+          "Establish clear terms of service and privacy policy",
+          "Implement proper data protection measures",
+          "Set up legal entity structure appropriate for business model",
+          "Consider intellectual property protection",
+          "Establish customer support and dispute resolution processes",
+          "Implement accessibility compliance measures",
+          "Create content moderation policies if applicable"
+        ],
+        "priority_areas": [
+          "Privacy and data protection",
+          "Terms of service",
+          "Intellectual property",
+          "Regulatory compliance"
+        ],
+        "legal_structure_recommendations": {
+          "entity_type": "LLC or Corporation",
+          "jurisdiction": "Delaware (US) for corporations",
+          "considerations": [
+            "Tax implications",
+            "Liability protection",
+            "Investment readiness"
+          ]
+        },
+        "ongoing_legal_needs": [
+          "Regular policy updates",
+          "Contract reviews",
+          "Compliance monitoring",
+          "Intellectual property management"
+        ]
+      },
+      "confidence": 0.8,
+      "timestamp": "2025-06-28T06:57:21.085000000+00:00"
+    }
+  },
+  "exported_at": "2025-06-28T12:27:22.997491"
+}

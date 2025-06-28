@@ -1,0 +1,137 @@
+{
+  "agent": "Manager",
+  "outputs": {
+    "manager_output": {
+      "content": {
+        "project_roadmap": {
+          "phase_1": {
+            "name": "Foundation & Planning",
+            "duration": "2-3 weeks",
+            "deliverables": [
+              "Product requirements",
+              "Financial model",
+              "Legal framework"
+            ]
+          },
+          "phase_2": {
+            "name": "Development & Content",
+            "duration": "4-6 weeks",
+            "deliverables": [
+              "MVP development",
+              "Marketing content",
+              "Launch preparation"
+            ]
+          },
+          "phase_3": {
+            "name": "Launch & Growth",
+            "duration": "Ongoing",
+            "deliverables": [
+              "Product launch",
+              "User acquisition",
+              "Iteration"
+            ]
+          }
+        },
+        "agent_assignments": {
+          "Product": {
+            "type": "product_planning",
+            "primary_tasks": [
+              "Define MVP features based on vision",
+              "Create detailed user personas",
+              "Design user experience flow"
+            ],
+            "dependencies": [
+              "Vision from Cofounder"
+            ],
+            "deliverables": [
+              "product.json",
+              "personas.json",
+              "ux_flow.json"
+            ]
+          },
+          "Finance": {
+            "type": "financial_planning",
+            "primary_tasks": [
+              "Create financial model and projections",
+              "Analyze pricing strategies",
+              "Calculate ROI scenarios"
+            ],
+            "dependencies": [
+              "Product features",
+              "Target market size"
+            ],
+            "deliverables": [
+              "finance.json",
+              "pricing_model.json"
+            ]
+          },
+          "Marketing": {
+            "type": "content_strategy",
+            "primary_tasks": [
+              "Develop content marketing strategy",
+              "Plan SEO and social media approach",
+              "Create launch campaign outline"
+            ],
+            "dependencies": [
+              "Product positioning",
+              "Target personas"
+            ],
+            "deliverables": [
+              "marketing.json",
+              "content_calendar.json"
+            ]
+          },
+          "Legal": {
+            "type": "compliance_check",
+            "primary_tasks": [
+              "Draft Terms of Service",
+              "Create Privacy Policy",
+              "Review compliance requirements"
+            ],
+            "dependencies": [
+              "Business model",
+              "Data handling approach"
+            ],
+            "deliverables": [
+              "legal.json",
+              "tos.md",
+              "privacy.md"
+            ]
+          }
+        },
+        "timeline": {
+          "week_1": [
+            "Product requirements",
+            "Financial modeling starts"
+          ],
+          "week_2": [
+            "Legal framework",
+            "Marketing strategy"
+          ],
+          "week_3": [
+            "Integration and review"
+          ],
+          "week_4": [
+            "Final deliverables and export"
+          ]
+        },
+        "coordination_plan": {
+          "parallel_execution": [
+            "Product",
+            "Finance",
+            "Marketing",
+            "Legal"
+          ],
+          "sync_points": [
+            "Week 1: Initial outputs review",
+            "Week 2: Cross-agent dependencies check",
+            "Week 3: Final integration"
+          ]
+        }
+      },
+      "confidence": 0.8,
+      "timestamp": "2025-06-28T06:57:18.851000000+00:00"
+    }
+  },
+  "exported_at": "2025-06-28T12:27:22.672963"
+}

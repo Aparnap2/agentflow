@@ -1,11 +1,15 @@
 import { useState, useEffect } from 'react'
 import { Brain, Users, Target, DollarSign, Megaphone, Scale, Clock, CheckCircle, AlertCircle, Loader } from 'lucide-react'
-import api from '../lib/api'
+import { apiMethods } from '../lib/api'
+import ApprovalModal from '../components/ApprovalModal'
 
 const AgentsPage = () => {
   const [agentsStatus, setAgentsStatus] = useState({})
   const [loading, setLoading] = useState(true)
   const [lastUpdate, setLastUpdate] = useState(null)
+  const [pendingApprovals, setPendingApprovals] = useState([])
+  const [selectedApproval, setSelectedApproval] = useState(null)
+  const [showApprovalModal, setShowApprovalModal] = useState(false)
   
   const agentIcons = {
     Cofounder: Brain,
@@ -36,13 +40,17 @@ const AgentsPage = () => {
   
   useEffect(() => {
     fetchAgentsStatus()
-    const interval = setInterval(fetchAgentsStatus, 3000) // Poll every 3 seconds
+    fetchPendingApprovals()
+    const interval = setInterval(() => {
+      fetchAgentsStatus()
+      fetchPendingApprovals()
+    }, 3000) // Poll every 3 seconds
     return () => clearInterval(interval)
   }, [])
   
   const fetchAgentsStatus = async () => {
     try {
-      const status = await api.getAgentsStatus()
+      const status = await apiMethods.getAgentsStatus()
       setAgentsStatus(status)
       setLastUpdate(new Date())
     } catch (error) {
@@ -50,6 +58,24 @@ const AgentsPage = () => {
     } finally {
       setLoading(false)
     }
+  }
+
+  const fetchPendingApprovals = async () => {
+    try {
+      // The API returns an object like { approvals: [...] }
+      const response = await apiMethods.getPendingApprovals();
+      setPendingApprovals(response.approvals || []);
+    } catch (error) {
+      console.error('Failed to fetch pending approvals:', error);
+    }
+  };
+
+  const handleApprovalSubmit = async (id, action, feedback) => {
+    await apiMethods.respondToApproval(id, action, feedback);
+    setShowApprovalModal(false);
+    setSelectedApproval(null);
+    fetchAgentsStatus();
+    fetchPendingApprovals();
   }
   
   if (loading) {
@@ -62,6 +88,12 @@ const AgentsPage = () => {
   
   return (
     <div className="max-w-6xl mx-auto">
+      <ApprovalModal
+        approval={selectedApproval}
+        isOpen={showApprovalModal}
+        onClose={() => setShowApprovalModal(false)}
+        onSubmit={handleApprovalSubmit}
+      />
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-2">Agent Status</h1>
         <p className="text-gray-600">
@@ -136,7 +168,15 @@ const AgentsPage = () => {
                   <p className="text-sm text-orange-700 font-medium">
                     ⏳ Waiting for your approval
                   </p>
-                  <button className="mt-2 text-sm text-orange-600 hover:text-orange-700 font-medium">
+                  <button 
+                    onClick={() => {
+                      const approval = pendingApprovals.find(a => a.agent_name === agentName && a.status === 'pending');
+                      if (approval) {
+                        setSelectedApproval(approval);
+                        setShowApprovalModal(true);
+                      }
+                    }}
+                    className="mt-2 text-sm text-orange-600 hover:text-orange-700 font-medium">
                     Review & Approve →
                   </button>
                 </div>
