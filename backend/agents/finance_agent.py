@@ -185,14 +185,22 @@ Structure your output as:
         try:
             vision_statement = vision_data.get("vision_statement", "")
             search_query = f"funding trends venture capital {vision_statement[:50]} 2024"
-            
-            funding_data = await self.web_search._arun(search_query)
-            
+
+            funding_data = await self.web_search._arun(search_query)  # Returns List[Dict]
+
+            if not funding_data:
+                return {
+                    "current_funding_trends": "No data found from web search.",
+                    "market_sources": 0,
+                    "recent_insights": [],
+                    "last_updated": datetime.now().isoformat()
+                }
+
             return {
-                "current_funding_trends": funding_data.get("summary", "Analysis in progress"),
-                "market_sources": len(funding_data.get("results", [])),
-                "recent_insights": [result.get("title", "") for result in funding_data.get("results", [])[:3]],
-                "last_updated": funding_data.get("timestamp", "")
+                "current_funding_trends": " ".join([res.get("snippet", "") for res in funding_data[:3]]),
+                "market_sources": len(funding_data),
+                "recent_insights": [result.get("title", "") for result in funding_data[:3]],
+                "last_updated": datetime.now().isoformat()
             }
         except Exception as e:
             return {"error": str(e), "fallback": "Manual analysis required"}

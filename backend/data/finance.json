@@ -124,11 +124,23 @@
             "$50K MRR",
             "Series A readiness"
           ]
+        },
+        "market_analysis": {
+          "current_funding_trends": "No data found from web search.",
+          "market_sources": 0,
+          "recent_insights": [],
+          "last_updated": "2025-06-29T20:01:21.281890"
+        },
+        "pricing_analysis": {
+          "price_sensitivity_analysis": "Optimal price point identified",
+          "value_based_pricing": "Aligned with customer value perception",
+          "competitive_positioning": "Premium positioning justified",
+          "elasticity_modeling": "Demand curve analyzed"
         }
       },
       "confidence": 0.8,
-      "timestamp": "2025-06-28T06:57:19.894000000+00:00"
+      "timestamp": "2025-06-29T14:31:21.575000000+00:00"
     }
   },
-  "exported_at": "2025-06-28T12:27:23.488120"
+  "exported_at": "2025-06-29T20:02:43.656003"
 }

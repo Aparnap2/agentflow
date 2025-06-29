@@ -9,12 +9,14 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "react": "^18.2.0",
-    "react-dom": "^18.2.0",
-    "react-router-dom": "^6.8.0",
+    "@headlessui/react": "^1.7.17",
     "axios": "^1.6.0",
     "lucide-react": "^0.294.0",
-    "@headlessui/react": "^1.7.17"
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
+    "react-router-dom": "^6.8.0",
+    "recharts": "^3.0.2"
   },
   "devDependencies": {
     "@types/react": "^18.2.43",

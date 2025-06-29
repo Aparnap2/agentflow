@@ -33,6 +33,7 @@ class AgentOrchestrator:
         }
         self.execution_timeline = []
         self.current_project_id = None
+        self.conversations = {}
         
     async def start_project(self, vision: str, user_name: str = "User", approval_mode: str = "manual") -> Dict[str, Any]:
         """Start new project following PRD execution flow"""
@@ -225,6 +226,125 @@ class AgentOrchestrator:
     async def get_timeline(self) -> List[Dict[str, Any]]:
         """Get execution timeline"""
         return self.execution_timeline
+    
+    async def start_conversation(self, message: str) -> Dict[str, Any]:
+        """Start conversation with Cofounder agent"""
+        conversation_id = f"conv_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        # Initialize conversation
+        self.conversations[conversation_id] = {
+            "messages": [{"role": "user", "content": message}],
+            "agent": "Cofounder",
+            "status": "active",
+            "vision_ready": False
+        }
+        
+        # Get Cofounder response
+        response = await self.agents["Cofounder"].chat(message, conversation_id)
+        
+        self.conversations[conversation_id]["messages"].append({
+            "role": "assistant", 
+            "content": response["message"]
+        })
+        
+        return {
+            "conversation_id": conversation_id,
+            "response": response["message"],
+            "ready_for_approval": response.get("vision_complete", False)
+        }
+    
+    async def continue_conversation(self, conversation_id: str, message: str) -> Dict[str, Any]:
+        """Continue conversation with agent"""
+        if conversation_id not in self.conversations:
+            raise ValueError(f"Conversation {conversation_id} not found")
+        
+        conv = self.conversations[conversation_id]
+        conv["messages"].append({"role": "user", "content": message})
+        
+        # Get agent response with conversation context
+        response = await self.agents[conv["agent"]].chat(message, conversation_id, conv["messages"])
+        
+        conv["messages"].append({"role": "assistant", "content": response["message"]})
+        conv["vision_ready"] = response.get("vision_complete", False)
+        
+        return {
+            "response": response["message"],
+            "ready_for_approval": conv["vision_ready"]
+        }
+    
+    async def approve_and_distribute(self, conversation_id: str) -> Dict[str, Any]:
+        """Approve conversation and distribute tasks to sub-agents"""
+        if conversation_id not in self.conversations:
+            raise ValueError(f"Conversation {conversation_id} not found")
+        
+        conv = self.conversations[conversation_id]
+        if not conv["vision_ready"]:
+            raise ValueError("Vision not ready for approval")
+        
+        # Extract vision from conversation
+        vision_summary = await self.agents["Cofounder"].extract_vision(conv["messages"])
+        
+        # Create project and get Manager to distribute tasks
+        project_id = f"project_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        self.current_project_id = project_id
+        
+        # Manager creates task distribution
+        manager_result = await self.agents["Manager"].create_task_distribution(vision_summary, project_id)
+        
+        # Mark conversation as approved
+        conv["status"] = "approved"
+        conv["project_id"] = project_id
+        
+        return {
+            "project_id": project_id,
+            "tasks": manager_result["tasks"],
+            "agents_assigned": list(manager_result["tasks"].keys())
+        }
+    
+    async def execute_single_agent(self, agent_name: str, task: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute single agent with given task"""
+        if agent_name not in self.agents:
+            raise ValueError(f"Agent {agent_name} not found")
+        
+        agent = self.agents[agent_name]
+        
+        # Create execution task
+        execution_task = {
+            "id": task["id"],
+            "type": task["type"],
+            "inputs": task["inputs"],
+            "project_id": task.get("project_id")
+        }
+        
+        # Execute agent
+        result = await agent.execute(execution_task)
+        self._log_execution(agent_name, result)
+        
+        return result
+    
+    async def update_agent_configs(self, configs: Dict[str, Any]) -> Dict[str, Any]:
+        """Update agent configurations"""
+        for agent_name, config in configs.items():
+            if agent_name in self.agents:
+                agent = self.agents[agent_name]
+                if hasattr(agent, 'update_config'):
+                    agent.update_config(config)
+        return configs
+    
+    async def get_agent_configs(self) -> Dict[str, Any]:
+        """Get current agent configurations"""
+        configs = {}
+        for name, agent in self.agents.items():
+            if hasattr(agent, 'get_config'):
+                configs[name] = agent.get_config()
+            else:
+                configs[name] = {
+                    "approvalMode": "manual",
+                    "priority": "medium",
+                    "temperature": getattr(agent.personality, 'temperature', 0.7),
+                    "enabled": True
+                }
+        return configs
     
     def close(self):
         """Close all connections"""

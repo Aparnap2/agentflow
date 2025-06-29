@@ -254,13 +254,21 @@ class MarketingAgent(LangGraphAgent):
         """Use web search for current competitive research"""
         try:
             search_query = f"{topic} competitors marketing strategy 2024"
-            competitive_data = await self.web_search._arun(search_query)
-            
+            competitive_data = await self.web_search._arun(search_query)  # Returns List[Dict]
+
+            if not competitive_data:
+                return {
+                    "competitive_insights": "No competitor data found from web search.",
+                    "sources_analyzed": 0,
+                    "key_competitors": [],
+                    "last_updated": datetime.now().isoformat()
+                }
+
             return {
-                "competitive_insights": competitive_data.get("summary", "Research in progress"),
-                "sources_analyzed": len(competitive_data.get("results", [])),
-                "key_competitors": [result.get("title", "") for result in competitive_data.get("results", [])[:3]],
-                "last_updated": competitive_data.get("timestamp", "")
+                "competitive_insights": " ".join([res.get("snippet", "") for res in competitive_data[:3]]),
+                "sources_analyzed": len(competitive_data),
+                "key_competitors": [result.get("title", "") for result in competitive_data[:3]],
+                "last_updated": datetime.now().isoformat()
             }
         except Exception as e:
             return {"error": str(e), "fallback": "Manual research required"}

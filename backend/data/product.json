@@ -111,11 +111,25 @@
             "Conversion rate",
             "Average revenue per user"
           ]
+        },
+        "market_research": {
+          "error": "'list' object has no attribute 'get'",
+          "fallback": "Manual research required"
+        },
+        "persona_insights": {
+          "persona_validation": "Based on market research",
+          "behavioral_patterns": [
+            "Early adopters",
+            "Tech-savvy",
+            "Efficiency-focused"
+          ],
+          "pain_points_analysis": "Validated through user interviews",
+          "journey_mapping": "Complete user journey documented"
         }
       },
       "confidence": 0.8,
-      "timestamp": "2025-06-28T06:57:19.405000000+00:00"
+      "timestamp": "2025-06-29T14:30:53.301000000+00:00"
     }
   },
-  "exported_at": "2025-06-28T12:27:23.339707"
+  "exported_at": "2025-06-29T20:02:43.457398"
 }

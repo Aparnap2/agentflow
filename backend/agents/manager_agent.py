@@ -167,3 +167,37 @@ Structure your output as:
             tasks.append(task)
         
         return tasks
+    
+    async def create_task_distribution(self, vision_summary: Dict[str, Any], project_id: str) -> Dict[str, Any]:
+        """Create task distribution for sub-agents"""
+        tasks = {
+            "Product": {
+                "id": f"product_task_{project_id}",
+                "type": "product_definition",
+                "description": "Define MVP features and user personas",
+                "inputs": vision_summary,
+                "status": "pending_approval"
+            },
+            "Finance": {
+                "id": f"finance_task_{project_id}",
+                "type": "financial_modeling", 
+                "description": "Create financial projections and pricing",
+                "inputs": vision_summary,
+                "status": "pending_approval"
+            },
+            "Marketing": {
+                "id": f"marketing_task_{project_id}",
+                "type": "marketing_strategy",
+                "description": "Develop content and outreach strategy", 
+                "inputs": vision_summary,
+                "status": "pending_approval"
+            },
+            "Legal": {
+                "id": f"legal_task_{project_id}",
+                "type": "compliance_review",
+                "description": "Draft legal documents and compliance check",
+                "inputs": vision_summary,
+                "status": "pending_approval"
+            }
+        }
+        return {"tasks": tasks, "project_id": project_id}

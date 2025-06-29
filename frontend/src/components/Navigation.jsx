@@ -7,7 +7,8 @@ const Navigation = ({ pendingApprovalsCount = 0 }) => {
   const navItems = [
     { path: '/', label: 'Start', icon: Brain },
     { path: '/vision', label: 'Vision', icon: Eye },
-    { path: '/agents', label: 'Agents', icon: Users },
+    { path: '/tasks', label: 'Dashboard', icon: Users },
+    { path: '/office', label: 'Virtual Office', icon: Settings },
     { path: '/graph', label: 'Graph', icon: GitBranch },
     { path: '/timeline', label: 'Timeline', icon: Clock },
     { path: '/outputs', label: 'Outputs', icon: FileText },

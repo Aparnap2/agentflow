@@ -87,6 +87,25 @@ Be thorough but concise. If you're uncertain, indicate your confidence level.
             "outputs_ready": False
         }
     
+    def update_config(self, config: Dict[str, Any]):
+        """Update agent configuration"""
+        if 'temperature' in config:
+            self.personality['temperature'] = config['temperature']
+            self.llm.temperature = config['temperature']
+        if 'confidenceThreshold' in config:
+            self.personality['confidence_threshold'] = config['confidenceThreshold']
+    
+    def get_config(self) -> Dict[str, Any]:
+        """Get current agent configuration"""
+        return {
+            "approvalMode": "manual",
+            "priority": "medium", 
+            "temperature": self.personality.get('temperature', 0.7),
+            "confidenceThreshold": self.personality.get('confidence_threshold', 0.8),
+            "maxRetries": 3,
+            "enabled": True
+        }
+    
     async def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the agent workflow"""
         try:

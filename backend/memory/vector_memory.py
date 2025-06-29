@@ -33,7 +33,8 @@ class VectorMemory:
     
     def _generate_id(self, text: str, agent: str) -> str:
         """Generate unique ID for document"""
-        return hashlib.md5(f"{agent}:{text}".encode()).hexdigest()
+        import uuid
+        return str(uuid.uuid4())
     
     async def store_document(self, text: str, metadata: Dict[str, Any], agent: str) -> str:
         """Store document with semantic embedding"""

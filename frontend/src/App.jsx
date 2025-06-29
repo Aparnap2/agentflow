@@ -1,5 +1,8 @@
 import { Routes, Route } from 'react-router-dom'
 import StartPage from './pages/StartPage'
+import ConversationPage from './pages/ConversationPage'
+import TasksPage from './pages/TasksPage'
+import VirtualOfficePage from './pages/VirtualOfficePage'
 import VisionPage from './pages/VisionPage'
 import AgentsPage from './pages/AgentsPage'
 import GraphPage from './pages/GraphPage'
@@ -69,10 +72,13 @@ function App() {
       <Navigation pendingApprovalsCount={pendingApprovals.length} />
       <main className="container mx-auto px-4 py-8">
         <Routes>
-          <Route path="/" element={<StartPage />} />
+          <Route path="/" element={<ConversationPage />} />
           <Route path="/start" element={<StartPage />} />
+          <Route path="/chat" element={<ConversationPage />} />
+          <Route path="/tasks" element={<TasksPage />} />
+          <Route path="/office" element={<VirtualOfficePage />} />
           <Route path="/vision" element={<VisionPage />} />
-          <Route path="/agents" element={<AgentsPage />} />
+
           <Route path="/graph" element={<GraphPage />} />
           <Route path="/timeline" element={<TimelinePage />} />
           <Route path="/outputs" element={<OutputsPage />} />

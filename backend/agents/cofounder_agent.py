@@ -146,3 +146,51 @@ When processing a vision, structure your output as:
         words = vision.lower().split()
         key_terms = [word for word in words if len(word) > 4 and word not in ['create', 'build', 'make', 'develop']]
         return ' '.join(key_terms[:3])
+    
+    async def chat(self, message: str, conversation_id: str, context: list = None) -> Dict[str, Any]:
+        """Chat interface for conversational vision refinement"""
+        context = context or []
+        
+        chat_prompt = f"""You are having a conversation to understand their startup vision.
+        
+User's message: {message}
+        
+Your goal: Ask clarifying questions about vision, users, market, problems.
+When you have enough info, end with: "VISION_COMPLETE"
+        """
+        
+        from langchain_core.messages import HumanMessage
+        response = await self.llm.ainvoke([HumanMessage(content=chat_prompt)])
+        
+        vision_complete = "VISION_COMPLETE" in response.content
+        clean_response = response.content.replace("VISION_COMPLETE", "").strip()
+        
+        return {
+            "message": clean_response,
+            "vision_complete": vision_complete
+        }
+    
+    async def extract_vision(self, messages: list) -> Dict[str, Any]:
+        """Extract structured vision from conversation"""
+        conversation_text = "\n".join([f"{msg['role']}: {msg['content']}" for msg in messages])
+        
+        extract_prompt = f"""Extract vision from: {conversation_text}
+        
+Return JSON with: vision_statement, target_users, problem_solving, key_features"""
+        
+        from langchain_core.messages import HumanMessage
+        response = await self.llm.ainvoke([HumanMessage(content=extract_prompt)])
+        
+        try:
+            json_match = re.search(r'\{.*\}', response.content, re.DOTALL)
+            if json_match:
+                return json.loads(json_match.group())
+        except:
+            pass
+        
+        return {
+            "vision_statement": "Vision from conversation",
+            "target_users": ["Users discussed"],
+            "problem_solving": "Problems identified",
+            "key_features": ["Features mentioned"]
+        }

@@ -44,9 +44,31 @@ class SearchRequest(BaseModel):
     agent: Optional[str] = None
     limit: Optional[int] = 5
 
+class ConversationMessage(BaseModel):
+    message: str
+    project_id: Optional[str] = None
+
 @app.get("/")
 async def root():
     return {"message": "AgentFlow API is running"}
+
+@app.post("/api/conversation/start")
+async def start_conversation(request: ConversationMessage):
+    """Start conversation with Cofounder agent"""
+    try:
+        result = await orchestrator.start_conversation(request.message)
+        return {"response": result["response"], "conversation_id": result["conversation_id"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/conversation/{conversation_id}/message")
+async def send_message(conversation_id: str, request: ConversationMessage):
+    """Continue conversation with agent"""
+    try:
+        result = await orchestrator.continue_conversation(conversation_id, request.message)
+        return {"response": result["response"], "ready_for_approval": result.get("ready_for_approval", False)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/start-project")
 async def start_project(request: ProjectRequest):
@@ -98,6 +120,44 @@ async def search_memory(query: str, agent: Optional[str] = None, limit: int = 5)
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/conversation/{conversation_id}/approve")
+async def approve_conversation(conversation_id: str):
+    """Approve conversation and start task distribution"""
+    try:
+        result = await orchestrator.approve_and_distribute(conversation_id)
+        return {"status": "approved", "project_id": result["project_id"], "tasks": result["tasks"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/agents/execute")
+async def execute_agent(request: dict):
+    """Execute specific agent with task"""
+    try:
+        agent_name = request["agent"]
+        task = request["task"]
+        result = await orchestrator.execute_single_agent(agent_name, task)
+        return {"status": "started", "agent": agent_name, "result": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/agents/config")
+async def update_agent_configs(configs: dict):
+    """Update agent configurations"""
+    try:
+        result = await orchestrator.update_agent_configs(configs)
+        return {"status": "updated", "configs": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/agents/config")
+async def get_agent_configs():
+    """Get current agent configurations"""
+    try:
+        configs = await orchestrator.get_agent_configs()
+        return configs
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/outputs")
 async def get_outputs():
     """Get all generated outputs"""
@@ -118,6 +178,16 @@ async def handle_approval_response(approval_id: str, response: ApprovalResponse)
 async def get_timeline():
     """Get execution timeline"""
     return await orchestrator.get_timeline()
+
+@app.get("/api/approvals/pending")
+async def get_pending_approvals():
+    """Get pending approval requests"""
+    return await approval_manager.get_pending_approvals()
+
+@app.get("/api/memory/stats")
+async def get_memory_stats():
+    """Get memory statistics"""
+    return await memory.get_graph_state()
 
 @app.get("/api/approvals/pending")
 async def get_pending_approvals():

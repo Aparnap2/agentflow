@@ -1,19 +1,20 @@
 import { useState, useEffect } from 'react'
-import { FileText, Download, Eye, Calendar } from 'lucide-react'
-import { apiMethods } from '../lib/api'
+import { FileText, Download, Eye, Calendar, TrendingUp, Users, DollarSign } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+import api from '../lib/api'
 
 const OutputsPage = () => {
   const [outputs, setOutputs] = useState({})
   const [selectedOutput, setSelectedOutput] = useState(null)
   const [loading, setLoading] = useState(true)
-  
+
   useEffect(() => {
     fetchOutputs()
   }, [])
-  
+
   const fetchOutputs = async () => {
     try {
-      const data = await apiMethods.getOutputs()
+      const data = await api.getOutputs()
       setOutputs(data)
     } catch (error) {
       console.error('Failed to fetch outputs:', error)
@@ -21,7 +22,7 @@ const OutputsPage = () => {
       setLoading(false)
     }
   }
-  
+
   const downloadOutput = (filename, data) => {
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
@@ -33,7 +34,7 @@ const OutputsPage = () => {
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
   }
-  
+
   const downloadAll = () => {
     const allData = {
       project_outputs: outputs,
@@ -41,17 +42,24 @@ const OutputsPage = () => {
     }
     downloadOutput('agentflow_outputs.json', allData)
   }
-  
-  const exportAll = async () => {
-    try {
-      await apiMethods.exportMemory()
-      await fetchOutputs()
-      alert('All outputs exported successfully!')
-    } catch (error) {
-      console.error('Failed to export outputs:', error)
+
+  const formatOutput = (data, agent) => {
+    if (!data) return null
+
+    switch (agent) {
+      case 'finance':
+        return <FinanceOutput data={data} />
+      case 'product':
+        return <ProductOutput data={data} />
+      case 'marketing':
+        return <MarketingOutput data={data} />
+      case 'legal':
+        return <LegalOutput data={data} />
+      default:
+        return <DefaultOutput data={data} />
     }
   }
-  
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -59,14 +67,14 @@ const OutputsPage = () => {
       </div>
     )
   }
-  
+
   return (
     <div className="max-w-6xl mx-auto">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">Project Outputs</h1>
           <p className="text-gray-600">
-            Download and review all generated deliverables from your AI team
+            Review beautifully formatted deliverables from your AI team
           </p>
         </div>
         
@@ -80,7 +88,7 @@ const OutputsPage = () => {
           </button>
         )}
       </div>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* File List */}
         <div className="lg:col-span-1">
@@ -128,7 +136,7 @@ const OutputsPage = () => {
             </div>
           </div>
         </div>
-        
+
         {/* File Preview */}
         <div className="lg:col-span-2">
           {selectedOutput ? (
@@ -151,10 +159,8 @@ const OutputsPage = () => {
                   </button>
                 </div>
               </div>
-              <div className="p-4">
-                <pre className="bg-gray-50 p-4 rounded-md overflow-auto text-sm">
-                  {JSON.stringify(outputs[selectedOutput].data, null, 2)}
-                </pre>
+              <div className="p-6">
+                {formatOutput(outputs[selectedOutput].data, outputs[selectedOutput].agent.toLowerCase())}
               </div>
             </div>
           ) : (
@@ -166,7 +172,7 @@ const OutputsPage = () => {
           )}
         </div>
       </div>
-      
+
       {Object.keys(outputs).length === 0 && (
         <div className="text-center py-12">
           <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
@@ -177,5 +183,111 @@ const OutputsPage = () => {
     </div>
   )
 }
+
+// Specialized output formatters
+const FinanceOutput = ({ data }) => (
+  <div className="space-y-6">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {data.financial_projections && Object.entries(data.financial_projections).map(([year, proj]) => (
+        <div key={year} className="bg-gray-50 p-4 rounded-lg">
+          <h4 className="font-semibold text-gray-900 mb-2">{year.replace('year_', 'Year ')}</h4>
+          <div className="space-y-1 text-sm">
+            <div className="flex justify-between">
+              <span>Revenue:</span>
+              <span className="font-medium text-green-600">${proj.revenue?.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Costs:</span>
+              <span className="font-medium text-red-600">${proj.costs?.toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between border-t pt-1">
+              <span>Net:</span>
+              <span className={`font-medium ${proj.net_income > 0 ? 'text-green-600' : 'text-red-600'}`}>
+                ${proj.net_income?.toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+    
+    {data.revenue_model?.pricing_tiers && (
+      <div>
+        <h3 className="text-lg font-semibold mb-3">Pricing Tiers</h3>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {data.revenue_model.pricing_tiers.map((tier, index) => (
+            <div key={index} className="border rounded-lg p-4">
+              <h4 className="font-semibold text-gray-900">{tier.tier}</h4>
+              <div className="text-2xl font-bold text-primary-600">${tier.price}/mo</div>
+              <p className="text-sm text-gray-600 mt-2">{tier.target_segment}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+  </div>
+)
+
+const ProductOutput = ({ data }) => (
+  <div className="space-y-6">
+    {data.user_personas && (
+      <div>
+        <h3 className="text-lg font-semibold mb-3 flex items-center">
+          <Users className="h-5 w-5 mr-2" />
+          User Personas
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {data.user_personas.map((persona, index) => (
+            <div key={index} className="border rounded-lg p-4">
+              <h4 className="font-semibold text-gray-900">{persona.name}</h4>
+              <p className="text-sm text-gray-600 mb-2">{persona.demographics}</p>
+              <div className="space-y-2 text-sm">
+                <div>
+                  <span className="font-medium">Goals:</span>
+                  <ul className="list-disc list-inside ml-2">
+                    {persona.goals?.map((goal, i) => <li key={i}>{goal}</li>)}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    )}
+    
+    {data.mvp_definition && (
+      <div>
+        <h3 className="text-lg font-semibold mb-3">MVP Definition</h3>
+        <div className="bg-gray-50 p-4 rounded-lg">
+          <ReactMarkdown>{data.mvp_definition.scope}</ReactMarkdown>
+        </div>
+      </div>
+    )}
+  </div>
+)
+
+const MarketingOutput = ({ data }) => (
+  <div className="space-y-6">
+    <ReactMarkdown className="prose max-w-none">
+      {JSON.stringify(data, null, 2)}
+    </ReactMarkdown>
+  </div>
+)
+
+const LegalOutput = ({ data }) => (
+  <div className="space-y-6">
+    <ReactMarkdown className="prose max-w-none">
+      {JSON.stringify(data, null, 2)}
+    </ReactMarkdown>
+  </div>
+)
+
+const DefaultOutput = ({ data }) => (
+  <div className="space-y-4">
+    <ReactMarkdown className="prose max-w-none">
+      {JSON.stringify(data, null, 2)}
+    </ReactMarkdown>
+  </div>
+)
 
 export default OutputsPage

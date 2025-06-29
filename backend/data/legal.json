@@ -38,11 +38,15 @@
           "Contract reviews",
           "Compliance monitoring",
           "Intellectual property management"
-        ]
+        ],
+        "current_trends": {
+          "error": "'list' object has no attribute 'get'",
+          "fallback": "Manual legal research required"
+        }
       },
       "confidence": 0.8,
-      "timestamp": "2025-06-28T06:57:21.085000000+00:00"
+      "timestamp": "2025-06-29T14:31:20.874000000+00:00"
     }
   },
-  "exported_at": "2025-06-28T12:27:22.997491"
+  "exported_at": "2025-06-29T20:02:43.098719"
 }

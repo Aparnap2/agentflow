@@ -127,28 +127,236 @@
       "action": "shared_memory_write",
       "confidence": 0.8,
       "content_preview": "{'business_overview': {'model': '', 'target_users': '', 'risk_profile': 'Low'}, 'identified_risks': ..."
+    },
+    {
+      "timestamp": "2025-06-28T06:57:23.740000000+00:00",
+      "agent": "Orchestrator",
+      "type": "project_completion",
+      "action": "shared_memory_write",
+      "confidence": 1.0,
+      "content_preview": "{'project_id': 'project_20250628_122638', 'agents_executed': ['cofounder', 'manager', 'product', 'fi..."
+    },
+    {
+      "timestamp": "2025-06-28T13:15:47.259000000+00:00",
+      "agent": "Cofounder",
+      "type": "cofounder_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'vision_statement': 'Empower organizations to enhance their security posture by deploying a self-ho..."
+    },
+    {
+      "timestamp": "2025-06-28T13:15:49.983000000+00:00",
+      "agent": "Manager",
+      "type": "manager_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'project_roadmap': {'phase_1': {'name': 'Foundation & Planning', 'duration': '2-3 weeks', 'delivera..."
+    },
+    {
+      "timestamp": "2025-06-28T13:15:50.556000000+00:00",
+      "agent": "Product",
+      "type": "product_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'mvp_definition': {'core_features': ['User onboarding and authentication', 'Core value proposition ..."
+    },
+    {
+      "timestamp": "2025-06-28T13:15:51.069000000+00:00",
+      "agent": "Finance",
+      "type": "finance_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'revenue_model': {'primary_model': 'SaaS Subscription', 'pricing_tiers': [{'tier': 'Starter', 'pric..."
+    },
+    {
+      "timestamp": "2025-06-28T13:15:51.545000000+00:00",
+      "agent": "Marketing",
+      "type": "marketing_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'market_positioning': {'unique_value_proposition': '', 'target_market_size': 'To be researched', 'c..."
+    },
+    {
+      "timestamp": "2025-06-28T13:15:52.054000000+00:00",
+      "agent": "Legal",
+      "type": "legal_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'business_overview': {'model': '', 'target_users': '', 'risk_profile': 'Low'}, 'identified_risks': ..."
+    },
+    {
+      "timestamp": "2025-06-28T13:15:54.500000000+00:00",
+      "agent": "Orchestrator",
+      "type": "project_completion",
+      "action": "shared_memory_write",
+      "confidence": 1.0,
+      "content_preview": "{'project_id': 'project_20250628_184518', 'agents_executed': ['cofounder', 'manager', 'product', 'fi..."
+    },
+    {
+      "timestamp": "2025-06-29T13:33:40.740000000+00:00",
+      "agent": "Cofounder",
+      "type": "cofounder_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'vision_statement': 'Empower individuals and organizations to automate and streamline their workflo..."
+    },
+    {
+      "timestamp": "2025-06-29T13:33:43.620000000+00:00",
+      "agent": "Manager",
+      "type": "manager_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'project_roadmap': {'phase_1': {'name': 'Foundation & Planning', 'duration': '2-3 weeks', 'delivera..."
+    },
+    {
+      "timestamp": "2025-06-29T13:33:44.671000000+00:00",
+      "agent": "Marketing",
+      "type": "marketing_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'market_positioning': {'unique_value_proposition': '', 'target_market_size': 'To be researched', 'c..."
+    },
+    {
+      "timestamp": "2025-06-29T13:33:46.616000000+00:00",
+      "agent": "Legal",
+      "type": "legal_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'business_overview': {'model': '', 'target_users': '', 'risk_profile': 'Low'}, 'identified_risks': ..."
+    },
+    {
+      "timestamp": "2025-06-29T13:33:47.031000000+00:00",
+      "agent": "Finance",
+      "type": "finance_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'revenue_model': {'primary_model': 'SaaS Subscription', 'pricing_tiers': [{'tier': 'Starter', 'pric..."
+    },
+    {
+      "timestamp": "2025-06-29T13:33:47.385000000+00:00",
+      "agent": "Product",
+      "type": "product_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'mvp_definition': {'core_features': ['User onboarding and authentication', 'Core value proposition ..."
+    },
+    {
+      "timestamp": "2025-06-29T13:33:50.219000000+00:00",
+      "agent": "Orchestrator",
+      "type": "project_completion",
+      "action": "shared_memory_write",
+      "confidence": 1.0,
+      "content_preview": "{'project_id': 'project_20250629_190317', 'agents_executed': ['cofounder', 'manager', 'product', 'fi..."
+    },
+    {
+      "timestamp": "2025-06-29T13:50:52.625000000+00:00",
+      "agent": "Cofounder",
+      "type": "cofounder_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'vision_statement': 'To revolutionize the way businesses interact with their customers by providing..."
+    },
+    {
+      "timestamp": "2025-06-29T13:50:55.271000000+00:00",
+      "agent": "Manager",
+      "type": "manager_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'project_roadmap': {'phase_1': {'name': 'Foundation & Planning', 'duration': '2-3 weeks', 'delivera..."
+    },
+    {
+      "timestamp": "2025-06-29T13:50:56.130000000+00:00",
+      "agent": "Marketing",
+      "type": "marketing_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'market_positioning': {'unique_value_proposition': '', 'target_market_size': 'To be researched', 'c..."
+    },
+    {
+      "timestamp": "2025-06-29T13:51:00.876000000+00:00",
+      "agent": "Product",
+      "type": "product_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'mvp_definition': {'core_features': ['User onboarding and authentication', 'Core value proposition ..."
+    },
+    {
+      "timestamp": "2025-06-29T13:51:01.233000000+00:00",
+      "agent": "Finance",
+      "type": "finance_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'revenue_model': {'primary_model': 'SaaS Subscription', 'pricing_tiers': [{'tier': 'Starter', 'pric..."
+    },
+    {
+      "timestamp": "2025-06-29T13:51:01.452000000+00:00",
+      "agent": "Legal",
+      "type": "legal_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'business_overview': {'model': '', 'target_users': '', 'risk_profile': 'Low'}, 'identified_risks': ..."
+    },
+    {
+      "timestamp": "2025-06-29T13:51:05.072000000+00:00",
+      "agent": "Orchestrator",
+      "type": "project_completion",
+      "action": "shared_memory_write",
+      "confidence": 1.0,
+      "content_preview": "{'project_id': 'project_20250629_192021', 'agents_executed': ['cofounder', 'manager', 'product', 'fi..."
+    },
+    {
+      "timestamp": "2025-06-29T14:30:53.301000000+00:00",
+      "agent": "Product",
+      "type": "product_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'mvp_definition': {'core_features': ['User onboarding and authentication', 'Core value proposition ..."
+    },
+    {
+      "timestamp": "2025-06-29T14:31:17.733000000+00:00",
+      "agent": "Marketing",
+      "type": "marketing_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'market_positioning': {'unique_value_proposition': '', 'target_market_size': 'To be researched', 'c..."
+    },
+    {
+      "timestamp": "2025-06-29T14:31:20.874000000+00:00",
+      "agent": "Legal",
+      "type": "legal_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'business_overview': {'model': '', 'target_users': '', 'risk_profile': 'Low'}, 'identified_risks': ..."
+    },
+    {
+      "timestamp": "2025-06-29T14:31:21.575000000+00:00",
+      "agent": "Finance",
+      "type": "finance_output",
+      "action": "shared_memory_write",
+      "confidence": 0.8,
+      "content_preview": "{'revenue_model': {'primary_model': 'SaaS Subscription', 'pricing_tiers': [{'tier': 'Starter', 'pric..."
     }
   ],
   "summary": {
-    "total_events": 16,
+    "total_events": 42,
     "agents_involved": [
+      "Cofounder",
       "Orchestrator",
-      "Manager",
-      "Legal",
-      "Finance",
-      "Marketing",
       "Product",
-      "Cofounder"
+      "Legal",
+      "Manager",
+      "Marketing",
+      "Finance"
     ],
     "memory_types": [
-      "legal_output",
-      "project_completion",
-      "finance_output",
-      "product_output",
-      "cofounder_output",
       "manager_output",
+      "legal_output",
+      "product_output",
+      "finance_output",
+      "project_completion",
+      "cofounder_output",
       "marketing_output"
     ],
-    "exported_at": "2025-06-28T12:27:23.646328"
+    "exported_at": "2025-06-29T20:02:43.839894"
   }
 }
