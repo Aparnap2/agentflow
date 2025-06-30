@@ -150,7 +150,29 @@ Structure your output as:
         product_definition["market_research"] = market_research
         product_definition["persona_insights"] = persona_insights
         
+        # Add automated recommendations
+        product_definition["ai_recommendations"] = self._generate_ai_recommendations(product_definition)
+        
         return product_definition
+    
+    def _generate_ai_recommendations(self, product_definition: Dict[str, Any]) -> List[str]:
+        """Generate AI-powered product recommendations"""
+        recommendations = []
+        
+        core_features = product_definition.get("mvp_definition", {}).get("core_features", [])
+        personas = product_definition.get("user_personas", [])
+        
+        if len(core_features) < 3:
+            recommendations.append("Consider adding more core features for MVP completeness")
+        if len(personas) < 2:
+            recommendations.append("Develop additional user personas for better market coverage")
+        
+        # Feature prioritization recommendations
+        must_have = product_definition.get("feature_prioritization", {}).get("must_have", [])
+        if len(must_have) > 5:
+            recommendations.append("Consider reducing must-have features to focus MVP scope")
+        
+        return recommendations or ["Product strategy is well-balanced"]
     
     async def _use_research_tools(self, vision_data: Dict[str, Any]) -> Dict[str, Any]:
         """Use research tools to gather current market insights"""

@@ -1,11 +1,13 @@
 import { useState, useEffect } from 'react'
-import { DollarSign, Users, TrendingUp, Target, AlertTriangle, CheckCircle } from 'lucide-react'
+import { DollarSign, Users, TrendingUp, Target, AlertTriangle, CheckCircle, Brain } from 'lucide-react'
 import { apiMethods } from '../lib/api'
 import MetricCard from '../components/Dashboard/MetricCard'
 import ChartContainer from '../components/Dashboard/ChartContainer'
+import PredictionCard from '../components/Dashboard/PredictionCard'
 
 const DashboardPage = () => {
   const [dashboardData, setDashboardData] = useState(null)
+  const [predictions, setPredictions] = useState(null)
   const [loading, setLoading] = useState(true)
   
   useEffect(() => {
@@ -16,10 +18,11 @@ const DashboardPage = () => {
   
   const fetchDashboardData = async () => {
     try {
-      const [comprehensiveReport, agentsStatus, outputs] = await Promise.all([
+      const [comprehensiveReport, agentsStatus, outputs, predictionsData] = await Promise.all([
         apiMethods.getComprehensiveReport?.() || Promise.resolve({}),
         apiMethods.getAgentsStatus(),
-        apiMethods.getOutputs()
+        apiMethods.getOutputs(),
+        apiMethods.getPredictions?.() || Promise.resolve({})
       ])
       
       setDashboardData({
@@ -27,6 +30,7 @@ const DashboardPage = () => {
         agents: agentsStatus,
         outputs: outputs
       })
+      setPredictions(predictionsData)
     } catch (error) {
       console.error('Failed to fetch dashboard data:', error)
     } finally {
@@ -137,6 +141,30 @@ const DashboardPage = () => {
           </div>
         </ChartContainer>
       </div>
+      
+      {/* Predictive Analytics */}
+      {predictions && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          <PredictionCard
+            title="Project Success"
+            prediction={`${(predictions.project_success?.success_probability * 100 || 75)}%`}
+            confidence={predictions.project_success?.confidence_level || 'medium'}
+            recommendations={predictions.project_success?.recommendations || []}
+          />
+          <PredictionCard
+            title="Revenue Trend"
+            prediction={predictions.revenue_trend?.trend || 'growing'}
+            confidence="medium"
+            recommendations={[`Growth rate: ${predictions.revenue_trend?.growth_rate || 25}%`]}
+          />
+          <PredictionCard
+            title="Market Timing"
+            prediction={predictions.market_timing?.optimal_timing || 'soon'}
+            confidence="high"
+            recommendations={predictions.market_timing?.recommended_actions || []}
+          />
+        </div>
+      )}
       
       {/* Progress Tracking */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

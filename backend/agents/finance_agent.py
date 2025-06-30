@@ -187,8 +187,31 @@ Structure your output as:
         financial_model_data["advanced_modeling"] = financial_model
         financial_model_data["market_analysis"] = market_data
         financial_model_data["pricing_analysis"] = pricing_analysis
+        financial_model_data["ai_insights"] = self._generate_financial_insights(financial_model_data)
         
         return financial_model_data
+    
+    def _generate_financial_insights(self, financial_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate AI-powered financial insights"""
+        insights = {
+            "risk_assessment": "medium",
+            "optimization_opportunities": [],
+            "funding_recommendations": []
+        }
+        
+        # Analyze pricing tiers
+        pricing_tiers = financial_data.get("revenue_model", {}).get("pricing_tiers", [])
+        if len(pricing_tiers) < 3:
+            insights["optimization_opportunities"].append("Consider adding more pricing tiers for market segmentation")
+        
+        # Analyze projections
+        projections = financial_data.get("financial_projections", {})
+        if projections:
+            year_1 = projections.get("year_1", {})
+            if year_1.get("net_income", 0) < 0:
+                insights["funding_recommendations"].append("Secure funding to cover initial losses")
+        
+        return insights
     
     async def _use_financial_tools(self, vision_data: Dict[str, Any]) -> Dict[str, Any]:
         """Use financial tools for current market analysis"""

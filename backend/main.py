@@ -11,10 +11,12 @@ from contextlib import asynccontextmanager
 
 from flows.orchestrator import AgentOrchestrator
 from outputs.report_generator import ReportGenerator
+from analytics.predictor import SimplePredictor
 
-# Global orchestrator instance
+# Global instances
 orchestrator = None
 report_generator = None
+predictor = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -24,6 +26,7 @@ async def lifespan(app: FastAPI):
     # Startup
     orchestrator = AgentOrchestrator()
     report_generator = ReportGenerator()
+    predictor = SimplePredictor()
     
     yield
     
@@ -101,6 +104,23 @@ async def get_comprehensive_report():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/analytics/predictions")
+async def get_predictions():
+    """Get predictive analytics and recommendations"""
+    try:
+        outputs = await orchestrator.get_outputs()
+        
+        predictions = {
+            "project_success": predictor.predict_project_success(outputs),
+            "revenue_trend": predictor.predict_revenue_trend(outputs.get("finance.json", {}).get("data", {})),
+            "market_timing": predictor.predict_market_timing(outputs.get("cofounder.json", {}).get("data", {})),
+            "generated_at": datetime.now().isoformat()
+        }
+        
+        return predictions
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/api/reports/{report_type}")
 async def get_specific_report(report_type: str):
     """Get specific report type (executive, marketing, financial, etc.)"""
@@ -159,8 +179,12 @@ async def get_memory_stats():
         graph_stats = {}
         try:
             if hasattr(orchestrator, 'graph_memory') and orchestrator.graph_memory.driver:
-                # Get basic graph stats
-                graph_stats = {"nodes": 0, "relationships": 0, "status": "connected"}
+                with orchestrator.graph_memory.driver.session() as session:
+                    result = session.run("MATCH (n) RETURN count(n) as nodes")
+                    node_count = result.single()["nodes"]
+                    result = session.run("MATCH ()-[r]->() RETURN count(r) as relationships")
+                    rel_count = result.single()["relationships"]
+                    graph_stats = {"nodes": node_count, "relationships": rel_count, "status": "connected"}
             else:
                 graph_stats = {"status": "fallback_mode"}
         except Exception:

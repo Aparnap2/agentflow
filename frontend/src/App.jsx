@@ -11,6 +11,7 @@ import OutputsPage from './pages/OutputsPage'
 import SettingsPage from './pages/SettingsPage'
 import DashboardPage from './pages/DashboardPage'
 import ReportsPage from './pages/ReportsPage'
+import AnalyticsPage from './pages/AnalyticsPage'
 import Navigation from './components/Navigation'
 import ApprovalModal from './components/ApprovalModal'
 import { useState, useEffect } from 'react'
@@ -82,6 +83,7 @@ function App() {
           <Route path="/office" element={<VirtualOfficePage />} />
           <Route path="/vision" element={<VisionPage />} />
           <Route path="/reports" element={<ReportsPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/graph" element={<GraphPage />} />
           <Route path="/timeline" element={<TimelinePage />} />
           <Route path="/outputs" element={<OutputsPage />} />
