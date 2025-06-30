@@ -12,11 +12,13 @@ from contextlib import asynccontextmanager
 from flows.orchestrator import AgentOrchestrator
 from outputs.report_generator import ReportGenerator
 from analytics.predictor import SimplePredictor
+from collaboration.agent_collaborator import AgentCollaborator
 
 # Global instances
 orchestrator = None
 report_generator = None
 predictor = None
+collaborator = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -27,6 +29,7 @@ async def lifespan(app: FastAPI):
     orchestrator = AgentOrchestrator()
     report_generator = ReportGenerator()
     predictor = SimplePredictor()
+    collaborator = AgentCollaborator(orchestrator.memory_manager, orchestrator.memory_manager.vector_memory)
     
     yield
     
@@ -59,6 +62,12 @@ class ProjectRequest(BaseModel):
 class ApprovalResponse(BaseModel):
     action: str  # approve, deny, edit, retry
     feedback: Optional[str] = None
+
+class CollaborationRequest(BaseModel):
+    requesting_agent: str
+    target_agent: str
+    request_type: str
+    context: Optional[Dict[str, Any]] = {}
 
 # API Endpoints
 @app.post("/api/start-project")
@@ -118,6 +127,29 @@ async def get_predictions():
         }
         
         return predictions
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/collaboration/request")
+async def request_collaboration(request: CollaborationRequest):
+    """Request collaboration between agents"""
+    try:
+        result = await collaborator.request_collaboration(
+            requesting_agent=request.requesting_agent,
+            target_agent=request.target_agent,
+            request_type=request.request_type,
+            context=request.context
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/collaboration/history")
+async def get_collaboration_history(agent_name: Optional[str] = None):
+    """Get collaboration history"""
+    try:
+        history = await collaborator.get_collaboration_history(agent_name)
+        return {"collaborations": history}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

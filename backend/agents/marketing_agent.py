@@ -249,6 +249,20 @@ class MarketingAgent(LangGraphAgent):
         strategy["competitive_research"] = web_research
         strategy["content_templates"] = content_templates
         
+        # Add collaboration suggestions
+        strategy["collaboration_opportunities"] = [
+            {
+                "target_agent": "Finance",
+                "request_type": "customer_list_for_campaign",
+                "reason": "Need customer data for targeted email campaigns"
+            },
+            {
+                "target_agent": "Sales",
+                "request_type": "qualified_leads",
+                "reason": "Marketing qualified leads ready for sales follow-up"
+            }
+        ]
+        
         # Store in memory
         await self.memory_manager.store_agent_memory(
             agent_name=self.name,

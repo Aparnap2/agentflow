@@ -4,6 +4,7 @@ import { apiMethods } from '../lib/api'
 import MetricCard from '../components/Dashboard/MetricCard'
 import ChartContainer from '../components/Dashboard/ChartContainer'
 import PredictionCard from '../components/Dashboard/PredictionCard'
+import CollaborationPanel from '../components/Collaboration/CollaborationPanel'
 
 const DashboardPage = () => {
   const [dashboardData, setDashboardData] = useState(null)
@@ -165,6 +166,11 @@ const DashboardPage = () => {
           />
         </div>
       )}
+      
+      {/* Agent Collaboration */}
+      <div className="mb-8">
+        <CollaborationPanel />
+      </div>
       
       {/* Progress Tracking */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

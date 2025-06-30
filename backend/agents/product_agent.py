@@ -153,6 +153,11 @@ Structure your output as:
         # Add automated recommendations
         product_definition["ai_recommendations"] = self._generate_ai_recommendations(product_definition)
         
+        # Check for collaboration opportunities
+        collaboration_needs = await self._identify_collaboration_needs(product_definition)
+        if collaboration_needs:
+            product_definition["collaboration_suggestions"] = collaboration_needs
+        
         return product_definition
     
     def _generate_ai_recommendations(self, product_definition: Dict[str, Any]) -> List[str]:
@@ -173,6 +178,30 @@ Structure your output as:
             recommendations.append("Consider reducing must-have features to focus MVP scope")
         
         return recommendations or ["Product strategy is well-balanced"]
+    
+    async def _identify_collaboration_needs(self, product_definition: Dict[str, Any]) -> List[Dict[str, str]]:
+        """Identify collaboration opportunities with other agents"""
+        collaboration_needs = []
+        
+        # Check if marketing collaboration is needed for feature launch
+        new_features = product_definition.get("mvp_definition", {}).get("core_features", [])
+        if len(new_features) >= 3:
+            collaboration_needs.append({
+                "target_agent": "Marketing",
+                "request_type": "feature_launch_campaign",
+                "reason": "Multiple new features ready for launch campaign"
+            })
+        
+        # Check if finance collaboration is needed for pricing
+        personas = product_definition.get("user_personas", [])
+        if len(personas) >= 2:
+            collaboration_needs.append({
+                "target_agent": "Finance",
+                "request_type": "pricing_strategy_review",
+                "reason": "Multiple personas require pricing tier analysis"
+            })
+        
+        return collaboration_needs
     
     async def _use_research_tools(self, vision_data: Dict[str, Any]) -> Dict[str, Any]:
         """Use research tools to gather current market insights"""
