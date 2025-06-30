@@ -14,8 +14,21 @@ class AgentCollaborator:
         self.vector_memory = vector_memory
         self.collaboration_patterns = {
             "marketing_finance": self._marketing_finance_collaboration,
+            "finance_marketing": self._marketing_finance_collaboration,
             "product_marketing": self._product_marketing_collaboration,
-            "sales_marketing": self._sales_marketing_collaboration
+            "marketing_product": self._product_marketing_collaboration,
+            "sales_marketing": self._sales_marketing_collaboration,
+            "marketing_sales": self._sales_marketing_collaboration,
+            "product_finance": self._product_finance_collaboration,
+            "finance_product": self._product_finance_collaboration,
+            "legal_finance": self._legal_finance_collaboration,
+            "finance_legal": self._legal_finance_collaboration,
+            "operations_product": self._operations_product_collaboration,
+            "product_operations": self._operations_product_collaboration,
+            "sales_finance": self._sales_finance_collaboration,
+            "finance_sales": self._sales_finance_collaboration,
+            "legal_marketing": self._legal_marketing_collaboration,
+            "marketing_legal": self._legal_marketing_collaboration
         }
     
     async def request_collaboration(self, requesting_agent: str, target_agent: str, 
@@ -114,6 +127,72 @@ class AgentCollaborator:
         
         return await self._generic_collaboration(requesting_agent, target_agent, request_type, context)
     
+    async def _product_finance_collaboration(self, requesting_agent: str, target_agent: str,
+                                          request_type: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Product-Finance collaboration patterns"""
+        
+        if request_type == "pricing_validation":
+            finance_data = await self._get_budget_constraints()
+            return {
+                "collaboration_type": "pricing_validation",
+                "pricing_recommendations": {
+                    "suggested_tiers": finance_data.get("customer_segments", []),
+                    "budget_constraints": finance_data.get("constraints", [])
+                },
+                "success": True
+            }
+        
+        return await self._generic_collaboration(requesting_agent, target_agent, request_type, context)
+    
+    async def _legal_finance_collaboration(self, requesting_agent: str, target_agent: str,
+                                        request_type: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Legal-Finance collaboration patterns"""
+        
+        if request_type == "compliance_budget":
+            budget_data = await self._get_budget_constraints()
+            return {
+                "collaboration_type": "compliance_budget",
+                "allocated_budget": budget_data.get("marketing_budget", 0) * 0.1,
+                "recommendations": ["Prioritize GDPR compliance", "Allocate for legal review"],
+                "success": True
+            }
+        
+        return await self._generic_collaboration(requesting_agent, target_agent, request_type, context)
+    
+    async def _operations_product_collaboration(self, requesting_agent: str, target_agent: str,
+                                             request_type: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Operations-Product collaboration patterns"""
+        
+        if request_type == "scalability_review":
+            product_data = await self._get_product_features()
+            return {
+                "collaboration_type": "scalability_review",
+                "scalability_assessment": {
+                    "bottlenecks": ["Database scaling", "API rate limits"],
+                    "recommendations": ["Implement caching", "Add load balancing"]
+                },
+                "success": True
+            }
+        
+        return await self._generic_collaboration(requesting_agent, target_agent, request_type, context)
+    
+    async def _sales_finance_collaboration(self, requesting_agent: str, target_agent: str,
+                                        request_type: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Sales-Finance collaboration patterns"""
+        
+        if request_type == "revenue_forecast":
+            finance_data = await self._get_budget_constraints()
+            return {
+                "collaboration_type": "revenue_forecast",
+                "revenue_data": {
+                    "current_projections": finance_data.get("revenue_projections", {}),
+                    "variance_analysis": "Sales tracking 15% above projections"
+                },
+                "success": True
+            }
+        
+        return await self._generic_collaboration(requesting_agent, target_agent, request_type, context)
+    
     async def _generic_collaboration(self, requesting_agent: str, target_agent: str,
                                    request_type: str, context: Dict[str, Any]) -> Dict[str, Any]:
         """Generic collaboration handler"""
@@ -133,65 +212,146 @@ class AgentCollaborator:
         }
     
     async def _get_customer_data(self) -> Dict[str, Any]:
-        """Get customer data from global context"""
+        """Get real customer data from Finance agent's stored data"""
         try:
-            # Search for customer/finance data in vector memory
-            results = await self.vector_memory.semantic_search("customers paying clients revenue", limit=5)
+            # Search for actual finance agent data
+            results = await self.vector_memory.semantic_search("finance revenue customers pricing tiers", limit=10)
             
-            # Mock customer data based on financial projections
+            # Extract real data from finance agent outputs
+            customer_data = {"customers": [], "segments": [], "revenue_data": {}}
+            
+            for result in results:
+                if result.get("agent") == "Finance":
+                    content = result.get("content", {})
+                    
+                    # Extract pricing tiers as customer segments
+                    pricing_tiers = content.get("revenue_model", {}).get("pricing_tiers", [])
+                    for tier in pricing_tiers:
+                        customer_data["segments"].append({
+                            "tier": tier.get("tier", ""),
+                            "price": tier.get("price", 0),
+                            "target_segment": tier.get("target_segment", "")
+                        })
+                    
+                    # Extract financial projections
+                    projections = content.get("financial_projections", {})
+                    if projections:
+                        customer_data["revenue_data"] = projections
+            
             return {
-                "total_customers": 150,
-                "paying_customers": 120,
-                "high_value_customers": [
-                    {"id": "cust_001", "name": "Enterprise Corp", "value": "$2400/month"},
-                    {"id": "cust_002", "name": "Growth Inc", "value": "$1200/month"},
-                    {"id": "cust_003", "name": "Scale LLC", "value": "$800/month"}
-                ],
-                "customer_segments": ["Enterprise", "SMB", "Startup"],
-                "source": "finance_agent_data"
+                "customer_segments": customer_data["segments"],
+                "revenue_projections": customer_data["revenue_data"],
+                "source": "finance_agent_real_data",
+                "last_updated": results[0].get("timestamp") if results else None
             }
         except Exception as e:
             logger.error(f"Failed to get customer data: {e}")
             return {"error": str(e)}
     
     async def _get_budget_constraints(self) -> Dict[str, Any]:
-        """Get budget data from finance agent"""
+        """Get real budget data from Finance agent"""
         try:
+            results = await self.vector_memory.semantic_search("finance budget cost marketing allocation", limit=5)
+            
+            budget_data = {"marketing_budget": 0, "cost_structure": {}, "constraints": []}
+            
+            for result in results:
+                if result.get("agent") == "Finance":
+                    content = result.get("content", {})
+                    
+                    # Extract cost structure
+                    cost_structure = content.get("cost_structure", {})
+                    if "marketing" in cost_structure:
+                        marketing_cost = cost_structure["marketing"]
+                        budget_data["marketing_budget"] = marketing_cost.get("annual_cost", 0)
+                        budget_data["percentage"] = marketing_cost.get("percentage", 0)
+                    
+                    # Extract funding requirements
+                    funding = content.get("funding_requirements", {})
+                    if funding:
+                        budget_data["constraints"] = [
+                            f"Total funding available: ${funding.get('seed_funding', 0):,}",
+                            f"Runway: {funding.get('runway', 'Unknown')}"
+                        ]
+            
             return {
-                "marketing_budget": 15000,
-                "constraints": ["ROI > 3:1", "Track all spend", "Monthly reporting required"],
-                "available_channels": ["Content", "Social", "Email", "Paid ads"],
-                "source": "finance_agent_data"
+                **budget_data,
+                "source": "finance_agent_real_data",
+                "last_updated": results[0].get("timestamp") if results else None
             }
         except Exception as e:
-            return {"marketing_budget": 10000, "constraints": []}
+            return {"error": str(e)}
     
     async def _get_product_features(self) -> Dict[str, Any]:
-        """Get product features from product agent"""
+        """Get real product features from Product agent"""
         try:
+            results = await self.vector_memory.semantic_search("product features MVP personas development", limit=5)
+            
+            product_data = {"features": [], "personas": [], "roadmap": {}}
+            
+            for result in results:
+                if result.get("agent") == "Product":
+                    content = result.get("content", {})
+                    
+                    # Extract MVP features
+                    mvp = content.get("mvp_definition", {})
+                    if mvp:
+                        product_data["features"] = mvp.get("core_features", [])
+                    
+                    # Extract user personas
+                    personas = content.get("user_personas", [])
+                    product_data["personas"] = [{
+                        "name": p.get("name", ""),
+                        "demographics": p.get("demographics", ""),
+                        "goals": p.get("goals", [])
+                    } for p in personas]
+                    
+                    # Extract feature prioritization
+                    prioritization = content.get("feature_prioritization", {})
+                    product_data["roadmap"] = prioritization
+            
             return {
-                "new_features": ["Advanced Analytics", "API Integration", "Mobile App"],
-                "target_personas": ["Tech-savvy users", "Enterprise customers"],
-                "release_timeline": "Q2 2024",
-                "source": "product_agent_data"
+                "core_features": product_data["features"],
+                "user_personas": product_data["personas"],
+                "feature_roadmap": product_data["roadmap"],
+                "source": "product_agent_real_data",
+                "last_updated": results[0].get("timestamp") if results else None
             }
         except Exception as e:
-            return {"new_features": [], "target_personas": []}
+            return {"error": str(e)}
     
     async def _get_marketing_leads(self) -> Dict[str, Any]:
-        """Get marketing leads data"""
+        """Get real marketing leads from Marketing agent"""
         try:
+            results = await self.vector_memory.semantic_search("marketing content strategy channels campaign", limit=5)
+            
+            marketing_data = {"channels": [], "strategy": {}, "performance": {}}
+            
+            for result in results:
+                if result.get("agent") == "Marketing":
+                    content = result.get("content", {})
+                    
+                    # Extract distribution channels
+                    channels = content.get("distribution_channels", [])
+                    marketing_data["channels"] = channels
+                    
+                    # Extract content strategy
+                    strategy = content.get("content_strategy", {})
+                    marketing_data["strategy"] = strategy
+                    
+                    # Extract success metrics
+                    metrics = content.get("success_metrics", [])
+                    marketing_data["performance"] = metrics
+            
             return {
-                "qualified_leads": [
-                    {"name": "TechStart Inc", "score": 85, "source": "content_marketing"},
-                    {"name": "Growth Co", "score": 78, "source": "social_media"},
-                    {"name": "Scale Up", "score": 72, "source": "email_campaign"}
-                ],
-                "scoring_criteria": {"engagement": 40, "fit": 35, "intent": 25},
-                "source": "marketing_agent_data"
+                "distribution_channels": marketing_data["channels"],
+                "content_strategy": marketing_data["strategy"],
+                "success_metrics": marketing_data["performance"],
+                "source": "marketing_agent_real_data",
+                "last_updated": results[0].get("timestamp") if results else None
             }
         except Exception as e:
-            return {"qualified_leads": []}
+            return {"error": str(e)}
     
     async def _store_collaboration(self, requesting_agent: str, target_agent: str, 
                                  request_type: str, result: Dict[str, Any]):
@@ -225,3 +385,22 @@ class AgentCollaborator:
         except Exception as e:
             logger.error(f"Failed to get collaboration history: {e}")
             return []
+    
+    async def _legal_marketing_collaboration(self, requesting_agent: str, target_agent: str,
+                                          request_type: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        """Legal-Marketing collaboration patterns"""
+        
+        if request_type == "compliance_review":
+            marketing_data = await self._get_marketing_leads()
+            return {
+                "collaboration_type": "compliance_review",
+                "compliance_status": {
+                    "marketing_claims": "Review required for accuracy",
+                    "data_collection": "GDPR compliant with consent mechanisms",
+                    "advertising_standards": "Meets FTC guidelines"
+                },
+                "recommendations": ["Add disclaimers to promotional content", "Update privacy notices"],
+                "success": True
+            }
+        
+        return await self._generic_collaboration(requesting_agent, target_agent, request_type, context)

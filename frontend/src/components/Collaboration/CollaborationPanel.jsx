@@ -10,10 +10,14 @@ const CollaborationPanel = () => {
   const agents = ['Marketing', 'Finance', 'Product', 'Sales', 'Legal', 'Operations']
   const requestTypes = [
     'customer_list_for_campaign',
-    'budget_approval', 
-    'feature_launch_campaign',
+    'budget_approval',
+    'feature_launch_campaign', 
     'qualified_leads',
-    'contract_review'
+    'pricing_validation',
+    'compliance_budget',
+    'scalability_review',
+    'revenue_forecast',
+    'compliance_review'
   ]
   
   useEffect(() => {
