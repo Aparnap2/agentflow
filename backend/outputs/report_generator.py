@@ -59,6 +59,10 @@ class ReportGenerator:
             }
         }
     
+    def _create_timestamp(self) -> str:
+        """Create timestamp for reports"""
+        return datetime.now().isoformat()
+    
     async def _generate_executive_dashboard(self, agent_outputs: Dict[str, Any]) -> Dict[str, Any]:
         """Generate executive dashboard data"""
         

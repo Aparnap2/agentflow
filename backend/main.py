@@ -196,9 +196,12 @@ async def clear_memory():
         await orchestrator.memory_manager.vector_memory.clear_collection()
         
         # Clear graph memory if available
-        if hasattr(orchestrator, 'graph_memory') and orchestrator.graph_memory.driver:
-            with orchestrator.graph_memory.driver.session() as session:
-                session.run("MATCH (n) DETACH DELETE n")
+        try:
+            if hasattr(orchestrator, 'graph_memory') and orchestrator.graph_memory.driver:
+                with orchestrator.graph_memory.driver.session() as session:
+                    session.run("MATCH (n) DETACH DELETE n")
+        except Exception as e:
+            logger.warning(f"Graph memory clear failed: {e}")
         
         return {"status": "success", "message": "All memory cleared"}
     except Exception as e:

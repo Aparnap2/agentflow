@@ -1,14 +1,15 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Brain, Users, FileText, Settings, GitBranch, Clock, Eye, AlertCircle } from 'lucide-react'
+import { Brain, Users, FileText, Settings, GitBranch, Clock, Eye, AlertCircle, BarChart3, TrendingUp } from 'lucide-react'
 
 const Navigation = ({ pendingApprovalsCount = 0 }) => {
   const location = useLocation()
   
   const navItems = [
-    { path: '/', label: 'Start', icon: Brain },
+    { path: '/dashboard', label: 'Dashboard', icon: BarChart3 },
+    { path: '/start', label: 'Start', icon: Brain },
     { path: '/vision', label: 'Vision', icon: Eye },
-    { path: '/tasks', label: 'Dashboard', icon: Users },
-    { path: '/office', label: 'Virtual Office', icon: Settings },
+    { path: '/reports', label: 'Reports', icon: TrendingUp },
+    { path: '/office', label: 'Virtual Office', icon: Users },
     { path: '/graph', label: 'Graph', icon: GitBranch },
     { path: '/timeline', label: 'Timeline', icon: Clock },
     { path: '/outputs', label: 'Outputs', icon: FileText },
@@ -30,7 +31,7 @@ const Navigation = ({ pendingApprovalsCount = 0 }) => {
                 key={path}
                 to={path}
                 className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  location.pathname === path || (path === '/' && location.pathname === '/start')
+                  location.pathname === path || (path === '/dashboard' && location.pathname === '/')
                     ? 'text-blue-600 bg-blue-50'
                     : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
                 }`}

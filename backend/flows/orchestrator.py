@@ -113,7 +113,13 @@ class AgentOrchestrator:
         specialist_tasks = []
         
         # Create tasks for available specialist agents
-        for agent_name in ["Product", "Finance", "Marketing", "Legal", "Sales", "Operations"]:
+        available_agents = ["Product", "Finance", "Marketing", "Legal"]
+        if "Sales" in self.agents:
+            available_agents.append("Sales")
+        if "Operations" in self.agents:
+            available_agents.append("Operations")
+            
+        for agent_name in available_agents:
             if agent_name in agent_assignments and agent_name in self.agents:
                 task = {
                     "id": f"task_{agent_name.lower()}_{project_id}",
@@ -142,12 +148,15 @@ class AgentOrchestrator:
                     results[agent_name.lower()] = result
                     self._log_execution(agent_name, result)
                     
-                    # Store in graph memory
-                    await self.graph_memory.store_agent_relationship(
-                        agent_name=agent_name,
-                        task_id=specialist_tasks[i][1]["id"],
-                        output_data=result
-                    )
+                    # Store in graph memory if available
+                    try:
+                        await self.graph_memory.store_agent_relationship(
+                            agent_name=agent_name,
+                            task_id=specialist_tasks[i][1]["id"],
+                            output_data=result
+                        )
+                    except Exception as e:
+                        logger.warning(f"Graph memory storage failed: {e}")
         
         return results
     

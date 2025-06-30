@@ -9,6 +9,8 @@ import GraphPage from './pages/GraphPage'
 import TimelinePage from './pages/TimelinePage'
 import OutputsPage from './pages/OutputsPage'
 import SettingsPage from './pages/SettingsPage'
+import DashboardPage from './pages/DashboardPage'
+import ReportsPage from './pages/ReportsPage'
 import Navigation from './components/Navigation'
 import ApprovalModal from './components/ApprovalModal'
 import { useState, useEffect } from 'react'
@@ -72,13 +74,14 @@ function App() {
       <Navigation pendingApprovalsCount={pendingApprovals.length} />
       <main className="container mx-auto px-4 py-8">
         <Routes>
-          <Route path="/" element={<ConversationPage />} />
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/start" element={<StartPage />} />
           <Route path="/chat" element={<ConversationPage />} />
           <Route path="/tasks" element={<TasksPage />} />
           <Route path="/office" element={<VirtualOfficePage />} />
           <Route path="/vision" element={<VisionPage />} />
-
+          <Route path="/reports" element={<ReportsPage />} />
           <Route path="/graph" element={<GraphPage />} />
           <Route path="/timeline" element={<TimelinePage />} />
           <Route path="/outputs" element={<OutputsPage />} />
