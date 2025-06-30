@@ -10,6 +10,7 @@ from langchain.tools import BaseTool
 from langchain.schema import BaseMessage
 from .langgraph_base import LangGraphAgent
 from tools.web_search import WebSearchTool
+from tools.advanced_tools import ContentStrategyTool
 
 
 class WebCrawlerTool(BaseTool):
@@ -141,6 +142,7 @@ class MarketingAgent(LangGraphAgent):
             ContentGeneratorTool()
         ]
         self.web_search = WebSearchTool()
+        self.content_strategy = ContentStrategyTool()
     
     async def _execute_actions(self, state) -> Dict[str, Any]:
         """Execute marketing-specific actions"""
@@ -232,11 +234,18 @@ class MarketingAgent(LangGraphAgent):
             }
         }
         
+        # Use advanced content strategy tool
+        advanced_strategy = await self.content_strategy._arun(
+            target_audience=str(target_audience),
+            business_goals=["brand_awareness", "lead_generation"]
+        )
+        
         # Use marketing tools to enhance strategy
         web_research = await self._use_web_crawler_tool(vision.get("description", ""))
         content_templates = await self._use_content_generator_tool("blog_post", "product launch")
         
         # Enhance strategy with tool outputs
+        strategy["advanced_content_strategy"] = advanced_strategy
         strategy["competitive_research"] = web_research
         strategy["content_templates"] = content_templates
         

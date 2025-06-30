@@ -12,6 +12,7 @@ from agents.finance_agent import FinanceAgent
 from agents.marketing_agent import MarketingAgent
 from agents.legal_agent import LegalAgent
 from memory.memory_manager import MemoryManager
+from memory.graph_memory import GraphMemory
 from approvals.approval_manager import ApprovalManager
 
 class AgentOrchestrator:
@@ -20,6 +21,7 @@ class AgentOrchestrator:
     def __init__(self):
         # Initialize shared systems
         self.memory_manager = MemoryManager()
+        self.graph_memory = GraphMemory()
         self.approval_manager = ApprovalManager()
         
         # Initialize agents with shared systems
@@ -31,6 +33,15 @@ class AgentOrchestrator:
             "Marketing": MarketingAgent(self.memory_manager, self.approval_manager),
             "Legal": LegalAgent(self.memory_manager, self.approval_manager)
         }
+        
+        # Add new specialized agents
+        try:
+            from agents.sales_agent import SalesAgent
+            from agents.operations_agent import OperationsAgent
+            self.agents["Sales"] = SalesAgent(self.memory_manager, self.approval_manager)
+            self.agents["Operations"] = OperationsAgent(self.memory_manager, self.approval_manager)
+        except ImportError:
+            pass  # New agents not available yet
         self.execution_timeline = []
         self.current_project_id = None
         self.conversations = {}
@@ -102,7 +113,7 @@ class AgentOrchestrator:
         specialist_tasks = []
         
         # Create tasks for available specialist agents
-        for agent_name in ["Product", "Finance", "Marketing", "Legal"]:
+        for agent_name in ["Product", "Finance", "Marketing", "Legal", "Sales", "Operations"]:
             if agent_name in agent_assignments and agent_name in self.agents:
                 task = {
                     "id": f"task_{agent_name.lower()}_{project_id}",
@@ -130,6 +141,13 @@ class AgentOrchestrator:
                 else:
                     results[agent_name.lower()] = result
                     self._log_execution(agent_name, result)
+                    
+                    # Store in graph memory
+                    await self.graph_memory.store_agent_relationship(
+                        agent_name=agent_name,
+                        task_id=specialist_tasks[i][1]["id"],
+                        output_data=result
+                    )
         
         return results
     
@@ -349,3 +367,4 @@ class AgentOrchestrator:
     def close(self):
         """Close all connections"""
         self.memory_manager.close()
+        self.graph_memory.close()

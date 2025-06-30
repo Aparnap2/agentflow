@@ -1,6 +1,7 @@
 from typing import Dict, Any
 from agents.langgraph_base import LangGraphAgent
 from tools.web_search import WebSearchTool
+from tools.advanced_tools import MarketIntelligenceTool
 import json
 from datetime import datetime
 
@@ -19,6 +20,7 @@ class ProductAgent(LangGraphAgent):
         }
         super().__init__("Product", "Product Management", memory_manager, approval_manager, personality)
         self.web_search = WebSearchTool()
+        self.market_intelligence = MarketIntelligenceTool()
     
     def get_system_prompt(self) -> str:
         return """You are the Product agent in a virtual AI startup team. Your role is to:
@@ -50,7 +52,8 @@ Structure your output as:
             shared_context = await self.memory_manager.get_shared_context()
             vision_data = shared_context.get("cofounder_output", [{}])[0].get("content", {})
         
-        # Use tools to enhance the analysis
+        # Use advanced tools for enhanced analysis
+        market_intelligence = await self.market_intelligence._arun(vision_data.get("vision_statement", ""))
         market_research = await self._use_research_tools(vision_data)
         persona_insights = await self._use_persona_tools(vision_data)
         
@@ -143,6 +146,7 @@ Structure your output as:
         )
         
         # Enhance product definition with tool insights
+        product_definition["market_intelligence"] = market_intelligence
         product_definition["market_research"] = market_research
         product_definition["persona_insights"] = persona_insights
         

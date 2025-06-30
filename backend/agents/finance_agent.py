@@ -1,6 +1,7 @@
 from typing import Dict, Any
 from agents.langgraph_base import LangGraphAgent
 from tools.web_search import WebSearchTool
+from tools.advanced_tools import FinancialModelingTool
 import json
 from datetime import datetime
 
@@ -19,6 +20,7 @@ class FinanceAgent(LangGraphAgent):
         }
         super().__init__("Finance", "Financial Planning", memory_manager, approval_manager, personality)
         self.web_search = WebSearchTool()
+        self.financial_modeling = FinancialModelingTool()
     
     def get_system_prompt(self) -> str:
         return """You are the Finance agent in a virtual AI startup team. Your role is to:
@@ -45,6 +47,13 @@ Structure your output as:
         # Get context from other agents
         vision_data = context.get("cofounder_output", {})
         product_data = context.get("product_output", {})
+        
+        # Use advanced financial modeling
+        business_model = {
+            "expected_revenue": 120000,
+            "expected_costs": 80000
+        }
+        financial_model = await self.financial_modeling._arun(business_model)
         
         # Use financial tools for market analysis
         market_data = await self._use_financial_tools(vision_data)
@@ -175,10 +184,11 @@ Structure your output as:
         )
         
         # Enhance financial model with tool insights
-        financial_model["market_analysis"] = market_data
-        financial_model["pricing_analysis"] = pricing_analysis
+        financial_model_data["advanced_modeling"] = financial_model
+        financial_model_data["market_analysis"] = market_data
+        financial_model_data["pricing_analysis"] = pricing_analysis
         
-        return financial_model
+        return financial_model_data
     
     async def _use_financial_tools(self, vision_data: Dict[str, Any]) -> Dict[str, Any]:
         """Use financial tools for current market analysis"""
