@@ -86,31 +86,31 @@ const ConversationPage = () => {
   }
 
   return (
-    <div className="max-w-4xl mx-auto h-[calc(100vh-8rem)] flex flex-col">
-      <div className="mb-6">
+    <div className="max-w-4xl mx-auto h-[calc(100vh-6rem)] sm:h-[calc(100vh-8rem)] flex flex-col">
+      <div className="mb-4 sm:mb-6">
         <div className="flex items-center mb-4">
-          <Brain className="h-8 w-8 text-primary-600 mr-3" />
+          <Brain className="h-6 w-6 sm:h-8 sm:w-8 text-primary-600 mr-3" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Chat with AI Cofounder</h1>
-            <p className="text-gray-600">Discuss your startup idea to refine your vision</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Chat with AI Cofounder</h1>
+            <p className="text-sm sm:text-base text-gray-600">Discuss your startup idea to refine your vision</p>
           </div>
         </div>
       </div>
 
       <div className="flex-1 bg-white rounded-lg shadow-sm border flex flex-col">
-        <div className="flex-1 p-6 overflow-y-auto">
+        <div className="flex-1 p-4 sm:p-6 overflow-y-auto">
           {messages.length === 0 && (
-            <div className="text-center py-12">
-              <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">Start Your Conversation</h3>
-              <p className="text-gray-600">Tell me about your startup idea and I'll help refine your vision</p>
+            <div className="text-center py-8 sm:py-12">
+              <Brain className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-base sm:text-lg font-medium text-gray-900 mb-2">Start Your Conversation</h3>
+              <p className="text-sm sm:text-base text-gray-600 px-4">Tell me about your startup idea and I'll help refine your vision</p>
             </div>
           )}
 
           <div className="space-y-4">
             {messages.map((message, index) => (
               <div key={index} className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-3xl px-4 py-3 rounded-lg ${
+                <div className={`max-w-[85%] sm:max-w-3xl px-3 sm:px-4 py-2 sm:py-3 rounded-lg text-sm sm:text-base ${
                   message.role === 'user' 
                     ? 'bg-primary-600 text-white' 
                     : 'bg-gray-100 text-gray-900'
@@ -157,23 +157,23 @@ const ConversationPage = () => {
           </div>
         )}
 
-        <div className="border-t p-4">
-          <div className="flex space-x-3">
+        <div className="border-t p-3 sm:p-4">
+          <div className="flex space-x-2 sm:space-x-3">
             <textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder="Describe your startup idea..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none"
+              className="flex-1 px-3 sm:px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-primary-500 focus:border-transparent resize-none text-sm sm:text-base"
               rows={2}
               disabled={loading}
             />
             <button
               onClick={sendMessage}
               disabled={!input.trim() || loading}
-              className="px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="px-3 sm:px-4 py-2 bg-primary-600 text-white rounded-md hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed flex-shrink-0"
             >
-              <Send className="h-5 w-5" />
+              <Send className="h-4 w-4 sm:h-5 sm:w-5" />
             </button>
           </div>
         </div>
