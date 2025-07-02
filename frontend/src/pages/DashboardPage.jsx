@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { DollarSign, Users, TrendingUp, Target, AlertTriangle, CheckCircle, Brain } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import api from '../lib/api'
 import MetricCard from '../components/Dashboard/MetricCard'
 import ChartContainer from '../components/Dashboard/ChartContainer'
@@ -7,6 +8,7 @@ import PredictionCard from '../components/Dashboard/PredictionCard'
 import CollaborationPanel from '../components/Collaboration/CollaborationPanel'
 
 const DashboardPage = () => {
+  const navigate = useNavigate()
   const [dashboardData, setDashboardData] = useState(null)
   const [predictions, setPredictions] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -43,6 +45,65 @@ const DashboardPage = () => {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      </div>
+    )
+  }
+  
+  // Show welcome screen if no data
+  const hasData = dashboardData?.outputs && Object.keys(dashboardData.outputs).length > 0
+  
+  if (!hasData) {
+    return (
+      <div className="max-w-4xl mx-auto text-center py-16">
+        <Brain className="h-16 w-16 text-primary-600 mx-auto mb-6" />
+        <h1 className="text-3xl font-bold text-gray-900 mb-4">Welcome to AgentFlow</h1>
+        <p className="text-xl text-gray-600 mb-8">Your AI-powered startup accelerator</p>
+        
+        <div className="bg-white rounded-lg shadow-sm border p-8 mb-8">
+          <h2 className="text-2xl font-semibold text-gray-900 mb-4">Get Started</h2>
+          <p className="text-gray-600 mb-6">Transform your startup idea into a comprehensive business plan with our AI agents</p>
+          
+          <div className="flex justify-center space-x-4">
+            <button
+              onClick={() => navigate('/conversation')}
+              className="px-8 py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition-colors font-medium"
+            >
+              💬 Chat with AI Cofounder
+            </button>
+            <button
+              onClick={() => navigate('/start')}
+              className="px-8 py-3 border border-primary-600 text-primary-600 rounded-md hover:bg-primary-50 transition-colors font-medium"
+            >
+              📝 Start with Form
+            </button>
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="text-center p-6">
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">🧠</span>
+            </div>
+            <h3 className="font-semibold text-gray-900 mb-2">AI Cofounder</h3>
+            <p className="text-sm text-gray-600">Captures and refines your vision</p>
+          </div>
+          
+          <div className="text-center p-6">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">👥</span>
+            </div>
+            <h3 className="font-semibold text-gray-900 mb-2">Specialist Team</h3>
+            <p className="text-sm text-gray-600">Product, Finance, Marketing & Legal experts</p>
+          </div>
+          
+          <div className="text-center p-6">
+            <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <span className="text-2xl">📊</span>
+            </div>
+            <h3 className="font-semibold text-gray-900 mb-2">Comprehensive Reports</h3>
+            <p className="text-sm text-gray-600">Business plan, financials, and strategy</p>
+          </div>
+        </div>
       </div>
     )
   }

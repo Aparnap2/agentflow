@@ -9,6 +9,10 @@ const StartPage = () => {
   const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
   
+  const startWithChat = () => {
+    navigate('/conversation')
+  }
+  
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!vision.trim()) return
@@ -109,13 +113,14 @@ const StartPage = () => {
         </form>
         
         <div className="mt-6 text-center">
-          <p className="text-gray-600 mb-4">Or start with a conversation</p>
+          <p className="text-gray-600 mb-4">Recommended: Start with a conversation</p>
           <button
-            onClick={() => navigate('/chat')}
-            className="px-6 py-2 border border-primary-600 text-primary-600 rounded-md hover:bg-primary-50 transition-colors"
+            onClick={startWithChat}
+            className="px-8 py-3 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors font-medium mr-4"
           >
-            Chat with AI Cofounder
+            💬 Chat with AI Cofounder
           </button>
+          <p className="text-sm text-gray-500 mt-2">Or use the detailed form above</p>
         </div>
       </div>
       

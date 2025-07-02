@@ -1,8 +1,24 @@
 import { useFlow } from '../contexts/FlowContext'
-import { Brain, MessageSquare, CheckCircle, FileText, BarChart3, AlertCircle } from 'lucide-react'
+import { Brain, MessageSquare, CheckCircle, FileText, BarChart3, AlertCircle, Users, Activity, Clock, ChevronDown } from 'lucide-react'
+import { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 
 const FlowNavigation = ({ pendingApprovalsCount = 0 }) => {
   const { flowState, navigateToStep } = useFlow()
+  const navigate = useNavigate()
+  const [showQuickMenu, setShowQuickMenu] = useState(false)
+  const menuRef = useRef(null)
+  
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (menuRef.current && !menuRef.current.contains(event.target)) {
+        setShowQuickMenu(false)
+      }
+    }
+    
+    document.addEventListener('mousedown', handleClickOutside)
+    return () => document.removeEventListener('mousedown', handleClickOutside)
+  }, [])
   
   const navSteps = [
     { step: 'start', label: 'Start', icon: Brain },
@@ -52,9 +68,55 @@ const FlowNavigation = ({ pendingApprovalsCount = 0 }) => {
               })}
             </div>
             
+            {/* Quick Access Menu */}
+            <div className="relative ml-4" ref={menuRef}>
+              <button
+                onClick={() => setShowQuickMenu(!showQuickMenu)}
+                className="flex items-center space-x-2 px-3 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-50 rounded-md"
+              >
+                <span className="text-sm font-medium">More</span>
+                <ChevronDown className="h-4 w-4" />
+              </button>
+              
+              {showQuickMenu && (
+                <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border z-50">
+                  <div className="py-1">
+                    <button
+                      onClick={() => { navigate('/office'); setShowQuickMenu(false) }}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <Users className="h-4 w-4 mr-3" />
+                      Virtual Office
+                    </button>
+                    <button
+                      onClick={() => { navigate('/monitoring'); setShowQuickMenu(false) }}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <Activity className="h-4 w-4 mr-3" />
+                      Monitoring
+                    </button>
+                    <button
+                      onClick={() => { navigate('/history'); setShowQuickMenu(false) }}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <Clock className="h-4 w-4 mr-3" />
+                      History
+                    </button>
+                    <button
+                      onClick={() => { navigate('/agents'); setShowQuickMenu(false) }}
+                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <Brain className="h-4 w-4 mr-3" />
+                      Agents
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+            
             {/* Approval indicator */}
             {pendingApprovalsCount > 0 && (
-              <div className="flex items-center space-x-2 px-3 py-2 bg-orange-100 text-orange-800 rounded-md ml-4">
+              <div className="flex items-center space-x-2 px-3 py-2 bg-orange-100 text-orange-800 rounded-md ml-2">
                 <AlertCircle className="h-4 w-4" />
                 <span className="text-sm font-medium">
                   {pendingApprovalsCount} Approval{pendingApprovalsCount !== 1 ? 's' : ''}
