@@ -11,6 +11,8 @@ import AnalyticsPage from './pages/AnalyticsPage'
 import OutputsPage from './pages/OutputsPage'
 import ReportsPage from './pages/ReportsPage'
 import SettingsPage from './pages/SettingsPage'
+import HistoryPage from './pages/HistoryPage'
+import MonitoringPage from './pages/MonitoringPage'
 import FlowNavigation from './components/FlowNavigation'
 import ApprovalModal from './components/ApprovalModal'
 import { useState, useEffect } from 'react'
@@ -87,6 +89,8 @@ function App() {
             <Route path="/outputs" element={<OutputsPage />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/office" element={<VirtualOfficePage />} />
+            <Route path="/history" element={<HistoryPage />} />
+            <Route path="/monitoring" element={<MonitoringPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>

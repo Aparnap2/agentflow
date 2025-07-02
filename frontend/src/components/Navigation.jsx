@@ -1,5 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Brain, Users, FileText, Settings, GitBranch, Clock, Eye, AlertCircle, BarChart3, TrendingUp, Zap } from 'lucide-react'
+import { Brain, Users, FileText, Settings, GitBranch, Clock, Eye, AlertCircle, BarChart3, TrendingUp, Zap, Activity } from 'lucide-react'
 
 const Navigation = ({ pendingApprovalsCount = 0 }) => {
   const location = useLocation()
@@ -11,8 +11,8 @@ const Navigation = ({ pendingApprovalsCount = 0 }) => {
     { path: '/reports', label: 'Reports', icon: TrendingUp },
     { path: '/analytics', label: 'Analytics', icon: Zap },
     { path: '/office', label: 'Virtual Office', icon: Users },
-    { path: '/graph', label: 'Graph', icon: GitBranch },
-    { path: '/timeline', label: 'Timeline', icon: Clock },
+    { path: '/history', label: 'History', icon: Clock },
+    { path: '/monitoring', label: 'Monitoring', icon: Activity },
     { path: '/outputs', label: 'Outputs', icon: FileText },
     { path: '/settings', label: 'Settings', icon: Settings }
   ]
