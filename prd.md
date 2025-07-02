@@ -17,42 +17,44 @@ Built for portfolio/freelance showcasing, not commercial use.
 ## 🔧 Tech Stack
 
 | Layer               | Tech                                  | Purpose                                   |
-| ------------------- | ------------------------------------- | ----------------------------------------- |
+|:--------------------|:--------------------------------------|:------------------------------------------|
 | Frontend            | React + Vite + Tailwind CSS           | Interface and agent visualizations        |
-| Backend             | FastAPI (Python)                      | API, agent orchestration, routing         |
-| Agents              | LangGraph + LangChain + CrewAI        | Agent personality, flow & memory          |
-| Memory (Structured) | Neo4j + Graphiti                      | Agent memory + cross-agent shared context |
+| Backend             | FastAPI (Python), Pandas              | API, orchestration, data manipulation     |
+| Agents              | LangGraph + LangChain                 | Agent personality, flow & memory          |
+| Reporting           | Seaborn, Matplotlib, WeasyPrint       | Charting, PDF generation, rich reports    |
+| Memory (Structured) | Neo4j                                 | Agent memory + cross-agent shared context |
 | Memory (Semantic)   | Qdrant (free-tier)                    | Semantic document search, RAG             |
 | Web Crawling        | Crawl4AI                              | Web data extraction tool                  |
-| LLM Runtime         | OpenRouter (Gemini 1.5, deepseek/deepseek-chat:free)       | Agent LLMs                                |
-| Storage             | Local JSON/YAML + Supabase (optional) | Outputs, auth, config                     |
-| Dev Tools           | MCP + Windsurf                        | Scaffold, edit, manage structure          |
+| LLM Runtime         | OpenRouter                            | Agent LLMs (e.g., Gemini, Deepseek)       |
+| Storage             | Local YAML, CSV, PDF, HTML, PNG       | Rich outputs, auth, config                |
 
 ---
 
 ## 👥 Agent Team (MVP)
 
 | Agent            | Description                                     |
-| ---------------- | ----------------------------------------------- |
+|:-----------------|:------------------------------------------------|
 | 🧠 **Cofounder** | Captures vision, goals, target users            |
 | 🧭 **Manager**   | Breaks vision into workstreams + assigns agents |
 | 🎯 **Product**   | Defines MVP, features, personas                 |
 | 💸 **Finance**   | Simulates budget, ROI, revenue options          |
 | 📣 **Marketing** | Plans content, SEO, outreach                    |
 | ⚖️ **Legal**     | Drafts ToS/Privacy + checks compliance          |
+| 📈 **Sales**     | Creates sales forecasts and strategies          |
 
 ---
 
 ## 🧰 Agent Toolkits (Bound via LangChain tools or internal functions)
 
 | Agent         | Tools Accessed                                                              |
-| ------------- | --------------------------------------------------------------------------- |
-| **Cofounder** | `LLMOnly`, `memory.write`, `memory.query`                                   |
-| **Manager**   | `memory.read_all`, `task.assign(agent)`, `workflow.graph.generate()`        |
-| **Product**   | `rag.qdrant_search`, `memory.write`, `persona.create`, `json.plan.export()` |
-| **Finance**   | `api.mock_finance_call`, `web.fetch` (Crawl4AI), `memory.cross_query`       |
-| **Marketing** | `web.crawl_social()`, `content.generate()`, `seo.suggest_keywords()`        |
-| **Legal**     | `template.generate_tos()`, `check.compliance_flags()`                       |
+|:--------------|:----------------------------------------------------------------------------|
+| **Cofounder** | `LLM reasoning`, `memory.write`, `memory.query`                             |
+| **Manager**   | `memory.read_all`, `task.assign`, `report.compile_all`, `report.export_pdf` |
+| **Product**   | `rag.search`, `persona.create`, `plan.export_yaml`, `chart.gantt`           |
+| **Finance**   | `mock_finance_call`, `web.fetch`, `chart.generate_seaborn`, `report.export_csv` |
+| **Marketing** | `web.crawl`, `content.generate_html`, `seo.analyze`, `content.export_md`    |
+| **Legal**     | `compliance.check`, `document.generate_pdf`, `regulatory.validate`          |
+| **Sales**     | `crm.query`, `forecast.generate`, `report.export_csv`                       |
 
 > 🧠 All agents use `OpenRouter` via LangChain wrappers for reasoning.
 
@@ -75,13 +77,13 @@ Built for portfolio/freelance showcasing, not commercial use.
 
 LangGraph nodes for each agent define:
 
-| Property                        | Meaning                                                                                |
-| ------------------------------- | -------------------------------------------------------------------------------------- |
-| **Prompt Style**                | Tone, depth, verbosity (e.g., Cofounder is conversational, Legal is strict)            |
-| **Retry Logic**                 | Some agents retry on incomplete context (e.g., Marketing re-asks if Finance not ready) |
-| **Trigger Conditions**          | Agents only run when their inputs are available in shared graph                        |
-| **Feedback Hooks**              | Agent can pause, request clarification from Manager or user                            |
-| **Priority/Confidence Routing** | If an agent is below 60% certainty, routes output for manual approval                  |
+| Property                        | Implementation                                                                         |
+|:--------------------------------|:---------------------------------------------------------------------------------------|
+| **Prompt Style**                | Defined per agent (e.g., Cofounder is conversational, Legal is strict)                 |
+| **Retry Logic**                 | Built into the core LangGraph workflow for error handling                              |
+| **Trigger Conditions**          | Context-based execution; agents run when their inputs are available in shared memory   |
+| **Feedback Hooks**              | The approval system allows agents to pause and request human input                     |
+| **Priority/Confidence Routing** | If an agent's confidence is below a threshold (e.g., 60%), it triggers manual approval |
 
 ---
 
@@ -95,7 +97,10 @@ LangGraph nodes for each agent define:
          [ Manager ]
               ↓
  ┌────────┬────────┬────────┬────────┐
- ↓        ↓        ↓        ↓
+ ↓        ↓        ↓        ↓        ↓
+Product  Finance  Marketing Legal Sales
+└────────┴────────┴────────┴────────┘
+```
 Product  Finance  Marketing Legal
  └────────────┬────────────┘
               ↓
@@ -115,14 +120,14 @@ Product  Finance  Marketing Legal
 ### Pages & Components
 
 | Route       | Components                                           | Purpose                   |
-| ----------- | ---------------------------------------------------- | ------------------------- |
+|:------------|:-----------------------------------------------------|:--------------------------|
 | `/start`    | `ProjectForm`, `TriggerCofounder`                    | Start project, enter idea |
 | `/vision`   | `VisionViewer`, `ManagerView`, `ApprovePlan`         | See & approve the roadmap |
 | `/agents`   | `AgentCards`, `StatusBadge`, `OutputPreview`, `Logs` | Monitor per-agent state   |
 | `/graph`    | `GraphView`, `NodeDetail`, `EdgeInspector`           | Visualize context         |
 | `/timeline` | `AgentTimeline`, `LogsTimeline`                      | Full trace of actions     |
-| `/outputs`  | `ExportPanel`, `FileTree`, `DownloadAll`             | Final results             |
-| `/settings` | `ApprovalToggles`, `MemoryControls`                  | Enable/disable approvals  |
+| `/reports`  | `ReportViewer`, `FormatSelector`, `ChartDisplay`     | View & download reports   |
+| `/settings` | `ApprovalToggles`, `MemoryControls`                  | Configure agent autonomy  |
 
 ---
 
@@ -143,7 +148,7 @@ approval_mode:
 🔔 When manual approval is triggered:
 
 * UI shows modal with: tool name, agent name, input/output preview
-* Buttons: ✅ Approve / ❌ Deny / 📝 Edit / 🔁 Retry
+* Four actions available: ✅ **Approve** / ❌ **Deny** / 📝 **Edit** / 🔁 **Retry**
 
 ---
 
@@ -189,16 +194,19 @@ agentflow/
 
 ## 📄 Deliverables (Generated by Agents)
 
-| File             | Source Agent | Description                    |
-| ---------------- | ------------ | ------------------------------ |
-| `vision.json`    | Cofounder    | Project summary, target users  |
-| `plan.yml`       | Manager      | Roadmap, workstreams           |
-| `product.json`   | Product      | MVP, features, personas        |
-| `finance.json`   | Finance      | Budget, pricing, ROI           |
-| `marketing.json` | Marketing    | Content, SEO, social plan      |
-| `legal.json`     | Legal        | TOS, privacy, compliance flags |
-| `graph.graphml`  | All agents   | Full memory graph export       |
-| `timeline.json`  | Backend      | Event log                      |
+The system generates a suite of professional reports in various formats, moving beyond simple data dumps to provide actionable, company-ready documents.
+
+| Report Type                 | Format(s)                      | Source Agent(s)      | Description                                                 |
+|:----------------------------|:-------------------------------|:---------------------|:------------------------------------------------------------|
+| **Executive Summary**       | `PDF`, `HTML`                  | Manager, All         | A high-level overview of the project, health, and key metrics. |
+| **Financial Report**        | `PDF` (with charts), `CSV`     | Finance              | Detailed financial projections, ROI analysis, and budget with Seaborn charts. |
+| **Marketing & Content Plan**| `Markdown`, `HTML` (blog post) | Marketing            | A full content strategy, SEO keywords, and sample blog posts. |
+| **Sales Forecast**          | `CSV`, `JSON`                  | Sales                | Quarterly sales projections, target customer segments, and pipeline data. |
+| **Legal & Compliance Pack** | `PDF`                          | Legal                | Generated ToS, Privacy Policy, and a full compliance audit report. |
+| **Product Roadmap**         | `YAML`, `PNG` (Gantt)          | Product, Manager     | The detailed product plan and a visual Gantt chart of the timeline. |
+| **Raw Agent Outputs**       | `YAML`                         | All Specialists      | The original, raw structured data from each specialist agent. |
+| **Full Memory Graph**       | `graph.graphml`                | All Agents           | A complete, explorable export of the Neo4j memory graph.      |
+| **Execution Timeline**      | `JSON`                         | Backend              | A raw event log of every action, decision, and tool call.     |
 
 ---
 
@@ -411,4 +419,3 @@ Think: GitHub Actions for Agents
 ```
 
 ---
-

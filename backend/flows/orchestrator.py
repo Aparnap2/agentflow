@@ -47,6 +47,7 @@ class AgentOrchestrator:
         self.execution_timeline = []
         self.current_project_id = None
         self.conversations = {}  # Add conversations attribute
+        
     async def start_project(self, vision: str, user_name: str = "User", approval_mode: str = "manual") -> Dict[str, Any]:
         """Start new project following PRD execution flow"""
         project_id = f"project_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -259,39 +260,31 @@ class AgentOrchestrator:
         """Start conversation with Cofounder agent"""
         conversation_id = f"conv_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
         
-        # Retrieve existing conversation state or initialize new one
-        conversation_state = await self.state_manager.retrieve_conversation(conversation_id)
-        if not conversation_state:
-            conversation_state = {
-                "messages": [{"role": "user", "content": message}],
-                "agent": "Cofounder",
-                "status": "active",
-                "vision_ready": False
-            }
-            await self.state_manager.persist_conversation(conversation_id, conversation_state)
+        # Initialize conversation state
+        conversation_state = {
+            "messages": [{"role": "user", "content": message}],
+            "agent": "Cofounder",
+            "status": "active",
+            "vision_ready": False
+        }
+        await self.state_manager.persist_conversation(conversation_id, conversation_state)
         
         # Get Cofounder response
         try:
             response = await self.agents["Cofounder"].chat(message, conversation_id)
-            logger.info(f"=== ORCHESTRATOR DEBUG ===")
             logger.info(f"Raw agent response: {response}")
-            logger.info(f"Response type: {type(response)}")
             
             # Force string conversion for any response
             if isinstance(response, dict):
                 if "message" in response:
                     response_text = str(response["message"])
                     vision_complete = response.get("vision_complete", False)
-                    logger.info(f"Using message key: {response_text[:100]}...")
                 else:
-                    # If it's a dict without message key, it's probably the full analysis
                     response_text = "I've analyzed your idea! Here's what I found:\n\n" + json.dumps(response, indent=2)
                     vision_complete = True
-                    logger.info(f"No message key, using full dict")
             else:
                 response_text = str(response)
                 vision_complete = False
-                logger.info(f"Not a dict, converting to string: {response_text[:100]}...")
             
             # Store conversation state
             conversation_state["messages"].append({"role": "assistant", "content": response_text})
@@ -300,21 +293,17 @@ class AgentOrchestrator:
             # Also store in memory for continue_conversation
             self.conversations[conversation_id] = conversation_state
             
-            final_response = {
+            return {
                 "conversation_id": conversation_id,
                 "response": response_text,
                 "ready_for_approval": vision_complete
             }
             
-            logger.info(f"Final API response: {final_response}")
-            return final_response
-            
         except Exception as e:
             logger.error(f"Chat failed: {e}")
-            fallback_response = "Hello! I'm your AI Cofounder. I'd love to learn about your startup idea. Can you tell me what problem you're trying to solve?"
             return {
                 "conversation_id": conversation_id,
-                "response": fallback_response,
+                "response": "Hello! I'm your AI Cofounder. I'd love to learn about your startup idea. Can you tell me what problem you're trying to solve?",
                 "ready_for_approval": False
             }
     
