@@ -5,6 +5,7 @@
 - [x] Missing frontend routes: /vision, /chat - FIXED: Added all missing routes
 - [x] CofounderAgent static messages - FIXED: Now uses LLM with fallbacks
 - [x] Orchestrator conversations error - FIXED: Added conversations attribute
+- [x] Qdrant point ID format error - FIXED: Generate valid UUIDs for point IDs
 - [ ] API key configuration - NEEDS: Set OPENROUTER_API_KEY or DEEPSEEK_API_KEY
 
 ## Phase Status

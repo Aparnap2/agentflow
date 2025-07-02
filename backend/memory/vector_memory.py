@@ -45,7 +45,9 @@ class VectorMemory:
     def _generate_id(self, text: str, agent: str) -> str:
         """Generate unique ID for document"""
         import uuid
-        return str(uuid.uuid4())
+        # Generate deterministic UUID from content
+        content_hash = f"{agent}_{text[:100]}_{len(text)}"
+        return str(uuid.uuid5(uuid.NAMESPACE_DNS, content_hash))
     
     async def store_document(self, text: str, metadata: Dict[str, Any], agent: str) -> str:
         """Store document with semantic embedding"""
@@ -182,10 +184,19 @@ class VectorMemory:
         try:
             embedding = genai.embed_content(model=self.embedding_model, content=text, task_type="retrieval_document")["embedding"]
             
+            # Generate valid UUID from doc_id if it's not already valid
+            import uuid
+            try:
+                # Try to use as UUID
+                point_id = str(uuid.UUID(doc_id))
+            except ValueError:
+                # Generate UUID from string hash
+                point_id = str(uuid.uuid5(uuid.NAMESPACE_DNS, doc_id))
+            
             point = PointStruct(
-                id=doc_id,
+                id=point_id,
                 vector=embedding,
-                payload={"text": text, **metadata}
+                payload={"text": text, "original_id": doc_id, **metadata}
             )
             
             self.client.upsert(
@@ -193,9 +204,10 @@ class VectorMemory:
                 points=[point]
             )
             
-            logger.info(f"Added document with ID: {doc_id}")
+            logger.info(f"Added document with ID: {point_id} (original: {doc_id})")
         except Exception as e:
             logger.error(f"Failed to add document: {e}")
+            raise
     
     async def search(self, query: str, limit: int = 5, filter_conditions: Optional[Dict] = None) -> List[Dict[str, Any]]:
         """Search with optional filters"""
