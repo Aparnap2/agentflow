@@ -8,8 +8,9 @@ from typing import Dict, List, Any, Optional, TypedDict
 from datetime import datetime
 from langgraph.graph import StateGraph, END
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
-from langchain_openai import ChatOpenAI
 from langchain.tools import BaseTool
+from tools.tool_registry import ToolRegistry
+import aiohttp
 from loguru import logger
 
 from memory.memory_manager import MemoryManager
@@ -39,18 +40,16 @@ class LangGraphAgent:
         self.approval_manager = approval_manager
         self.personality = personality
         
-        # Initialize OpenRouter LLM
-        self.llm = ChatOpenAI(
-            model=personality.get("model", "deepseek/deepseek-chat:free"),
-            openai_api_base="https://openrouter.ai/api/v1",
-            openai_api_key=self._get_openrouter_key(),
-            temperature=personality.get("temperature", 0.7),
-            max_tokens=personality.get("max_tokens", 2000)
-        )
+        # Initialize OpenRouter configuration
+        self.model = personality.get("model", "deepseek/deepseek-chat:free")
+        self.api_key = self._get_openrouter_key()
+        self.temperature = personality.get("temperature", 0.7)
+        self.max_tokens = personality.get("max_tokens", 2000)
         
         # Agent-specific tools (to be overridden)
         self.tools = []
         
+        self.tool_registry = ToolRegistry(self.name)
         logger.info(f"Initialized LangGraph agent: {name}")
     
     def _get_openrouter_key(self) -> str:
@@ -91,10 +90,34 @@ Be thorough but concise. If you're uncertain, indicate your confidence level.
         """Update agent configuration"""
         if 'temperature' in config:
             self.personality['temperature'] = config['temperature']
-            self.llm.temperature = config['temperature']
+            self.temperature = config['temperature']
         if 'confidenceThreshold' in config:
             self.personality['confidence_threshold'] = config['confidenceThreshold']
     
+    async def _call_openrouter_with_tools(self, messages: List[Dict[str, str]], tools: List[BaseTool]) -> Dict[str, Any]:
+        """Make a direct API call to OpenRouter"""
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
+            async with session.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={
+                    "Authorization": f"Bearer {self.api_key}",
+                    "Content-Type": "application/json",
+                    "HTTP-Referer": "https://agentflow.ai",
+                    "X-Title": "AgentFlow"
+                },
+                json={
+                    "model": self.model,
+                    "messages": messages,
+                    "temperature": self.temperature,
+                    "max_tokens": self.max_tokens,
+                    "tools": [tool.to_dict() for tool in tools] if tools else []
+                }
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    raise Exception(f"OpenRouter API error: {error_text}")
+                return await response.json()
+
     def get_config(self) -> Dict[str, Any]:
         """Get current agent configuration"""
         return {
@@ -106,6 +129,18 @@ Be thorough but concise. If you're uncertain, indicate your confidence level.
             "enabled": True
         }
     
+    async def _select_dynamic_tools(self, task: Dict[str, Any], context: Dict[str, Any]) -> List[BaseTool]:
+        """Select tools dynamically based on task and context"""
+        selected_tools = []
+        # Example dynamic tool selection logic
+        if "market" in task.get("type", ""):
+            # Add a mock real-time market data tool
+            selected_tools.append(BaseTool())
+        if "finance" in task.get("type", ""):
+            # Add a mock financial analysis tool
+            selected_tools.append(BaseTool())
+        return selected_tools
+
     async def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the agent workflow"""
         try:
@@ -119,11 +154,35 @@ Be thorough but concise. If you're uncertain, indicate your confidence level.
                 "outputs": {}
             }
             
-            # Execute actions
-            action_results = await self._execute_actions(state)
+            # Convert state to messages format for OpenRouter
+            messages = [
+                {"role": "system", "content": self._get_system_prompt()},
+                {"role": "user", "content": json.dumps({
+                    "task": task,
+                    "context": context
+                })}
+            ]
             
-            # Calculate confidence
-            confidence = 0.8 if action_results else 0.5
+            # Select dynamic tools based on context
+            tools = await self.tool_registry.select_optimal_tools(task, context)
+            response = await self._call_openrouter_with_tools(messages, tools)
+            response_content = response["choices"][0]["message"]["content"]
+            
+            # Try to parse JSON, fallback to structured text
+            try:
+                action_results = json.loads(response_content)
+            except json.JSONDecodeError:
+                # Create structured output from text response
+                action_results = {
+                    "analysis": response_content,
+                    "agent": self.name,
+                    "task_type": task.get("type", "general"),
+                    "recommendations": ["Analysis completed"],
+                    "confidence": 0.7
+                }
+            
+            # Calculate confidence based on response
+            confidence = float(response.get("choices", [{}])[0].get("finish_reason", "") == "stop") * 0.8
             
             # Store results
             await self.memory_manager.store_agent_memory(
@@ -153,3 +212,28 @@ Be thorough but concise. If you're uncertain, indicate your confidence level.
                 "agent": self.name,
                 "task_id": task.get("id")
             }
+    
+    async def chat(self, message: str, conversation_id: Optional[str] = None) -> Dict[str, Any]:
+        """Handle conversation chat - to be overridden by specific agents"""
+        try:
+            # Get context
+            context = await self.memory_manager.get_shared_context()
+            
+            # Create simple task for chat
+            task = {
+                "id": conversation_id or f"chat_{datetime.now().strftime('%Y%m%d_%H%M%S')}",
+                "type": "conversation",
+                "message": message
+            }
+            
+            # Execute the chat
+            result = await self.execute(task)
+            
+            if result.get("status") == "completed":
+                return result.get("output", {"message": "Chat completed successfully"})
+            else:
+                return {"message": "I'm here to help! Please tell me more about what you need."}
+                
+        except Exception as e:
+            logger.error(f"Chat failed for {self.name}: {e}")
+            return {"message": "I apologize for the error. Please try again."}

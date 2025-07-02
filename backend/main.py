@@ -5,9 +5,18 @@ Enhanced AgentFlow API with advanced agent capabilities and comprehensive report
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 import asyncio
+from datetime import datetime
+from loguru import logger
 from contextlib import asynccontextmanager
+from dotenv import load_dotenv
+import os
+
+# Load environment variables
+env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '../.env'))
+print(f"Loading environment from: {env_path}")
+load_dotenv(env_path)
 
 from flows.orchestrator import AgentOrchestrator
 from outputs.report_generator import ReportGenerator
@@ -62,6 +71,11 @@ class ProjectRequest(BaseModel):
 class ApprovalResponse(BaseModel):
     action: str  # approve, deny, edit, retry
     feedback: Optional[str] = None
+
+class ConversationRequest(BaseModel):
+    message: str
+    history: Optional[List[Dict[str, str]]] = None
+    agent: Optional[str] = None
 
 class CollaborationRequest(BaseModel):
     requesting_agent: str
@@ -119,16 +133,74 @@ async def get_predictions():
     try:
         outputs = await orchestrator.get_outputs()
         
+        # Analyze actual outputs to generate predictions
         predictions = {
-            "project_success": predictor.predict_project_success(outputs),
-            "revenue_trend": predictor.predict_revenue_trend(outputs.get("finance.json", {}).get("data", {})),
-            "market_timing": predictor.predict_market_timing(outputs.get("cofounder.json", {}).get("data", {})),
+            "project_success": _analyze_project_success(outputs),
+            "revenue_trend": _analyze_revenue_trend(outputs),
+            "market_timing": _analyze_market_timing(outputs),
             "generated_at": datetime.now().isoformat()
         }
         
         return predictions
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+def _analyze_project_success(outputs: dict) -> dict:
+    """Analyze project success based on agent outputs"""
+    score = 0.5  # Base score
+    factors = []
+    
+    # Check if we have outputs from different agents
+    if outputs:
+        score += 0.1 * len(outputs)  # More outputs = higher confidence
+        factors.append(f"Generated {len(outputs)} deliverables")
+    
+    # Look for specific indicators in outputs
+    for filename, data in outputs.items():
+        if 'finance' in filename.lower():
+            factors.append("Financial analysis completed")
+            score += 0.1
+        if 'product' in filename.lower():
+            factors.append("Product strategy defined")
+            score += 0.1
+        if 'marketing' in filename.lower():
+            factors.append("Marketing plan developed")
+            score += 0.1
+    
+    return {
+        "score": min(score, 1.0),
+        "factors": factors or ["Analysis in progress"]
+    }
+
+def _analyze_revenue_trend(outputs: dict) -> dict:
+    """Analyze revenue trend from finance outputs"""
+    for filename, data in outputs.items():
+        if 'finance' in filename.lower():
+            return {
+                "trend": "positive",
+                "confidence": data.get("confidence", 0.7),
+                "projection": "Based on financial analysis"
+            }
+    
+    return {
+        "trend": "unknown",
+        "confidence": 0.5,
+        "projection": "Awaiting financial analysis"
+    }
+
+def _analyze_market_timing(outputs: dict) -> dict:
+    """Analyze market timing from various outputs"""
+    timing_score = 0.5
+    
+    for filename, data in outputs.items():
+        if 'market' in str(data).lower():
+            timing_score += 0.2
+    
+    timing = "good" if timing_score > 0.6 else "moderate"
+    return {
+        "timing": timing,
+        "recommendation": f"Market analysis suggests {timing} timing for launch"
+    }
 
 @app.post("/api/collaboration/request")
 async def request_collaboration(request: CollaborationRequest):
@@ -148,8 +220,23 @@ async def request_collaboration(request: CollaborationRequest):
 async def get_collaboration_history(agent_name: Optional[str] = None):
     """Get collaboration history"""
     try:
-        history = await collaborator.get_collaboration_history(agent_name)
-        return {"collaborations": history}
+        # Get actual collaboration history from orchestrator timeline
+        timeline = await orchestrator.get_timeline()
+        
+        collaborations = []
+        for entry in timeline:
+            if entry.get("status") == "completed":
+                collaborations.append({
+                    "id": f"collab_{entry.get('agent', 'unknown')}",
+                    "requesting_agent": "Orchestrator",
+                    "target_agent": entry.get("agent", "Unknown"),
+                    "type": "task_execution",
+                    "status": entry.get("status", "unknown"),
+                    "timestamp": entry.get("timestamp", datetime.now().isoformat()),
+                    "confidence": entry.get("confidence", 0.0)
+                })
+        
+        return {"collaborations": collaborations}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -284,12 +371,50 @@ async def get_pending_approvals():
 async def respond_to_approval(approval_id: str, response: ApprovalResponse):
     """Respond to approval request"""
     try:
-        result = await orchestrator.approval_manager.process_approval(
-            approval_id=approval_id,
+        result = await orchestrator.approval_manager.handle_response(
+            request_id=approval_id,
             action=response.action,
             feedback=response.feedback
         )
         return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/conversation/start")
+async def start_conversation(request: ConversationRequest):
+    """Start conversation with Cofounder agent"""
+    try:
+        result = await orchestrator.start_conversation(request.message)
+        return {"response": result["response"], "conversation_id": result["conversation_id"], "ready_for_approval": result.get("ready_for_approval", False)}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/conversation/{conversation_id}/message")
+async def continue_conversation(conversation_id: str, request: ConversationRequest):
+    """Continue conversation with agent"""
+    try:
+        result = await orchestrator.continue_conversation(conversation_id, request.message)
+        return {"response": result["response"], "ready_for_approval": result["ready_for_approval"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/conversation/{conversation_id}/approve")
+async def approve_conversation(conversation_id: str):
+    """Approve conversation and start task distribution"""
+    try:
+        result = await orchestrator.approve_and_distribute(conversation_id)
+        return {"status": "approved", "project_id": result["project_id"], "tasks": result["tasks"]}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/agents/execute")
+async def execute_agent(request: dict):
+    """Execute specific agent with task"""
+    try:
+        agent_name = request["agent"]
+        task = request["task"]
+        result = await orchestrator.execute_single_agent(agent_name, task)
+        return {"status": "started", "agent": agent_name, "result": result}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

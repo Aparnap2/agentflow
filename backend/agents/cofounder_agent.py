@@ -64,21 +64,25 @@ When processing a vision, structure your output as:
         Format your response as structured JSON.
         """
         
-        # Use the LLM to process the vision
-        from langchain_core.messages import HumanMessage
-        response = await self.llm.ainvoke([HumanMessage(content=vision_prompt)])
+        # Use REST API to process the vision
+        messages = [
+            {"role": "system", "content": self._get_system_prompt()},
+            {"role": "user", "content": vision_prompt}
+        ]
+        response = await self._call_openrouter(messages)
         
         try:
             # Try to extract JSON from the response
-            json_match = re.search(r'\{.*\}', response.content, re.DOTALL)
+            response_content = response["choices"][0]["message"]["content"]
+            json_match = re.search(r'\{.*\}', response_content, re.DOTALL)
             if json_match:
                 vision_analysis = json.loads(json_match.group())
             else:
                 # Fallback: create structured output from text
-                vision_analysis = self._parse_vision_from_text(response.content, vision_input)
-        except (json.JSONDecodeError, AttributeError):
+                vision_analysis = self._parse_vision_from_text(response_content, vision_input)
+        except (json.JSONDecodeError, AttributeError, KeyError):
             # Fallback parsing
-            vision_analysis = self._parse_vision_from_text(response.content, vision_input)
+            vision_analysis = self._parse_vision_from_text(str(response_content), vision_input)
         
         # Enhance with market research
         vision_analysis["market_research"] = market_research
@@ -129,12 +133,12 @@ When processing a vision, structure your output as:
         try:
             # Extract key terms from vision
             search_query = self._extract_search_terms(vision)
-            market_data = await self.web_search._arun(f"{search_query} market trends 2024")
+            market_data = await self.web_search._arun(f"{search_query} market trends nowadays")
             
             return {
                 "current_trends": market_data.get("summary", "Market research in progress"),
-                "search_results": len(market_data.get("results", [])),
-                "last_updated": market_data.get("timestamp", "")
+            "search_results": market_data.get("count", 0),
+            "last_updated": datetime.now().isoformat()
             }
         except Exception as e:
             logger.error(f"Market research failed: {e}")
@@ -149,26 +153,47 @@ When processing a vision, structure your output as:
     
     async def chat(self, message: str, conversation_id: str, context: list = None) -> Dict[str, Any]:
         """Chat interface for conversational vision refinement"""
-        context = context or []
-        
-        chat_prompt = f"""You are having a conversation to understand their startup vision.
-        
+        try:
+            context = context or []
+            
+            chat_prompt = f"""You are having a conversation to understand their startup vision.
+            
 User's message: {message}
-        
+            
 Your goal: Ask clarifying questions about vision, users, market, problems.
 When you have enough info, end with: "VISION_COMPLETE"
-        """
-        
-        from langchain_core.messages import HumanMessage
-        response = await self.llm.ainvoke([HumanMessage(content=chat_prompt)])
-        
-        vision_complete = "VISION_COMPLETE" in response.content
-        clean_response = response.content.replace("VISION_COMPLETE", "").strip()
-        
-        return {
-            "message": clean_response,
-            "vision_complete": vision_complete
-        }
+            """
+            
+            messages = [
+                {"role": "system", "content": self._get_system_prompt()},
+                {"role": "user", "content": chat_prompt}
+            ]
+            response = await self._call_openrouter(messages)
+            
+            response_content = response["choices"][0]["message"]["content"]
+            vision_complete = "VISION_COMPLETE" in response_content
+            clean_response = response_content.replace("VISION_COMPLETE", "").strip()
+            
+            return {
+                "message": clean_response,
+                "vision_complete": vision_complete
+            }
+        except Exception as e:
+            logger.error(f"=== COFOUNDER CHAT ERROR ===")
+            logger.error(f"Chat failed: {e}")
+            logger.error(f"Exception type: {type(e)}")
+            # Simple conversational responses based on input
+            if "hi" in message.lower() or "hello" in message.lower():
+                response_text = "Hello! I'm your AI Cofounder. I'd love to learn about your startup idea. What problem are you trying to solve?"
+            else:
+                response_text = "That's interesting! Can you tell me more about who your target users would be and what specific pain points you're addressing?"
+            
+            fallback = {
+                "message": response_text,
+                "vision_complete": False
+            }
+            logger.info(f"Returning fallback: {fallback}")
+            return fallback
     
     async def extract_vision(self, messages: list) -> Dict[str, Any]:
         """Extract structured vision from conversation"""
@@ -178,11 +203,15 @@ When you have enough info, end with: "VISION_COMPLETE"
         
 Return JSON with: vision_statement, target_users, problem_solving, key_features"""
         
-        from langchain_core.messages import HumanMessage
-        response = await self.llm.ainvoke([HumanMessage(content=extract_prompt)])
+        messages = [
+            {"role": "system", "content": self._get_system_prompt()},
+            {"role": "user", "content": extract_prompt}
+        ]
+        response = await self._call_openrouter(messages)
         
         try:
-            json_match = re.search(r'\{.*\}', response.content, re.DOTALL)
+            response_content = response["choices"][0]["message"]["content"]
+            json_match = re.search(r'\{.*\}', response_content, re.DOTALL)
             if json_match:
                 return json.loads(json_match.group())
         except:

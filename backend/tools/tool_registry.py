@@ -60,10 +60,34 @@ class ToolRegistry:
             "compliance_check": ComplianceCheckTool()
         }
         return tool_map.get(tool_name)
-        
+    
     def get_tools(self) -> List[LCBaseTool]:
         """Get list of all registered tools for this agent"""
         return list(self.tools.values())
+        
+    def get_tools_for_agent(self, agent_name: str) -> List[LCBaseTool]:
+        """Get tools for a specific agent
+        
+        Args:
+            agent_name: Name of the agent
+            
+        Returns:
+            List[LCBaseTool]: List of tools for the agent
+        """
+        if agent_name == self.agent_name:
+            return self.get_tools()
+            
+        # For other agents, create a new ToolRegistry instance
+        registry = ToolRegistry(agent_name)
+        return registry.get_tools()
+        
+    def get_all_tools(self) -> Dict[str, LCBaseTool]:
+        """Get all registered tools
+        
+        Returns:
+            Dict[str, LCBaseTool]: Dictionary of tool name to tool
+        """
+        return self.tools
     
     def get_tool(self, name: str) -> LCBaseTool:
         """Get specific tool by name"""

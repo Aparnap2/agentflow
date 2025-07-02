@@ -12,17 +12,22 @@ class MarketIntelligenceTool(BaseTool):
     """Advanced market analysis and sentiment tracking"""
     name: str = "market_intelligence"
     description: str = "Analyze market trends, sentiment, and competitive landscape"
+    web_search: WebSearchTool = None
     
     def __init__(self):
         super().__init__()
-        self.web_search = WebSearchTool()
+        object.__setattr__(self, 'web_search', WebSearchTool())
+    
+    def _run(self, query: str, analysis_type: str = "comprehensive") -> Dict[str, Any]:
+        """Synchronous market intelligence analysis - required by BaseTool"""
+        raise NotImplementedError("Please use _arun for asynchronous execution")
     
     async def _arun(self, query: str, analysis_type: str = "comprehensive") -> Dict[str, Any]:
         """Perform market intelligence analysis"""
         try:
             # Multi-faceted market research
             searches = [
-                f"{query} market trends 2024",
+                f"{query} market trends nowadays",
                 f"{query} competitors analysis",
                 f"{query} industry growth forecast",
                 f"{query} customer sentiment"
@@ -30,7 +35,7 @@ class MarketIntelligenceTool(BaseTool):
             
             results = []
             for search_query in searches:
-                result = await self.web_search._arun(search_query, max_results=2)
+                result = await self.web_search._arun(search_query)
                 results.append(result)
             
             return {
@@ -45,7 +50,7 @@ class MarketIntelligenceTool(BaseTool):
             return {"error": str(e), "fallback": self._get_fallback_intelligence(query)}
     
     def _calculate_confidence(self, results: List[Dict]) -> float:
-        """Calculate confidence based on data quality"""
+        """Calculate confidence score based on number of search results"""
         total_sources = sum(len(r.get("results", [])) for r in results)
         return min(0.9, total_sources * 0.1 + 0.3)
     
@@ -62,6 +67,10 @@ class FinancialModelingTool(BaseTool):
     """Advanced financial modeling and projections"""
     name: str = "financial_modeling"
     description: str = "Create detailed financial models and scenario analysis"
+    
+    def _run(self, business_model: Dict[str, Any], scenarios: List[str] = None) -> Dict[str, Any]:
+        """Synchronous financial modeling - required by BaseTool"""
+        raise NotImplementedError("Please use _arun for asynchronous execution")
     
     async def _arun(self, business_model: Dict[str, Any], scenarios: List[str] = None) -> Dict[str, Any]:
         """Generate comprehensive financial model"""
@@ -123,6 +132,10 @@ class ContentStrategyTool(BaseTool):
     """Advanced content strategy and performance prediction"""
     name: str = "content_strategy"
     description: str = "Generate data-driven content strategies with performance predictions"
+    
+    def _run(self, target_audience: str, business_goals: List[str]) -> Dict[str, Any]:
+        """Synchronous content strategy generation - required by BaseTool"""
+        raise NotImplementedError("Please use _arun for asynchronous execution")
     
     async def _arun(self, target_audience: str, business_goals: List[str]) -> Dict[str, Any]:
         """Create comprehensive content strategy"""
@@ -208,6 +221,10 @@ class RiskAssessmentTool(BaseTool):
     """Advanced risk assessment and mitigation planning"""
     name: str = "risk_assessment"
     description: str = "Identify, analyze, and plan mitigation for business risks"
+    
+    def _run(self, business_context: Dict[str, Any]) -> Dict[str, Any]:
+        """Synchronous risk assessment - required by BaseTool"""
+        raise NotImplementedError("Please use _arun for asynchronous execution")
     
     async def _arun(self, business_context: Dict[str, Any]) -> Dict[str, Any]:
         """Perform comprehensive risk assessment"""

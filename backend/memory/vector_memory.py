@@ -10,9 +10,20 @@ class VectorMemory:
     """Qdrant-based semantic memory for RAG operations"""
     
     def __init__(self):
-        self.url = os.getenv("QDRANT_URL", "http://localhost:6333")
+        # Debug logging
+        logger.debug(f"Environment variables loaded from: {os.path.abspath('../.env')}")        
+        self.url = os.getenv("QDRANT_URL")
         self.api_key = os.getenv("QDRANT_API_KEY")
-        self.client = QdrantClient(url=self.url, api_key=self.api_key)
+        logger.debug(f"QDRANT_URL: {self.url}")
+        logger.debug(f"QDRANT_API_KEY: {'set' if self.api_key else 'not set'}")
+        if not self.url or not self.api_key:
+            raise ValueError("QDRANT_URL and QDRANT_API_KEY must be set in .env")
+        # Remove any trailing slashes from the URL
+        self.url = self.url.rstrip('/')
+        # For cloud URLs, ensure we're using https://
+        if not self.url.startswith('http'):
+            self.url = f"https://{self.url}"
+        self.client = QdrantClient(url=self.url, api_key=self.api_key, timeout=60)
         genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
         self.embedding_model = "models/embedding-001"
         self.collection_name = "agentflow_memory"

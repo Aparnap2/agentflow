@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Send, Brain, CheckCircle, ArrowRight } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import ReactMarkdown from 'react-markdown'
+import { useFlow } from '../contexts/FlowContext'
 import api from '../lib/api'
 
 const ConversationPage = () => {
@@ -12,6 +13,7 @@ const ConversationPage = () => {
   const [readyForApproval, setReadyForApproval] = useState(false)
   const messagesEndRef = useRef(null)
   const navigate = useNavigate()
+  const { updateFlowState } = useFlow()
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
@@ -34,11 +36,17 @@ const ConversationPage = () => {
       if (!conversationId) {
         response = await api.startConversation(input)
         setConversationId(response.conversation_id)
+        updateFlowState({ 
+          conversationId: response.conversation_id,
+          currentStep: 'conversation'
+        })
       } else {
         response = await api.sendMessage(conversationId, input)
+        console.log('Frontend received response:', response)
       }
 
       const assistantMessage = { role: 'assistant', content: response.response }
+      console.log('Assistant message being added:', assistantMessage)
       setMessages(prev => [...prev, assistantMessage])
       setReadyForApproval(response.ready_for_approval)
     } catch (error) {
@@ -56,6 +64,11 @@ const ConversationPage = () => {
     setLoading(true)
     try {
       const response = await api.approveConversation(conversationId)
+      updateFlowState({ 
+        visionApproved: true,
+        projectId: response.project_id,
+        tasksDistributed: true
+      })
       navigate('/tasks', { state: { projectId: response.project_id, tasks: response.tasks } })
     } catch (error) {
       console.error('Failed to approve conversation:', error)
@@ -104,7 +117,7 @@ const ConversationPage = () => {
                   {message.role === 'user' ? (
                     <div className="whitespace-pre-wrap">{message.content}</div>
                   ) : (
-                    <ReactMarkdown>{message.content}</ReactMarkdown>
+                    <ReactMarkdown>{String(message.content || '')}</ReactMarkdown>
                   )}
                 </div>
               </div>

@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, List
 from agents.langgraph_base import LangGraphAgent
 from tools.web_search import WebSearchTool
 from tools.advanced_tools import MarketIntelligenceTool

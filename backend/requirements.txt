@@ -19,7 +19,7 @@ redis==5.0.1
 
 # Tools & Integrations
 crawl4ai==0.2.77
-openai==1.6.1
+aiohttp==3.9.0
 httpx==0.25.2
 requests==2.31.0
 

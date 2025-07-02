@@ -2,12 +2,12 @@
 Sales Agent - Advanced sales forecasting, pipeline analysis, and strategy
 """
 
+from datetime import datetime
+from typing import Dict, Any, List
+
 from agents.langgraph_base import LangGraphAgent
 from tools.web_search import WebSearchTool
 from tools.advanced_tools import FinancialModelingTool, RiskAssessmentTool
-from datetime import datetime
-from typing import Dict, Any
-
 class SalesAgent(LangGraphAgent):
     """Sales Agent responsible for revenue forecasting and sales strategy"""
     

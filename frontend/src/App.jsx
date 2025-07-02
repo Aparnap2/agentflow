@@ -1,17 +1,16 @@
 import { Routes, Route } from 'react-router-dom'
+import { FlowProvider } from './contexts/FlowContext'
 import StartPage from './pages/StartPage'
 import ConversationPage from './pages/ConversationPage'
 import TasksPage from './pages/TasksPage'
 import VirtualOfficePage from './pages/VirtualOfficePage'
 import VisionPage from './pages/VisionPage'
 import AgentsPage from './pages/AgentsPage'
-import GraphPage from './pages/GraphPage'
-import TimelinePage from './pages/TimelinePage'
-import OutputsPage from './pages/OutputsPage'
-import SettingsPage from './pages/SettingsPage'
 import DashboardPage from './pages/DashboardPage'
-import ReportsPage from './pages/ReportsPage'
 import AnalyticsPage from './pages/AnalyticsPage'
+import OutputsPage from './pages/OutputsPage'
+import ReportsPage from './pages/ReportsPage'
+import SettingsPage from './pages/SettingsPage'
 import Navigation from './components/Navigation'
 import ApprovalModal from './components/ApprovalModal'
 import { useState, useEffect } from 'react'
@@ -71,35 +70,37 @@ function App() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <Navigation pendingApprovalsCount={pendingApprovals.length} />
-      <main className="container mx-auto px-4 py-8">
-        <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/dashboard" element={<DashboardPage />} />
-          <Route path="/start" element={<StartPage />} />
-          <Route path="/chat" element={<ConversationPage />} />
-          <Route path="/tasks" element={<TasksPage />} />
-          <Route path="/office" element={<VirtualOfficePage />} />
-          <Route path="/vision" element={<VisionPage />} />
-          <Route path="/reports" element={<ReportsPage />} />
-          <Route path="/analytics" element={<AnalyticsPage />} />
-          <Route path="/graph" element={<GraphPage />} />
-          <Route path="/timeline" element={<TimelinePage />} />
-          <Route path="/outputs" element={<OutputsPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Routes>
-      </main>
-      
-      {/* Approval Modal */}
-      {showApprovalModal && currentApproval && (
-        <ApprovalModal
-          approval={currentApproval}
-          onResponse={handleApprovalResponse}
-          onClose={() => setShowApprovalModal(false)}
-        />
-      )}
-    </div>
+    <FlowProvider>
+      <div className="min-h-screen bg-gray-50">
+        <Navigation pendingApprovalsCount={pendingApprovals.length} />
+        <main className="container mx-auto px-4 py-8">
+          <Routes>
+            <Route path="/" element={<DashboardPage />} />
+            <Route path="/dashboard" element={<DashboardPage />} />
+            <Route path="/start" element={<StartPage />} />
+            <Route path="/chat" element={<ConversationPage />} />
+            <Route path="/conversation" element={<ConversationPage />} />
+            <Route path="/vision" element={<VisionPage />} />
+            <Route path="/agents" element={<AgentsPage />} />
+            <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/analytics" element={<AnalyticsPage />} />
+            <Route path="/outputs" element={<OutputsPage />} />
+            <Route path="/reports" element={<ReportsPage />} />
+            <Route path="/office" element={<VirtualOfficePage />} />
+            <Route path="/settings" element={<SettingsPage />} />
+          </Routes>
+        </main>
+        
+        {/* Approval Modal */}
+        {showApprovalModal && currentApproval && (
+          <ApprovalModal
+            approval={currentApproval}
+            onResponse={handleApprovalResponse}
+            onClose={() => setShowApprovalModal(false)}
+          />
+        )}
+      </div>
+    </FlowProvider>
   )
 }
 
