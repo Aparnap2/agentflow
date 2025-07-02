@@ -246,10 +246,9 @@ class GraphMemory:
             }
         
         with self.driver.session() as session:
-            # Get agent statistics
+            # Get agent statistics - simplified query to avoid missing relationship warnings
             agents_result = session.run("""
                 MATCH (a:Agent)
-                OPTIONAL MATCH (a)-[:EXECUTED]->(t:Task)-[:PRODUCED]->(o:Output)
                 OPTIONAL MATCH (o:Output {agent: a.id})
                 RETURN a.id as name,
                        count(DISTINCT CASE WHEN 'Private' IN labels(o) THEN o END) as private_memories,

@@ -16,7 +16,7 @@ export const FlowProvider = ({ children }) => {
   const location = useLocation()
   
   const [flowState, setFlowState] = useState({
-    currentStep: 'start',
+    currentStep: 'conversation',
     conversationId: null,
     projectId: null,
     visionApproved: false,
@@ -24,7 +24,7 @@ export const FlowProvider = ({ children }) => {
     agentsCompleted: false,
     canNavigate: {
       start: true,
-      conversation: false,
+      conversation: true,
       tasks: false,
       outputs: false,
       reports: false

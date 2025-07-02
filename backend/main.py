@@ -635,6 +635,24 @@ async def get_agent_personalities():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/agents/configs")
+async def get_agent_configs():
+    """Get agent configurations"""
+    try:
+        configs = await orchestrator.get_agent_configs()
+        return configs
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/agents/configs")
+async def update_agent_configs(configs: dict):
+    """Update agent configurations"""
+    try:
+        result = await orchestrator.update_agent_configs(configs)
+        return {"status": "success", "configs": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
