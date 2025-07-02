@@ -46,6 +46,7 @@ class AgentOrchestrator:
             pass  # New agents not available yet
         self.execution_timeline = []
         self.current_project_id = None
+        self.conversations = {}  # Add conversations attribute
     async def start_project(self, vision: str, user_name: str = "User", approval_mode: str = "manual") -> Dict[str, Any]:
         """Start new project following PRD execution flow"""
         project_id = f"project_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
@@ -293,10 +294,11 @@ class AgentOrchestrator:
                 logger.info(f"Not a dict, converting to string: {response_text[:100]}...")
             
             # Store conversation state
-            conversation_state = await self.state_manager.retrieve_conversation(conversation_id)
-            if conversation_state:
-                conversation_state["messages"].append({"role": "assistant", "content": response_text})
-                await self.state_manager.persist_conversation(conversation_id, conversation_state)
+            conversation_state["messages"].append({"role": "assistant", "content": response_text})
+            await self.state_manager.persist_conversation(conversation_id, conversation_state)
+            
+            # Also store in memory for continue_conversation
+            self.conversations[conversation_id] = conversation_state
             
             final_response = {
                 "conversation_id": conversation_id,
@@ -362,8 +364,15 @@ class AgentOrchestrator:
             logger.info(f"Available conversations: {list(self.conversations.keys())}")
             
             if conversation_id not in self.conversations:
-                logger.error(f"Conversation {conversation_id} not found")
-                raise ValueError(f"Conversation {conversation_id} not found")
+                conversation_state = await self.state_manager.retrieve_conversation(conversation_id)
+                if conversation_state:
+                    self.conversations[conversation_id] = conversation_state
+                else:
+                    logger.warning(f"No conversation state found for {conversation_id}")
+                    return {
+                        "response": "I apologize, but I couldn't find our conversation. Please start a new conversation.",
+                        "ready_for_approval": False
+                    }
             
             conv = self.conversations[conversation_id]
             conv["messages"].append({"role": "user", "content": message})
@@ -402,10 +411,13 @@ class AgentOrchestrator:
             logger.info(f"Available conversations: {list(self.conversations.keys())}")
             
             if conversation_id not in self.conversations:
-                logger.error(f"Conversation {conversation_id} not found")
-                # Create a simple task distribution without conversation
-                project_id = f"project_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-                self.current_project_id = project_id
+                conversation_state = await self.state_manager.retrieve_conversation(conversation_id)
+                if conversation_state:
+                    self.conversations[conversation_id] = conversation_state
+                else:
+                    # Create a simple task distribution without conversation
+                    project_id = f"project_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                    self.current_project_id = project_id
                 
                 # Simple task distribution
                 tasks = {

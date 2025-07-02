@@ -1,0 +1,1 @@
+{"messages": [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "Hello! I'm your AI Cofounder. I'd love to learn about your startup idea. What problem are you trying to solve?"}], "agent": "Cofounder", "status": "active", "vision_ready": false}

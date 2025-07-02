@@ -40,9 +40,9 @@ class LangGraphAgent:
         self.approval_manager = approval_manager
         self.personality = personality
         
-        # Initialize OpenRouter configuration
+        # Initialize LLM configuration
         self.model = personality.get("model", "deepseek/deepseek-chat:free")
-        self.api_key = self._get_openrouter_key()
+        self.api_key = self._get_api_key()
         self.temperature = personality.get("temperature", 0.7)
         self.max_tokens = personality.get("max_tokens", 2000)
         
@@ -52,10 +52,16 @@ class LangGraphAgent:
         self.tool_registry = ToolRegistry(self.name)
         logger.info(f"Initialized LangGraph agent: {name}")
     
-    def _get_openrouter_key(self) -> str:
-        """Get OpenRouter API key from environment"""
+    def _get_api_key(self) -> str:
+        """Get API key from environment"""
         import os
-        return os.getenv("OPENROUTER_API_KEY", "")
+        # Try multiple API key sources
+        return (
+            os.getenv("OPENROUTER_API_KEY") or 
+            os.getenv("DEEPSEEK_API_KEY") or 
+            os.getenv("OPENAI_API_KEY") or 
+            ""
+        )
     
     def _get_system_prompt(self) -> str:
         """Get agent's system prompt based on personality"""
@@ -94,8 +100,11 @@ Be thorough but concise. If you're uncertain, indicate your confidence level.
         if 'confidenceThreshold' in config:
             self.personality['confidence_threshold'] = config['confidenceThreshold']
     
-    async def _call_openrouter_with_tools(self, messages: List[Dict[str, str]], tools: List[BaseTool]) -> Dict[str, Any]:
-        """Make a direct API call to OpenRouter"""
+    async def _call_llm(self, messages: List[Dict[str, str]]) -> Dict[str, Any]:
+        """Make a direct API call to OpenRouter/DeepSeek"""
+        if not self.api_key:
+            raise Exception("No API key configured")
+            
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
             async with session.post(
                 "https://openrouter.ai/api/v1/chat/completions",
@@ -109,8 +118,7 @@ Be thorough but concise. If you're uncertain, indicate your confidence level.
                     "model": self.model,
                     "messages": messages,
                     "temperature": self.temperature,
-                    "max_tokens": self.max_tokens,
-                    "tools": [tool.to_dict() for tool in tools] if tools else []
+                    "max_tokens": self.max_tokens
                 }
             ) as response:
                 if response.status != 200:
@@ -163,9 +171,8 @@ Be thorough but concise. If you're uncertain, indicate your confidence level.
                 })}
             ]
             
-            # Select dynamic tools based on context
-            tools = await self.tool_registry.select_optimal_tools(task, context)
-            response = await self._call_openrouter_with_tools(messages, tools)
+            # Call LLM
+            response = await self._call_llm(messages)
             response_content = response["choices"][0]["message"]["content"]
             
             # Try to parse JSON, fallback to structured text

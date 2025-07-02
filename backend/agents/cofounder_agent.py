@@ -64,12 +64,17 @@ When processing a vision, structure your output as:
         Format your response as structured JSON.
         """
         
-        # Use REST API to process the vision
-        messages = [
-            {"role": "system", "content": self._get_system_prompt()},
-            {"role": "user", "content": vision_prompt}
-        ]
-        response = await self._call_openrouter(messages)
+        # Use LLM to process the vision
+        try:
+            messages = [
+                {"role": "system", "content": self._get_system_prompt()},
+                {"role": "user", "content": vision_prompt}
+            ]
+            response = await self._call_llm(messages)
+        except Exception as e:
+            logger.error(f"LLM call failed: {e}")
+            # Fallback to structured analysis
+            response = {"choices": [{"message": {"content": self._create_fallback_analysis(vision_input)}}]}
         
         try:
             # Try to extract JSON from the response
@@ -80,7 +85,8 @@ When processing a vision, structure your output as:
             else:
                 # Fallback: create structured output from text
                 vision_analysis = self._parse_vision_from_text(response_content, vision_input)
-        except (json.JSONDecodeError, AttributeError, KeyError):
+        except (json.JSONDecodeError, AttributeError, KeyError) as e:
+            logger.error(f"JSON parsing failed: {e}")
             # Fallback parsing
             vision_analysis = self._parse_vision_from_text(str(response_content), vision_input)
         
@@ -168,7 +174,7 @@ When you have enough info, end with: "VISION_COMPLETE"
                 {"role": "system", "content": self._get_system_prompt()},
                 {"role": "user", "content": chat_prompt}
             ]
-            response = await self._call_openrouter(messages)
+            response = await self._call_llm(messages)
             
             response_content = response["choices"][0]["message"]["content"]
             vision_complete = "VISION_COMPLETE" in response_content
@@ -182,11 +188,17 @@ When you have enough info, end with: "VISION_COMPLETE"
             logger.error(f"=== COFOUNDER CHAT ERROR ===")
             logger.error(f"Chat failed: {e}")
             logger.error(f"Exception type: {type(e)}")
-            # Simple conversational responses based on input
-            if "hi" in message.lower() or "hello" in message.lower():
-                response_text = "Hello! I'm your AI Cofounder. I'd love to learn about your startup idea. What problem are you trying to solve?"
+            
+            # Check if it's an API key issue
+            if "API key" in str(e) or "Authorization" in str(e):
+                logger.error("API key not configured properly")
+                response_text = "I need to be configured with an API key to provide intelligent responses. For now, I can help you structure your startup idea. What problem are you trying to solve?"
             else:
-                response_text = "That's interesting! Can you tell me more about who your target users would be and what specific pain points you're addressing?"
+                # Simple conversational responses based on input
+                if "hi" in message.lower() or "hello" in message.lower():
+                    response_text = "Hello! I'm your AI Cofounder. I'd love to learn about your startup idea. What problem are you trying to solve?"
+                else:
+                    response_text = "That's interesting! Can you tell me more about who your target users would be and what specific pain points you're addressing?"
             
             fallback = {
                 "message": response_text,
@@ -194,6 +206,20 @@ When you have enough info, end with: "VISION_COMPLETE"
             }
             logger.info(f"Returning fallback: {fallback}")
             return fallback
+    
+    def _create_fallback_analysis(self, vision_input: str) -> str:
+        """Create fallback analysis when LLM fails"""
+        return json.dumps({
+            "vision_statement": vision_input,
+            "target_users": ["Early adopters", "Tech-savvy professionals"],
+            "market_opportunity": {
+                "size": "Market analysis in progress",
+                "competition": "Competitive landscape to be researched"
+            },
+            "success_metrics": ["User acquisition", "Revenue growth", "Market penetration"],
+            "strategic_priorities": ["Product development", "Market validation", "User acquisition"],
+            "competitive_advantage": "Unique value proposition to be defined"
+        })
     
     async def extract_vision(self, messages: list) -> Dict[str, Any]:
         """Extract structured vision from conversation"""
@@ -207,7 +233,7 @@ Return JSON with: vision_statement, target_users, problem_solving, key_features"
             {"role": "system", "content": self._get_system_prompt()},
             {"role": "user", "content": extract_prompt}
         ]
-        response = await self._call_openrouter(messages)
+        response = await self._call_llm(messages)
         
         try:
             response_content = response["choices"][0]["message"]["content"]
