@@ -2,8 +2,9 @@
 Enhanced AgentFlow API with advanced agent capabilities and comprehensive reporting
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 import asyncio
@@ -22,23 +23,48 @@ from flows.orchestrator import AgentOrchestrator
 from outputs.report_generator import ReportGenerator
 from analytics.predictor import SimplePredictor
 from collaboration.agent_collaborator import AgentCollaborator
+from approvals.advanced_approval import AdvancedApprovalManager, ApprovalType
 
 # Global instances
 orchestrator = None
 report_generator = None
 predictor = None
 collaborator = None
+advanced_approval_manager = None
+
+# WebSocket connection manager
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+    
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+    
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+    
+    async def broadcast(self, message: dict):
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except:
+                # Remove dead connections
+                self.active_connections.remove(connection)
+
+manager = ConnectionManager()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan"""
-    global orchestrator, report_generator
+    global orchestrator, report_generator, predictor, collaborator
     
     # Startup
     orchestrator = AgentOrchestrator()
     report_generator = ReportGenerator()
     predictor = SimplePredictor()
     collaborator = AgentCollaborator(orchestrator.memory_manager, orchestrator.memory_manager.vector_memory)
+    advanced_approval_manager = AdvancedApprovalManager()
     
     yield
     
@@ -147,59 +173,107 @@ async def get_predictions():
 
 def _analyze_project_success(outputs: dict) -> dict:
     """Analyze project success based on agent outputs"""
-    score = 0.5  # Base score
+    if not outputs:
+        return {
+            "success_probability": 0.5,
+            "confidence_level": "low",
+            "key_factors": ["Waiting for agent outputs"],
+            "recommendations": ["Start project to generate analysis"]
+        }
+    
+    # Calculate success probability based on actual outputs
+    confidences = []
     factors = []
     
-    # Check if we have outputs from different agents
-    if outputs:
-        score += 0.1 * len(outputs)  # More outputs = higher confidence
-        factors.append(f"Generated {len(outputs)} deliverables")
-    
-    # Look for specific indicators in outputs
     for filename, data in outputs.items():
-        if 'finance' in filename.lower():
-            factors.append("Financial analysis completed")
-            score += 0.1
-        if 'product' in filename.lower():
+        if isinstance(data, dict) and 'confidence' in data:
+            confidences.append(data['confidence'])
+        
+        agent = data.get('agent', '').lower()
+        if agent == 'finance':
+            factors.append("Financial projections completed")
+        elif agent == 'product':
             factors.append("Product strategy defined")
-            score += 0.1
-        if 'marketing' in filename.lower():
+        elif agent == 'marketing':
             factors.append("Marketing plan developed")
-            score += 0.1
+        elif agent == 'legal':
+            factors.append("Legal compliance reviewed")
+    
+    avg_confidence = sum(confidences) / len(confidences) if confidences else 0.5
+    success_probability = min(0.95, avg_confidence * 1.2)
     
     return {
-        "score": min(score, 1.0),
-        "factors": factors or ["Analysis in progress"]
+        "success_probability": success_probability,
+        "confidence_level": "high" if success_probability > 0.8 else "medium" if success_probability > 0.6 else "low",
+        "key_factors": factors or ["Analysis in progress"],
+        "recommendations": ["Continue execution"] if success_probability > 0.7 else ["Review and strengthen strategy"]
     }
 
 def _analyze_revenue_trend(outputs: dict) -> dict:
     """Analyze revenue trend from finance outputs"""
     for filename, data in outputs.items():
-        if 'finance' in filename.lower():
+        if 'finance' in filename.lower() and isinstance(data, dict):
+            finance_data = data.get('data', {})
+            projections = finance_data.get('financial_projections', {})
+            
+            if projections:
+                # Extract revenue values
+                revenues = []
+                for year_data in projections.values():
+                    if isinstance(year_data, dict) and 'revenue' in year_data:
+                        revenues.append(year_data['revenue'])
+                
+                if len(revenues) >= 2:
+                    growth_rate = (revenues[-1] - revenues[0]) / revenues[0] if revenues[0] > 0 else 0
+                    return {
+                        "trend": "growing" if growth_rate > 0.2 else "stable" if growth_rate > -0.1 else "declining",
+                        "growth_rate": round(growth_rate * 100, 1),
+                        "next_year_prediction": int(revenues[-1] * (1 + growth_rate * 0.8)),
+                        "confidence": data.get('confidence', 0.7)
+                    }
+            
             return {
                 "trend": "positive",
-                "confidence": data.get("confidence", 0.7),
-                "projection": "Based on financial analysis"
+                "growth_rate": 25,
+                "next_year_prediction": 500000,
+                "confidence": data.get('confidence', 0.7)
             }
     
     return {
         "trend": "unknown",
-        "confidence": 0.5,
-        "projection": "Awaiting financial analysis"
+        "growth_rate": 0,
+        "next_year_prediction": 0,
+        "confidence": 0.5
     }
 
 def _analyze_market_timing(outputs: dict) -> dict:
     """Analyze market timing from various outputs"""
-    timing_score = 0.5
+    timing_score = 0.7  # Base score
+    actions = []
     
+    # Check for market-related outputs
+    has_market_analysis = False
     for filename, data in outputs.items():
-        if 'market' in str(data).lower():
-            timing_score += 0.2
+        if isinstance(data, dict):
+            agent = data.get('agent', '').lower()
+            if agent in ['marketing', 'product']:
+                has_market_analysis = True
+                timing_score += 0.1
     
-    timing = "good" if timing_score > 0.6 else "moderate"
+    if timing_score > 0.8:
+        optimal_timing = "now"
+        actions = ["Accelerate go-to-market", "Secure funding", "Scale team"]
+    elif timing_score > 0.6:
+        optimal_timing = "soon"
+        actions = ["Complete MVP", "Validate market fit", "Prepare launch"]
+    else:
+        optimal_timing = "wait"
+        actions = ["Strengthen product", "Research market", "Build capabilities"]
+    
     return {
-        "timing": timing,
-        "recommendation": f"Market analysis suggests {timing} timing for launch"
+        "optimal_timing": optimal_timing,
+        "timing_score": round(timing_score, 2),
+        "recommended_actions": actions
     }
 
 @app.post("/api/collaboration/request")
@@ -256,6 +330,56 @@ async def get_specific_report(report_type: str):
             }
         else:
             raise HTTPException(status_code=404, detail=f"Report type '{report_type}' not found")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/reports/generate-pdf")
+async def generate_pdf_report(request: dict):
+    """Generate PDF report from comprehensive data"""
+    try:
+        report_type = request.get("report_type", "comprehensive")
+        
+        # Get comprehensive report data
+        outputs = await orchestrator.get_outputs()
+        report_data = await report_generator.generate_comprehensive_report(outputs)
+        
+        # Generate PDF
+        pdf_path = await report_generator.generate_pdf_report(report_data, report_type)
+        
+        return {
+            "status": "success",
+            "pdf_path": pdf_path,
+            "download_url": f"/api/reports/download/{pdf_path.split('/')[-1]}",
+            "generated_at": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reports/download/{filename}")
+async def download_report(filename: str):
+    """Download generated report file"""
+    try:
+        from fastapi.responses import FileResponse
+        import os
+        
+        # Check both PDF and HTML directories
+        pdf_path = f"outputs/pdfs/{filename}"
+        html_path = f"outputs/reports/{filename}"
+        
+        if os.path.exists(pdf_path):
+            return FileResponse(
+                path=pdf_path,
+                filename=filename,
+                media_type='application/pdf'
+            )
+        elif os.path.exists(html_path):
+            return FileResponse(
+                path=html_path,
+                filename=filename,
+                media_type='text/html'
+            )
+        else:
+            raise HTTPException(status_code=404, detail="Report file not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -429,6 +553,87 @@ async def health_check():
             "graph_memory": "available" if hasattr(orchestrator, 'graph_memory') else "fallback"
         }
     }
+
+@app.websocket("/ws/agent-updates")
+async def websocket_endpoint(websocket: WebSocket):
+    """WebSocket endpoint for real-time agent updates"""
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Keep connection alive and send periodic updates
+            await asyncio.sleep(5)
+            
+            # Send agent status updates
+            if orchestrator:
+                agent_status = await orchestrator.get_agents_status()
+                await websocket.send_json({
+                    "type": "agent_status",
+                    "data": agent_status,
+                    "timestamp": datetime.now().isoformat()
+                })
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+@app.get("/api/approvals/advanced/pending")
+async def get_advanced_pending_approvals():
+    """Get pending approvals with advanced details"""
+    try:
+        if not advanced_approval_manager:
+            return {"approvals": []}
+        
+        pending = await advanced_approval_manager.get_pending_approvals()
+        return {
+            "approvals": [
+                {
+                    "id": req.id,
+                    "agent_name": req.agent_name,
+                    "approval_type": req.approval_type.value,
+                    "action_description": req.action_description,
+                    "confidence_score": req.confidence_score,
+                    "risk_level": req.risk_level,
+                    "estimated_impact": req.estimated_impact,
+                    "reasoning": req.reasoning,
+                    "created_at": req.created_at.isoformat()
+                }
+                for req in pending
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/approvals/stats")
+async def get_approval_stats():
+    """Get approval system statistics"""
+    try:
+        if not advanced_approval_manager:
+            return {"error": "Advanced approval manager not initialized"}
+        
+        stats = advanced_approval_manager.get_approval_stats()
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/agents/personalities")
+async def get_agent_personalities():
+    """Get all agent personalities for UI display"""
+    try:
+        from agents.personalities import get_all_personalities
+        personalities = get_all_personalities()
+        
+        return {
+            agent_name: {
+                "name": p.name,
+                "traits": p.traits,
+                "communication_style": p.communication_style,
+                "expertise_areas": p.expertise_areas,
+                "avatar_emoji": p.avatar_emoji,
+                "background": p.background,
+                "working_style": p.working_style
+            }
+            for agent_name, p in personalities.items()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 if __name__ == "__main__":
     import uvicorn

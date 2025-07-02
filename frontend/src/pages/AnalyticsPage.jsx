@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Brain, TrendingUp, Target, Lightbulb, BarChart3 } from 'lucide-react'
-import { apiMethods } from '../lib/api'
+import api from '../lib/api'
 import ChartContainer from '../components/Dashboard/ChartContainer'
 import PredictionCard from '../components/Dashboard/PredictionCard'
 
@@ -18,8 +18,8 @@ const AnalyticsPage = () => {
   const fetchAnalytics = async () => {
     try {
       const [predictionsData, outputsData] = await Promise.all([
-        apiMethods.getPredictions(),
-        apiMethods.getOutputs()
+        api.getPredictions(),
+        api.getOutputs()
       ])
       
       setPredictions(predictionsData)

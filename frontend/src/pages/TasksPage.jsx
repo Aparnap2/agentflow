@@ -1,15 +1,19 @@
 import { useState, useEffect } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { CheckCircle, Clock, AlertCircle, Loader, BarChart3, Settings } from 'lucide-react'
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, ResponsiveContainer } from 'recharts'
 import api from '../lib/api'
+import { useFlow } from '../contexts/FlowContext'
 
 const TasksPage = () => {
   const location = useLocation()
+  const navigate = useNavigate()
+  const { updateFlowState } = useFlow()
   const { projectId, tasks } = location.state || {}
   const [taskStatuses, setTaskStatuses] = useState({})
   const [activeTab, setActiveTab] = useState('tasks')
   const [outputs, setOutputs] = useState({})
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     if (tasks) {
@@ -28,19 +32,57 @@ const TasksPage = () => {
     const pollStatus = async () => {
       try {
         const status = await api.getAgentsStatus()
+        let completedCount = 0
+        let totalAgents = 0
+        
         Object.keys(tasks || {}).forEach(agent => {
+          totalAgents++
           if (status[agent]?.status === 'completed') {
             setTaskStatuses(prev => ({ ...prev, [agent]: 'completed' }))
+            completedCount++
+          } else if (status[agent]?.status === 'working' || status[agent]?.status === 'thinking') {
+            setTaskStatuses(prev => ({ ...prev, [agent]: 'running' }))
           }
         })
+        
+        // If all agents are completed, update flow state
+        if (completedCount > 0 && completedCount === totalAgents) {
+          console.log('All agents completed!')
+          updateFlowState({ 
+            tasksDistributed: true,
+            agentsCompleted: true 
+          })
+          
+          // Navigate to outputs page after a short delay
+          setTimeout(() => {
+            navigate('/outputs')
+          }, 2000)
+        }
+        
+        setLoading(false)
       } catch (error) {
         console.error('Failed to poll status:', error)
+        setLoading(false)
       }
     }
     
+    // Set a timeout to stop loading after 10 seconds even if no response
+    const loadingTimeout = setTimeout(() => {
+      setLoading(false)
+      // Force update flow state to allow navigation
+      updateFlowState({ 
+        tasksDistributed: true
+      })
+    }, 10000)
+    
     const interval = setInterval(pollStatus, 3000)
-    return () => clearInterval(interval)
-  }, [projectId, tasks])
+    pollStatus() // Initial call
+    
+    return () => {
+      clearInterval(interval)
+      clearTimeout(loadingTimeout)
+    }
+  }, [projectId, tasks, navigate, updateFlowState])
 
   // Fetch outputs for visualization
   useEffect(() => {
@@ -48,12 +90,21 @@ const TasksPage = () => {
       try {
         const data = await api.getOutputs()
         setOutputs(data)
+        
+        // If we have outputs, update flow state
+        if (Object.keys(data).length > 0) {
+          updateFlowState({ tasksDistributed: true })
+        }
       } catch (error) {
         console.error('Failed to fetch outputs:', error)
       }
     }
     fetchOutputs()
-  }, [])
+    
+    // Poll for outputs every 5 seconds
+    const interval = setInterval(fetchOutputs, 5000)
+    return () => clearInterval(interval)
+  }, [updateFlowState])
 
   const handleTaskAction = async (agent, action) => {
     try {
@@ -62,6 +113,11 @@ const TasksPage = () => {
       if (action === 'approve') {
         await api.executeAgent(agent, tasks[agent])
         setTaskStatuses(prev => ({ ...prev, [agent]: 'running' }))
+        
+        // Update flow state to indicate tasks are distributed
+        updateFlowState({
+          tasksDistributed: true
+        })
       } else {
         setTaskStatuses(prev => ({ ...prev, [agent]: 'denied' }))
       }
@@ -109,6 +165,15 @@ const TasksPage = () => {
       <div className="text-center py-12">
         <h2 className="text-xl font-semibold text-gray-900">No tasks found</h2>
         <p className="text-gray-600">Please start a conversation first</p>
+      </div>
+    )
+  }
+  
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-64">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary-600 mb-4"></div>
+        <p className="text-gray-600">Loading agent statuses...</p>
       </div>
     )
   }

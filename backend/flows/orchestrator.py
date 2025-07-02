@@ -131,11 +131,12 @@ class AgentOrchestrator:
                 }
                 specialist_tasks.append((agent_name, task))
         
-        # Execute in parallel
+        # Execute in parallel with timeout
         results = {}
         if specialist_tasks:
+            # Create tasks with timeout to prevent hanging
             parallel_executions = [
-                self.agents[agent_name].execute(task) 
+                asyncio.wait_for(self.agents[agent_name].execute(task), timeout=60.0)
                 for agent_name, task in specialist_tasks
             ]
             

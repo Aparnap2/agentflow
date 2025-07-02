@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Save, Trash2 } from 'lucide-react'
-import { apiMethods } from '../lib/api'
+import api from '../lib/api'
 
 const SettingsPage = () => {
   const [approvalSettings, setApprovalSettings] = useState({
@@ -20,7 +20,7 @@ const SettingsPage = () => {
   
   const fetchMemoryStats = async () => {
     try {
-      const stats = await apiMethods.getMemoryStats()
+      const stats = await api.getMemoryStats()
       setMemoryStats(stats)
     } catch (error) {
       console.error('Failed to fetch memory stats:', error)
@@ -55,7 +55,7 @@ const SettingsPage = () => {
     
     setLoading(true)
     try {
-      await apiMethods.clearMemory()
+      await api.clearMemory()
       await fetchMemoryStats()
       alert('Memory cleared successfully!')
     } catch (error) {

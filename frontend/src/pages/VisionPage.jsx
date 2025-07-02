@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Eye, CheckCircle, Clock } from 'lucide-react'
-import { apiMethods } from '../lib/api'
+import api from '../lib/api'
 
 const VisionPage = () => {
   const [outputs, setOutputs] = useState({})
@@ -12,7 +12,7 @@ const VisionPage = () => {
   
   const fetchOutputs = async () => {
     try {
-      const data = await apiMethods.getOutputs()
+      const data = await api.getOutputs()
       console.log('Fetched outputs:', data)
       setOutputs(data)
     } catch (error) {

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { GitBranch, Search, Filter, Download } from 'lucide-react'
-import { apiMethods } from '../lib/api'
+import api from '../lib/api'
 
 const GraphPage = () => {
   const [graphData, setGraphData] = useState(null)
@@ -14,7 +14,7 @@ const GraphPage = () => {
   
   const fetchGraphData = async () => {
     try {
-      const data = await apiMethods.getMemoryGraph()
+      const data = await api.getMemoryGraph()
       setGraphData(data)
     } catch (error) {
       console.error('Failed to fetch graph data:', error)
@@ -25,7 +25,7 @@ const GraphPage = () => {
   
   const exportGraph = async () => {
     try {
-      await apiMethods.exportMemory()
+      await api.exportMemory()
       alert('Graph exported successfully!')
     } catch (error) {
       console.error('Failed to export graph:', error)

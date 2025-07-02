@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
-import { Brain, Users, Target, DollarSign, Megaphone, Scale, Clock, CheckCircle, AlertCircle, Loader } from 'lucide-react'
-import { apiMethods } from '../lib/api'
+import { Brain, Users, Target, DollarSign, Megaphone, Scale, Clock, CheckCircle, AlertCircle, Loader, Star, Briefcase } from 'lucide-react'
+import api from '../lib/api'
 import ApprovalModal from '../components/ApprovalModal'
 
 const AgentsPage = () => {
   const [agentsStatus, setAgentsStatus] = useState({})
+  const [personalities, setPersonalities] = useState({})
   const [loading, setLoading] = useState(true)
   const [lastUpdate, setLastUpdate] = useState(null)
   const [pendingApprovals, setPendingApprovals] = useState([])
@@ -40,6 +41,7 @@ const AgentsPage = () => {
   
   useEffect(() => {
     fetchAgentsStatus()
+    fetchPersonalities()
     fetchPendingApprovals()
     const interval = setInterval(() => {
       fetchAgentsStatus()
@@ -50,7 +52,7 @@ const AgentsPage = () => {
   
   const fetchAgentsStatus = async () => {
     try {
-      const status = await apiMethods.getAgentsStatus()
+      const status = await api.getAgentsStatus()
       setAgentsStatus(status)
       setLastUpdate(new Date())
     } catch (error) {
@@ -59,11 +61,23 @@ const AgentsPage = () => {
       setLoading(false)
     }
   }
+  
+  const fetchPersonalities = async () => {
+    try {
+      const response = await fetch('/api/agents/personalities')
+      if (response.ok) {
+        const data = await response.json()
+        setPersonalities(data)
+      }
+    } catch (error) {
+      console.error('Failed to fetch personalities:', error)
+    }
+  }
 
   const fetchPendingApprovals = async () => {
     try {
       // The API returns an object like { approvals: [...] }
-      const response = await apiMethods.getPendingApprovals();
+      const response = await api.getPendingApprovals();
       setPendingApprovals(response.approvals || []);
     } catch (error) {
       console.error('Failed to fetch pending approvals:', error);
@@ -71,7 +85,7 @@ const AgentsPage = () => {
   };
 
   const handleApprovalSubmit = async (id, action, feedback) => {
-    await apiMethods.respondToApproval(id, action, feedback);
+    await api.respondToApproval(id, action, feedback);
     setShowApprovalModal(false);
     setSelectedApproval(null);
     fetchAgentsStatus();
@@ -111,17 +125,25 @@ const AgentsPage = () => {
           const Icon = agentIcons[agentName] || Brain
           const StatusIcon = statusIcons[status.status] || Clock
           const statusColor = statusColors[status.status] || statusColors.idle
+          const personality = personalities[agentName] || {}
           
           return (
-            <div key={agentName} className="bg-white rounded-lg shadow-sm border p-6">
+            <div key={agentName} className="bg-white rounded-lg shadow-sm border p-6 hover:shadow-md transition-shadow">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center">
-                  <div className="p-2 bg-primary-100 rounded-lg mr-3">
-                    <Icon className="h-6 w-6 text-primary-600" />
+                  <div className="w-14 h-14 bg-gradient-to-br from-primary-100 to-primary-200 rounded-full flex items-center justify-center mr-4 text-2xl">
+                    {status.avatar_emoji || personality.avatar_emoji || '🤖'}
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">{agentName}</h3>
+                    <h3 className="font-semibold text-gray-900">
+                      {status.personality_name || personality.name || agentName}
+                    </h3>
                     <p className="text-sm text-gray-600">{status.role}</p>
+                    {personality.background && (
+                      <p className="text-xs text-gray-500 mt-1 max-w-xs truncate">
+                        {personality.background}
+                      </p>
+                    )}
                   </div>
                 </div>
                 
@@ -131,7 +153,41 @@ const AgentsPage = () => {
                 </div>
               </div>
               
-              <div className="space-y-2">
+              {/* Personality Traits */}
+              {(status.traits || personality.traits) && (
+                <div className="mb-3">
+                  <div className="flex items-center mb-2">
+                    <Brain className="h-4 w-4 text-gray-500 mr-2" />
+                    <span className="text-sm font-medium text-gray-700">Traits</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {(status.traits || personality.traits || []).slice(0, 3).map((trait, index) => (
+                      <span key={index} className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full">
+                        {trait.replace('_', ' ')}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              {/* Expertise Areas */}
+              {(status.expertise_areas || personality.expertise_areas) && (
+                <div className="mb-4">
+                  <div className="flex items-center mb-2">
+                    <Star className="h-4 w-4 text-gray-500 mr-2" />
+                    <span className="text-sm font-medium text-gray-700">Expertise</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1">
+                    {(status.expertise_areas || personality.expertise_areas || []).slice(0, 2).map((area, index) => (
+                      <span key={index} className="px-2 py-1 bg-green-100 text-green-800 text-xs rounded-full">
+                        {area.replace('_', ' ')}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              
+              <div className="space-y-2 border-t pt-4">
                 {status.current_task && (
                   <div>
                     <span className="text-sm font-medium text-gray-700">Current Task:</span>
@@ -145,7 +201,29 @@ const AgentsPage = () => {
                     {status.outputs_ready ? 'Yes' : 'No'}
                   </span>
                 </div>
+                
+                {status.confidence_threshold && (
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-gray-700">Confidence Threshold:</span>
+                    <span className="text-gray-900 font-medium">
+                      {(status.confidence_threshold * 100).toFixed(0)}%
+                    </span>
+                  </div>
+                )}
               </div>
+              
+              {/* Working Style */}
+              {personality.working_style && (
+                <div className="mt-4 p-3 bg-gray-50 rounded-md">
+                  <div className="flex items-center mb-1">
+                    <Briefcase className="h-3 w-3 text-gray-500 mr-1" />
+                    <span className="text-xs font-medium text-gray-600">Working Style</span>
+                  </div>
+                  <p className="text-xs text-gray-600 italic">
+                    "{personality.working_style}"
+                  </p>
+                </div>
+              )}
               
               {status.status === 'completed' && status.outputs_ready && (
                 <div className="mt-4 p-3 bg-green-50 rounded-md">
@@ -189,8 +267,8 @@ const AgentsPage = () => {
       {Object.keys(agentsStatus).length === 0 && (
         <div className="text-center py-12">
           <Brain className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Active Agents</h3>
-          <p className="text-gray-600">Start a project to see your AI team in action</p>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Loading AI Team...</h3>
+          <p className="text-gray-600">Initializing your virtual office agents with personalities</p>
         </div>
       )}
     </div>

@@ -67,7 +67,8 @@ const ConversationPage = () => {
       updateFlowState({ 
         visionApproved: true,
         projectId: response.project_id,
-        tasksDistributed: true
+        tasksDistributed: true,
+        currentStep: 'tasks'
       })
       navigate('/tasks', { state: { projectId: response.project_id, tasks: response.tasks } })
     } catch (error) {

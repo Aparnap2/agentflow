@@ -29,3 +29,8 @@ pyyaml==6.0.2
 loguru==0.7.3
 aiofiles==23.2.1
 sentence-transformers==2.2.2
+
+# Report Generation
+weasyprint==62.3
+matplotlib==3.8.2
+seaborn==0.13.0

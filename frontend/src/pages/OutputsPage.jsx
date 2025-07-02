@@ -1,21 +1,45 @@
 import { useState, useEffect } from 'react'
-import { FileText, Download, Eye, Calendar, TrendingUp, Users, DollarSign } from 'lucide-react'
+import { FileText, Download, Eye, Calendar, TrendingUp, Users, DollarSign, Brain, Target, Megaphone, Scale } from 'lucide-react'
 import ReactMarkdown from 'react-markdown'
 import api from '../lib/api'
+import { useFlow } from '../contexts/FlowContext'
 
 const OutputsPage = () => {
   const [outputs, setOutputs] = useState({})
   const [selectedOutput, setSelectedOutput] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [agentOutputs, setAgentOutputs] = useState({})
+  const { updateFlowState } = useFlow()
 
   useEffect(() => {
     fetchOutputs()
-  }, [])
+    
+    // Poll for outputs every 5 seconds
+    const interval = setInterval(fetchOutputs, 5000)
+    return () => clearInterval(interval)
+  }, [updateFlowState])
 
   const fetchOutputs = async () => {
     try {
       const data = await api.getOutputs()
       setOutputs(data)
+      
+      // Group outputs by agent
+      const byAgent = {};
+      Object.entries(data).forEach(([filename, output]) => {
+        const agent = output.agent.toLowerCase();
+        if (!byAgent[agent]) byAgent[agent] = [];
+        byAgent[agent].push({ filename, ...output });
+      });
+      setAgentOutputs(byAgent);
+      
+      // If we have outputs, update flow state
+      if (Object.keys(data).length > 0) {
+        updateFlowState({ 
+          tasksDistributed: true,
+          agentsCompleted: true 
+        })
+      }
     } catch (error) {
       console.error('Failed to fetch outputs:', error)
     } finally {
@@ -89,14 +113,46 @@ const OutputsPage = () => {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      {/* Agent Tabs */}
+      <div className="mb-6 border-b">
+        <div className="flex space-x-4">
+          {Object.keys(agentOutputs).length > 0 ? (
+            Object.keys(agentOutputs).map(agent => {
+              const isActive = selectedOutput && outputs[selectedOutput]?.agent.toLowerCase() === agent;
+              const AgentIcon = getAgentIcon(agent);
+              return (
+                <button
+                  key={agent}
+                  className={`flex items-center px-4 py-2 border-b-2 ${isActive ? 'border-primary-500 text-primary-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'}`}
+                  onClick={() => {
+                    // Select the first output from this agent
+                    if (agentOutputs[agent].length > 0) {
+                      setSelectedOutput(agentOutputs[agent][0].filename);
+                    }
+                  }}
+                >
+                  <AgentIcon className="h-5 w-5 mr-2" />
+                  <span className="capitalize">{agent}</span>
+                  <span className="ml-2 bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded-full">
+                    {agentOutputs[agent].length}
+                  </span>
+                </button>
+              );
+            })
+          ) : (
+            <div className="px-4 py-2 text-gray-500">No agent outputs available</div>
+          )}
+        </div>
+      </div>
+      
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* File List */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-lg shadow-sm border">
             <div className="p-4 border-b">
               <h2 className="font-semibold text-gray-900">Generated Files</h2>
             </div>
-            <div className="divide-y">
+            <div className="divide-y max-h-[500px] overflow-y-auto">
               {Object.entries(outputs).map(([filename, data]) => (
                 <div
                   key={filename}
@@ -138,7 +194,7 @@ const OutputsPage = () => {
         </div>
 
         {/* File Preview */}
-        <div className="lg:col-span-2">
+        <div className="lg:col-span-3">
           {selectedOutput ? (
             <div className="bg-white rounded-lg shadow-sm border">
               <div className="p-4 border-b flex items-center justify-between">
@@ -289,5 +345,18 @@ const DefaultOutput = ({ data }) => (
     </ReactMarkdown>
   </div>
 )
+
+// Helper function to get agent icon
+const getAgentIcon = (agent) => {
+  const icons = {
+    cofounder: Brain,
+    manager: Users,
+    product: Target,
+    finance: DollarSign,
+    marketing: Megaphone,
+    legal: Scale
+  };
+  return icons[agent] || FileText;
+};
 
 export default OutputsPage

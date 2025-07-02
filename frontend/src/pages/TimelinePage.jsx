@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Clock, User, FileText, CheckCircle, AlertCircle } from 'lucide-react'
-import { apiMethods } from '../lib/api'
+import api from '../lib/api'
 
 const TimelinePage = () => {
   const [timeline, setTimeline] = useState([])
@@ -13,7 +13,7 @@ const TimelinePage = () => {
   
   const fetchTimeline = async () => {
     try {
-      const data = await apiMethods.getTimeline()
+      const data = await api.getTimeline()
       setTimeline(data)
     } catch (error) {
       console.error('Failed to fetch timeline:', error)

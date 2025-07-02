@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Users, MessageSquare, ArrowRight, Clock, CheckCircle } from 'lucide-react'
-import { apiMethods } from '../../lib/api'
+import api from '../../lib/api'
 
 const CollaborationPanel = () => {
   const [collaborations, setCollaborations] = useState([])
@@ -26,7 +26,7 @@ const CollaborationPanel = () => {
   
   const fetchCollaborationHistory = async () => {
     try {
-      const response = await apiMethods.getCollaborationHistory()
+      const response = await api.getCollaborationHistory()
       setCollaborations(response.collaborations || [])
     } catch (error) {
       console.error('Failed to fetch collaboration history:', error)
@@ -36,7 +36,7 @@ const CollaborationPanel = () => {
   const handleCollaborationRequest = async (requestingAgent, targetAgent, requestType) => {
     setLoading(true)
     try {
-      const result = await apiMethods.requestCollaboration(
+      const result = await api.requestCollaboration(
         requestingAgent,
         targetAgent, 
         requestType,

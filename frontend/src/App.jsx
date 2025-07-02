@@ -11,10 +11,10 @@ import AnalyticsPage from './pages/AnalyticsPage'
 import OutputsPage from './pages/OutputsPage'
 import ReportsPage from './pages/ReportsPage'
 import SettingsPage from './pages/SettingsPage'
-import Navigation from './components/Navigation'
+import FlowNavigation from './components/FlowNavigation'
 import ApprovalModal from './components/ApprovalModal'
 import { useState, useEffect } from 'react'
-import { api } from './lib/api'
+import api from './lib/api'
 
 function App() {
   const [pendingApprovals, setPendingApprovals] = useState([])
@@ -72,7 +72,7 @@ function App() {
   return (
     <FlowProvider>
       <div className="min-h-screen bg-gray-50">
-        <Navigation pendingApprovalsCount={pendingApprovals.length} />
+        <FlowNavigation pendingApprovalsCount={pendingApprovals.length} />
         <main className="container mx-auto px-4 py-8">
           <Routes>
             <Route path="/" element={<DashboardPage />} />

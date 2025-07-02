@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { DollarSign, Users, TrendingUp, Target, AlertTriangle, CheckCircle, Brain } from 'lucide-react'
-import { apiMethods } from '../lib/api'
+import api from '../lib/api'
 import MetricCard from '../components/Dashboard/MetricCard'
 import ChartContainer from '../components/Dashboard/ChartContainer'
 import PredictionCard from '../components/Dashboard/PredictionCard'
@@ -20,10 +20,10 @@ const DashboardPage = () => {
   const fetchDashboardData = async () => {
     try {
       const [comprehensiveReport, agentsStatus, outputs, predictionsData] = await Promise.all([
-        apiMethods.getComprehensiveReport?.() || Promise.resolve({}),
-        apiMethods.getAgentsStatus(),
-        apiMethods.getOutputs(),
-        apiMethods.getPredictions?.() || Promise.resolve({})
+        api.getComprehensiveReport?.() || Promise.resolve({}),
+        api.getAgentsStatus(),
+        api.getOutputs(),
+        api.getPredictions?.() || Promise.resolve({})
       ])
       
       setDashboardData({

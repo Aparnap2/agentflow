@@ -15,6 +15,7 @@ from loguru import logger
 
 from memory.memory_manager import MemoryManager
 from approvals.approval_manager import ApprovalManager
+from agents.personalities import get_personality_prompt, get_agent_config
 
 
 class AgentState(TypedDict):
@@ -33,18 +34,22 @@ class LangGraphAgent:
     """Base LangGraph agent following PRD specifications"""
     
     def __init__(self, name: str, role: str, memory_manager: MemoryManager, 
-                 approval_manager: ApprovalManager, personality: Dict[str, Any]):
+                 approval_manager: ApprovalManager, personality: Dict[str, Any] = None):
         self.name = name
         self.role = role
         self.memory_manager = memory_manager
         self.approval_manager = approval_manager
-        self.personality = personality
         
-        # Initialize LLM configuration
-        self.model = personality.get("model", "deepseek/deepseek-chat:free")
+        # Enhanced personality system
+        self.personality_config = get_agent_config(name)
+        self.personality = personality or self.personality_config
+        
+        # Initialize LLM configuration with personality
+        self.model = self.personality.get("model", "deepseek/deepseek-chat:free")
         self.api_key = self._get_api_key()
-        self.temperature = personality.get("temperature", 0.7)
-        self.max_tokens = personality.get("max_tokens", 2000)
+        self.temperature = self.personality.get("temperature", 0.7)
+        self.max_tokens = self.personality.get("max_tokens", 2000)
+        self.confidence_threshold = self.personality.get("confidence_threshold", 0.7)
         
         # Agent-specific tools (to be overridden)
         self.tools = []
@@ -64,32 +69,26 @@ class LangGraphAgent:
         )
     
     def _get_system_prompt(self) -> str:
-        """Get agent's system prompt based on personality"""
-        return f"""You are {self.name}, a {self.role} in a virtual AI office.
-
-Your personality traits:
-- Tone: {self.personality.get('tone', 'professional')}
-- Focus: {self.personality.get('focus', 'task completion')}
-- Expertise: {', '.join(self.personality.get('expertise', []))}
-
-Your role is to {self.personality.get('description', 'complete assigned tasks effectively')}.
-
-Always provide structured, actionable outputs that other agents can build upon.
-Be thorough but concise. If you're uncertain, indicate your confidence level.
-"""
+        """Get agent's enhanced personality-driven system prompt"""
+        return get_personality_prompt(self.name)
     
     async def _execute_actions(self, state) -> Dict[str, Any]:
         """Execute agent-specific actions - to be overridden"""
         return {"message": "No specific actions implemented"}
     
     def get_status(self) -> Dict[str, Any]:
-        """Get current agent status"""
+        """Get current agent status with personality info"""
         return {
             "name": self.name,
             "role": self.role,
+            "personality_name": self.personality_config.get("name", self.name),
+            "avatar_emoji": self.personality_config.get("avatar_emoji", "🤖"),
+            "traits": self.personality_config.get("traits", []),
+            "expertise_areas": self.personality_config.get("expertise_areas", []),
             "status": "idle",
             "current_task": None,
-            "outputs_ready": False
+            "outputs_ready": False,
+            "confidence_threshold": self.confidence_threshold
         }
     
     def update_config(self, config: Dict[str, Any]):

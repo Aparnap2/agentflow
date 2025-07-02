@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { FileText, Download, TrendingUp, DollarSign, Users, Shield } from 'lucide-react'
-import { apiMethods } from '../lib/api'
+import api from '../lib/api'
 import ChartContainer from '../components/Dashboard/ChartContainer'
 
 const ReportsPage = () => {
@@ -23,9 +23,9 @@ const ReportsPage = () => {
   const fetchReports = async () => {
     try {
       const [comprehensive, ...specificReports] = await Promise.all([
-        apiMethods.getComprehensiveReport(),
+        api.getComprehensiveReport(),
         ...reportTypes.map(type => 
-          apiMethods.getSpecificReport(type.id).catch(() => null)
+          api.getSpecificReport(type.id).catch(() => null)
         )
       ])
       
