@@ -25,6 +25,8 @@ from analytics.predictor import SimplePredictor
 from collaboration.agent_collaborator import AgentCollaborator
 from approvals.advanced_approval import AdvancedApprovalManager, ApprovalType
 from services.agent_service import AgentService
+from services.report_service import ReportService
+from communication.event_bus import event_bus
 
 # Global instances
 orchestrator = None
@@ -33,6 +35,7 @@ predictor = None
 collaborator = None
 advanced_approval_manager = None
 agent_service = None
+report_service = None
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -59,7 +62,7 @@ manager = ConnectionManager()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan"""
-    global orchestrator, report_generator, predictor, collaborator, agent_service
+    global orchestrator, report_generator, predictor, collaborator, agent_service, report_service
     
     # Startup
     orchestrator = AgentOrchestrator()
@@ -68,6 +71,7 @@ async def lifespan(app: FastAPI):
     collaborator = AgentCollaborator(orchestrator.memory_manager, orchestrator.memory_manager.vector_memory)
     advanced_approval_manager = AdvancedApprovalManager()
     agent_service = AgentService(orchestrator, orchestrator.memory_manager)
+    report_service = ReportService(orchestrator, orchestrator.memory_manager)
     
     yield
     
@@ -653,6 +657,33 @@ async def update_agent_configs(configs: dict):
     try:
         result = await orchestrator.update_agent_configs(configs)
         return {"status": "success", "configs": result}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reports/domains")
+async def get_domain_reports():
+    """Get modular domain-specific reports"""
+    try:
+        return await report_service.get_all_reports()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reports/domains/{domain}")
+async def get_domain_report(domain: str):
+    """Get specific domain report"""
+    try:
+        report = await report_service.get_report(domain)
+        if not report:
+            raise HTTPException(status_code=404, detail=f"Report for domain '{domain}' not found")
+        return report
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/communication/stats")
+async def get_communication_stats():
+    """Get inter-agent communication analytics"""
+    try:
+        return event_bus.get_communication_stats()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

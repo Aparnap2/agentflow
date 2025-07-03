@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { FileText, Download, TrendingUp, DollarSign, Users, Shield } from 'lucide-react'
 import api from '../lib/api'
 import ChartContainer from '../components/Dashboard/ChartContainer'
+import DomainReports from '../components/DomainReports'
 
 const ReportsPage = () => {
   const [reports, setReports] = useState({})
@@ -262,6 +263,15 @@ const ReportsPage = () => {
         <p className="text-gray-600">Comprehensive analytics and insights from all agents</p>
       </div>
       
+      {/* Domain Reports */}
+      <div className="mb-12">
+        <DomainReports />
+      </div>
+      
+      {/* Legacy Reports */}
+      <div className="border-t pt-8">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">Legacy Reports</h2>
+      
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         {/* Report Navigation */}
         <div className="lg:col-span-1">
@@ -309,6 +319,7 @@ const ReportsPage = () => {
             </div>
           </div>
         </div>
+      </div>
       </div>
     </div>
   )
