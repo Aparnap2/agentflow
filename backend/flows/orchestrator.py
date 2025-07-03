@@ -279,10 +279,16 @@ class AgentOrchestrator:
             if isinstance(response, dict):
                 if "message" in response:
                     response_text = str(response["message"])
-                    vision_complete = response.get("vision_complete", False)
+                    # Only mark as complete if response contains a structured plan
+                    vision_complete = (
+                        "phase" in response_text.lower() and 
+                        "task" in response_text.lower() and
+                        "agent" in response_text.lower() and
+                        len(response_text) > 500  # Ensure it's a comprehensive response
+                    )
                 else:
                     response_text = "I've analyzed your idea! Here's what I found:\n\n" + json.dumps(response, indent=2)
-                    vision_complete = True
+                    vision_complete = False
             else:
                 response_text = str(response)
                 vision_complete = False
@@ -374,7 +380,13 @@ class AgentOrchestrator:
             # Extract message properly
             if isinstance(response, dict) and "message" in response:
                 response_text = str(response["message"])
-                vision_complete = response.get("vision_complete", False)
+                # Only mark as complete if response contains a structured plan
+                vision_complete = (
+                    "phase" in response_text.lower() and 
+                    "task" in response_text.lower() and
+                    "agent" in response_text.lower() and
+                    len(response_text) > 500  # Ensure it's a comprehensive response
+                )
             else:
                 response_text = str(response)
                 vision_complete = False

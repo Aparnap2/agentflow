@@ -53,9 +53,9 @@ const TasksPage = () => {
             agentsCompleted: true 
           })
           
-          // Navigate to outputs page after a short delay
+          // Navigate to reports page after a short delay
           setTimeout(() => {
-            navigate('/outputs')
+            navigate('/reports')
           }, 2000)
         }
         

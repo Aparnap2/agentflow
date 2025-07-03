@@ -26,7 +26,6 @@ export const FlowProvider = ({ children }) => {
       start: true,
       conversation: true,
       tasks: false,
-      outputs: false,
       reports: false
     }
   })
@@ -34,8 +33,7 @@ export const FlowProvider = ({ children }) => {
   const flowSteps = {
     start: { path: '/', next: 'conversation' },
     conversation: { path: '/conversation', next: 'tasks' },
-    tasks: { path: '/tasks', next: 'outputs' },
-    outputs: { path: '/outputs', next: 'reports' },
+    tasks: { path: '/tasks', next: 'reports' },
     reports: { path: '/reports', next: null }
   }
 
@@ -48,7 +46,6 @@ export const FlowProvider = ({ children }) => {
         start: true,
         conversation: newState.conversationId !== null,
         tasks: newState.visionApproved,
-        outputs: newState.tasksDistributed,
         reports: newState.agentsCompleted
       }
       

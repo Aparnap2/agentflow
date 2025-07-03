@@ -24,7 +24,6 @@ const FlowNavigation = ({ pendingApprovalsCount = 0 }) => {
     { step: 'start', label: 'Start', icon: Brain },
     { step: 'conversation', label: 'Vision', icon: MessageSquare },
     { step: 'tasks', label: 'Tasks', icon: CheckCircle },
-    { step: 'outputs', label: 'Outputs', icon: FileText },
     { step: 'reports', label: 'Reports', icon: BarChart3 }
   ]
   
