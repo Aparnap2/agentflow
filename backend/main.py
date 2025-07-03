@@ -24,6 +24,7 @@ from outputs.report_generator import ReportGenerator
 from analytics.predictor import SimplePredictor
 from collaboration.agent_collaborator import AgentCollaborator
 from approvals.advanced_approval import AdvancedApprovalManager, ApprovalType
+from services.agent_service import AgentService
 
 # Global instances
 orchestrator = None
@@ -31,6 +32,7 @@ report_generator = None
 predictor = None
 collaborator = None
 advanced_approval_manager = None
+agent_service = None
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -57,7 +59,7 @@ manager = ConnectionManager()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan"""
-    global orchestrator, report_generator, predictor, collaborator
+    global orchestrator, report_generator, predictor, collaborator, agent_service
     
     # Startup
     orchestrator = AgentOrchestrator()
@@ -65,6 +67,7 @@ async def lifespan(app: FastAPI):
     predictor = SimplePredictor()
     collaborator = AgentCollaborator(orchestrator.memory_manager, orchestrator.memory_manager.vector_memory)
     advanced_approval_manager = AdvancedApprovalManager()
+    agent_service = AgentService(orchestrator, orchestrator.memory_manager)
     
     yield
     
@@ -127,7 +130,7 @@ async def start_project(request: ProjectRequest):
 async def get_agents_status():
     """Get status of all agents including new specialized agents"""
     try:
-        return await orchestrator.get_agents_status()
+        return await agent_service.get_all_agents_status()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
