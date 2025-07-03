@@ -27,6 +27,7 @@ from approvals.advanced_approval import AdvancedApprovalManager, ApprovalType
 from services.agent_service import AgentService
 from services.report_service import ReportService
 from communication.event_bus import event_bus
+from workflows.langgraph_orchestrator import LangGraphOrchestrator
 
 # Global instances
 orchestrator = None
@@ -36,6 +37,7 @@ collaborator = None
 advanced_approval_manager = None
 agent_service = None
 report_service = None
+langgraph_orchestrator = None
 
 # WebSocket connection manager
 class ConnectionManager:
@@ -62,7 +64,7 @@ manager = ConnectionManager()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan"""
-    global orchestrator, report_generator, predictor, collaborator, agent_service, report_service
+    global orchestrator, report_generator, predictor, collaborator, agent_service, report_service, langgraph_orchestrator
     
     # Startup
     orchestrator = AgentOrchestrator()
@@ -72,6 +74,7 @@ async def lifespan(app: FastAPI):
     advanced_approval_manager = AdvancedApprovalManager()
     agent_service = AgentService(orchestrator, orchestrator.memory_manager)
     report_service = ReportService(orchestrator, orchestrator.memory_manager)
+    langgraph_orchestrator = LangGraphOrchestrator(orchestrator.agents)
     
     yield
     
@@ -684,6 +687,15 @@ async def get_communication_stats():
     """Get inter-agent communication analytics"""
     try:
         return event_bus.get_communication_stats()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/workflow/execute")
+async def execute_langgraph_workflow(request: dict):
+    """Execute LangGraph workflow"""
+    try:
+        result = await langgraph_orchestrator.execute_workflow(request)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

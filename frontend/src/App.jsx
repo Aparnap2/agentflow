@@ -13,6 +13,7 @@ import ReportsPage from './pages/ReportsPage'
 import SettingsPage from './pages/SettingsPage'
 import HistoryPage from './pages/HistoryPage'
 import MonitoringPage from './pages/MonitoringPage'
+import WorkflowPage from './pages/WorkflowPage'
 import FlowNavigation from './components/FlowNavigation'
 import ApprovalModal from './components/ApprovalModal'
 import { useState, useEffect } from 'react'
@@ -91,6 +92,7 @@ function App() {
             <Route path="/office" element={<VirtualOfficePage />} />
             <Route path="/history" element={<HistoryPage />} />
             <Route path="/monitoring" element={<MonitoringPage />} />
+            <Route path="/workflow" element={<WorkflowPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </main>

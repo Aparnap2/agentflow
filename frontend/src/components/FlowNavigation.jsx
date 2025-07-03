@@ -121,6 +121,13 @@ const FlowNavigation = ({ pendingApprovalsCount = 0 }) => {
                       <Brain className="h-4 w-4 mr-2 sm:mr-3" />
                       Agents
                     </button>
+                    <button
+                      onClick={() => { navigate('/workflow'); setShowQuickMenu(false) }}
+                      className="flex items-center w-full px-3 sm:px-4 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                    >
+                      <Activity className="h-4 w-4 mr-2 sm:mr-3" />
+                      Workflow
+                    </button>
                   </div>
                 </div>
               )}
