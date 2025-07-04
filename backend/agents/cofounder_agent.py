@@ -161,14 +161,52 @@ When processing a vision, structure your output as:
         """Chat interface for conversational vision refinement"""
         try:
             context = context or []
+            conversation_length = len(context)
             
-            chat_prompt = f"""You are having a conversation to understand their startup vision.
-            
+            # After 5+ exchanges, provide final structured plan
+            if conversation_length >= 5:
+                chat_prompt = f"""Based on our conversation, provide a FINAL STRUCTURED PLAN:
+                
+User's latest: {message}
+                
+## 🚀 VISION SUMMARY
+[Summarize their startup vision]
+
+## 🎯 TARGET USERS  
+[Define primary user segments]
+
+## 📊 MARKET OPPORTUNITY
+[Market size and competition]
+
+## 🔄 EXECUTION PHASES
+
+### Phase 1: Foundation (Weeks 1-2)
+- Product Agent: Analyze user needs and MVP features
+- Finance Agent: Create financial projections and funding strategy
+
+### Phase 2: Development (Weeks 3-4)  
+- Marketing Agent: Develop content strategy and campaigns
+- Legal Agent: Handle compliance and legal requirements
+
+## 📋 NEXT STEPS
+Ready to distribute tasks to specialist agents.
+
+**Vision is ready for approval!**
+                """
+                vision_complete = True
+            else:
+                # Continue gathering information
+                chat_prompt = f"""You are having a conversation to understand their startup vision.
+                
 User's message: {message}
-            
-Your goal: Ask clarifying questions about vision, users, market, problems.
-When you have enough info, end with: "VISION_COMPLETE"
-            """
+                
+Ask 2-3 focused questions about:
+- Target users and pain points
+- Market opportunity
+- Unique value proposition
+- Business model
+                """
+                vision_complete = False
             
             messages = [
                 {"role": "system", "content": self._get_system_prompt()},
@@ -177,11 +215,9 @@ When you have enough info, end with: "VISION_COMPLETE"
             response = await self._call_llm(messages)
             
             response_content = response["choices"][0]["message"]["content"]
-            vision_complete = "VISION_COMPLETE" in response_content
-            clean_response = response_content.replace("VISION_COMPLETE", "").strip()
             
             return {
-                "message": clean_response,
+                "message": response_content,
                 "vision_complete": vision_complete
             }
         except Exception as e:

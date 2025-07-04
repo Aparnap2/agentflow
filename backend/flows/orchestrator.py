@@ -279,13 +279,23 @@ class AgentOrchestrator:
             if isinstance(response, dict):
                 if "message" in response:
                     response_text = str(response["message"])
-                    # Only mark as complete if response contains a structured plan
-                    vision_complete = (
+                    # Mark as complete if response contains structured plan OR user has provided comprehensive details
+                    has_structured_plan = (
                         "phase" in response_text.lower() and 
                         "task" in response_text.lower() and
-                        "agent" in response_text.lower() and
-                        len(response_text) > 500  # Ensure it's a comprehensive response
+                        "agent" in response_text.lower()
                     )
+                    
+                    # Check if user has provided enough details (multiple exchanges)
+                    conversation_length = len(conv.get("messages", []))
+                    has_sufficient_detail = (
+                        conversation_length >= 6 and  # At least 3 exchanges
+                        any(keyword in message.get("content", "").lower() 
+                            for message in conv.get("messages", [])[-4:] 
+                            for keyword in ["target", "user", "problem", "solution", "market"])
+                    )
+                    
+                    vision_complete = has_structured_plan or (has_sufficient_detail and len(response_text) > 300)
                 else:
                     response_text = "I've analyzed your idea! Here's what I found:\n\n" + json.dumps(response, indent=2)
                     vision_complete = False
@@ -380,13 +390,22 @@ class AgentOrchestrator:
             # Extract message properly
             if isinstance(response, dict) and "message" in response:
                 response_text = str(response["message"])
-                # Only mark as complete if response contains a structured plan
-                vision_complete = (
+                # Mark as complete if response contains structured plan OR sufficient conversation
+                has_structured_plan = (
                     "phase" in response_text.lower() and 
                     "task" in response_text.lower() and
-                    "agent" in response_text.lower() and
-                    len(response_text) > 500  # Ensure it's a comprehensive response
+                    "agent" in response_text.lower()
                 )
+                
+                conversation_length = len(conv.get("messages", []))
+                has_sufficient_detail = (
+                    conversation_length >= 6 and
+                    any(keyword in message.get("content", "").lower() 
+                        for message in conv.get("messages", [])[-4:] 
+                        for keyword in ["target", "user", "problem", "solution", "market"])
+                )
+                
+                vision_complete = has_structured_plan or (has_sufficient_detail and len(response_text) > 300)
             else:
                 response_text = str(response)
                 vision_complete = False
