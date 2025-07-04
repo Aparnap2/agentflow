@@ -692,9 +692,18 @@ async def get_communication_stats():
 
 @app.post("/api/workflow/execute")
 async def execute_langgraph_workflow(request: dict):
-    """Execute LangGraph workflow"""
+    """Execute LangGraph workflow with streaming"""
     try:
         result = await langgraph_orchestrator.execute_workflow(request)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/workflow/resume/{thread_id}")
+async def resume_workflow(thread_id: str):
+    """Resume workflow from checkpoint"""
+    try:
+        result = await langgraph_orchestrator.resume_from_checkpoint(thread_id)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
