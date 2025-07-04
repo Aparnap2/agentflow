@@ -1,23 +1,17 @@
 from typing import Dict, Any
-from agents.langgraph_base import LangGraphAgent
+from agents.langgraph_agent_base import LangGraphAgentBase
 from tools.web_search import WebSearchTool
-import json
-import re
 from datetime import datetime
 from loguru import logger
 
-class CofounderAgent(LangGraphAgent):
+class CofounderAgent(LangGraphAgentBase):
     """🧠 Cofounder Agent - Captures vision, goals, target users"""
     
     def __init__(self, memory_manager, approval_manager):
         personality = {
-            "tone": "conversational and strategic",
-            "focus": "vision clarity and market opportunity",
-            "expertise": ["strategy", "market analysis", "vision setting", "user research"],
             "model": "deepseek/deepseek-chat:free",
             "temperature": 0.6,
-            "confidence_threshold": 0.7,
-            "description": "Captures and refines project vision, identifies target users and market opportunities"
+            "expertise": ["strategy", "market analysis", "vision setting"]
         }
         super().__init__("Cofounder", "Vision & Strategy", memory_manager, approval_manager, personality)
         self.web_search = WebSearchTool()
@@ -39,84 +33,63 @@ When processing a vision, structure your output as:
 - Success Metrics (measurable goals)
 - Strategic Priorities (top 3-5 focus areas)"""
     
-    async def _execute_actions(self, state) -> Dict[str, Any]:
-        """Execute cofounder-specific actions"""
+    async def _analyze_node(self, state) -> Dict[str, Any]:
+        """Cofounder-specific analysis with dynamic thinking"""
         task = state["task"]
-        vision_input = task.get("vision", "")
-        user_name = task.get("user_name", "User")
+        context = state["context"]
         
-        # Get current market insights
-        market_research = await self._get_market_insights(vision_input)
+        # Get memory and context
+        private_memory = await self.memory_manager.get_agent_private_memory(self.name, limit=3)
+        global_context = await self.memory_manager.get_global_context_for_agent(
+            self.name, "vision strategy market opportunity"
+        )
         
-        # Analyze and structure the vision using LLM
-        vision_prompt = f"""
-        User ({user_name}) has provided this vision:
-        "{vision_input}"
+        # Let me think about this vision
+        analysis_prompt = f"""
+        I'm Alex Chen, a visionary cofounder. I need to analyze this startup idea:
         
-        Please analyze and structure this vision. Provide a comprehensive analysis including:
-        - A clear, compelling vision statement
-        - Specific target user personas
-        - Market opportunity assessment
-        - Success metrics and KPIs
-        - Strategic priorities
-        - Competitive advantages
+        Task: {task}
+        Context: {context}
+        My previous insights: {private_memory}
+        Market intelligence: {global_context}
         
-        Format your response as structured JSON.
+        Let me think deeply about:
+        1. What's the core problem being solved?
+        2. Who are the real target users?
+        3. What's the market opportunity size?
+        4. What makes this unique?
+        5. What are the key success factors?
+        
+        I should provide strategic insights, not generic advice.
+        Return JSON with: vision_statement, target_users, market_opportunity, strategic_priorities, competitive_advantage
         """
         
-        # Use LLM to process the vision
-        try:
-            messages = [
-                {"role": "system", "content": self._get_system_prompt()},
-                {"role": "user", "content": vision_prompt}
-            ]
-            response = await self._call_llm(messages)
-        except Exception as e:
-            logger.error(f"LLM call failed: {e}")
-            # Fallback to structured analysis
-            response = {"choices": [{"message": {"content": self._create_fallback_analysis(vision_input)}}]}
-        
-        try:
-            # Try to extract JSON from the response
-            response_content = response["choices"][0]["message"]["content"]
-            json_match = re.search(r'\{.*\}', response_content, re.DOTALL)
-            if json_match:
-                vision_analysis = json.loads(json_match.group())
-            else:
-                # Fallback: create structured output from text
-                vision_analysis = self._parse_vision_from_text(response_content, vision_input)
-        except (json.JSONDecodeError, AttributeError, KeyError) as e:
-            logger.error(f"JSON parsing failed: {e}")
-            # Fallback parsing
-            vision_analysis = self._parse_vision_from_text(str(response_content), vision_input)
-        
-        # Enhance with market research
-        vision_analysis["market_research"] = market_research
-        
-        return vision_analysis
+        analysis = await self._think(analysis_prompt)
+        state["analysis"] = analysis
+        return state
     
-    def _parse_vision_from_text(self, text: str, original_vision: str) -> Dict[str, Any]:
-        """Fallback method to parse vision from text response"""
-        return {
-            "vision_statement": original_vision,
-            "target_users": ["Early adopters", "Tech-savvy users"],
-            "market_opportunity": {
-                "size": "To be determined",
-                "competition": "Competitive landscape analysis needed"
-            },
-            "success_metrics": [
-                "User acquisition",
-                "User engagement",
-                "Revenue growth"
-            ],
-            "strategic_priorities": [
-                "Product development",
-                "Market validation",
-                "Team building"
-            ],
-            "competitive_advantage": "Unique value proposition to be defined",
-            "raw_analysis": text
-        }
+    async def _synthesize_node(self, state) -> Dict[str, Any]:
+        """Synthesize vision analysis into actionable strategy"""
+        analysis = state["analysis"]
+        
+        synthesis_prompt = f"""
+        Based on my vision analysis: {analysis}
+        
+        As Alex Chen, I need to synthesize this into a clear strategic direction:
+        
+        1. Craft a compelling vision statement
+        2. Define specific user personas with pain points
+        3. Size the market opportunity
+        4. Identify 3-5 strategic priorities
+        5. Articulate our competitive advantage
+        
+        Make it specific, actionable, and inspiring - not generic startup advice.
+        Return structured recommendations.
+        """
+        
+        synthesis = await self._think(synthesis_prompt)
+        state["recommendations"] = synthesis.get("recommendations", [])
+        return state
     
     def _calculate_confidence(self, outputs: Dict[str, Any]) -> float:
         """Calculate confidence based on vision analysis completeness"""

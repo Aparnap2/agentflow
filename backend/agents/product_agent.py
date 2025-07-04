@@ -1,26 +1,19 @@
 from typing import Dict, Any, List
-from agents.langgraph_base import LangGraphAgent
+from agents.langgraph_agent_base import LangGraphAgentBase
 from tools.web_search import WebSearchTool
-from tools.advanced_tools import MarketIntelligenceTool
-import json
 from datetime import datetime
 
-class ProductAgent(LangGraphAgent):
+class ProductAgent(LangGraphAgentBase):
     """🎯 Product Agent - Defines MVP, features, personas"""
     
     def __init__(self, memory_manager, approval_manager):
         personality = {
-            "tone": "analytical and detailed",
-            "focus": "user needs and product-market fit",
-            "expertise": ["product management", "user research", "MVP design", "feature prioritization"],
             "model": "deepseek/deepseek-chat:free",
             "temperature": 0.5,
-            "confidence_threshold": 0.75,
-            "description": "Defines MVP features, creates user personas, and designs user experience flows"
+            "expertise": ["product management", "user research", "MVP design"]
         }
         super().__init__("Product", "Product Management", memory_manager, approval_manager, personality)
         self.web_search = WebSearchTool()
-        self.market_intelligence = MarketIntelligenceTool()
     
     def get_system_prompt(self) -> str:
         return """You are Jordan Martinez, the Product Agent. Create ACTIONABLE product strategy.
@@ -49,127 +42,61 @@ Provide structured output with:
 
 Be specific and actionable. Focus on user value and business impact."""
     
-    async def _execute_actions(self, state) -> Dict[str, Any]:
-        """Process product definition and persona creation with memory integration"""
-        
+    async def _analyze_node(self, state) -> Dict[str, Any]:
+        """Product analysis with dynamic thinking"""
         task = state["task"]
         context = state["context"]
         
-        # Get vision data from shared context (Qdrant RAG)
+        # Get relevant context
+        private_memory = await self.memory_manager.get_agent_private_memory(self.name, limit=3)
         global_context = await self.memory_manager.get_global_context_for_agent(
-            agent_name=self.name,
-            query="product strategy user personas MVP features"
+            self.name, "product strategy MVP user personas features"
         )
         
-        # Get my previous product work from private memory (Neo4j)
-        previous_work = await self.memory_manager.get_agent_private_memory(
-            agent_name=self.name,
-            memory_type="product_analysis",
-            limit=3
-        )
+        analysis_prompt = f"""
+        I'm Jordan Martinez, a product strategist. I need to define the product strategy:
         
-        # Extract vision data
-        vision_data = global_context.get("shared_context", {}).get("cofounder_output", {})
-        if not vision_data:
-            vision_data = context.get("shared_context", {}).get("cofounder_output", {})
+        Task: {task}
+        Context: {context}
+        My previous product work: {private_memory}
+        Vision insights: {global_context}
         
-        # Use advanced tools for enhanced analysis
-        market_intelligence = await self.market_intelligence._arun(vision_data.get("vision_statement", ""))
-        market_research = await self._use_research_tools(vision_data)
-        persona_insights = await self._use_persona_tools(vision_data)
+        Let me think about:
+        1. What's the core user problem we're solving?
+        2. Who exactly are our users and what do they need?
+        3. What's the minimum viable product?
+        4. How do we prioritize features?
+        5. What's our user experience strategy?
         
-        # Extract key info from vision
-        vision_statement = vision_data.get("vision_statement", "AI assistant for professionals")
-        target_users = vision_data.get("target_users", ["professionals"])
+        I need to be specific about features, not generic.
+        Return JSON with: mvp_definition, user_personas, feature_roadmap, success_metrics
+        """
         
-        # Create detailed product definition
-        product_definition = {
-            "mvp_definition": {
-                "core_features": self._generate_core_features(vision_statement),
-                "scope": f"MVP focused on {vision_statement[:100]}...",
-                "technical_requirements": [
-                    "Mobile-first responsive design",
-                    "Real-time data processing",
-                    "API integrations",
-                    "Cloud infrastructure"
-                ],
-                "success_criteria": [
-                    "User onboarding completed in < 3 minutes",
-                    "Core feature usage > 80%",
-                    "User satisfaction score > 4.2/5"
-                ]
-            },
-            "user_personas": self._generate_personas(target_users, vision_statement),
-            "feature_roadmap": {
-                "phase_1_must_have": self._prioritize_features(vision_statement, "must_have"),
-                "phase_2_should_have": self._prioritize_features(vision_statement, "should_have"),
-                "phase_3_nice_to_have": self._prioritize_features(vision_statement, "nice_to_have")
-            },
-            "user_experience_flow": {
-                "onboarding": ["Sign up → Profile setup → Tutorial → First action"],
-                "core_workflow": ["Login → Dashboard → Action → Results → Feedback"],
-                "retention": ["Regular usage → Value realization → Feature discovery"]
-            },
-            "success_metrics": {
-                "acquisition": ["Sign-up rate", "Trial conversion"],
-                "activation": ["Time to first value", "Feature adoption"],
-                "retention": ["Daily/Monthly active users", "Churn rate"],
-                "revenue": ["Conversion rate", "Average revenue per user"]
-            }
-        }
+        analysis = await self._think(analysis_prompt)
+        state["analysis"] = analysis
+        return state
+    
+    async def _synthesize_node(self, state) -> Dict[str, Any]:
+        """Synthesize product insights into actionable strategy"""
+        analysis = state["analysis"]
         
-        confidence = 0.85
+        synthesis_prompt = f"""
+        Based on my product analysis: {analysis}
         
-        result = {
-            "output": product_definition,
-            "confidence": confidence,
-            "summary": f"Defined MVP with {len(product_definition['mvp_definition']['core_features'])} core features and {len(product_definition['user_personas'])} personas",
-            "agent": self.name,
-            "timestamp": datetime.now().isoformat()
-        }
+        As Jordan Martinez, I need to create a comprehensive product strategy:
         
-        # Store in private memory (Neo4j) for my future reference
-        await self.memory_manager.store_agent_private_memory(
-            agent_name=self.name,
-            memory_type="product_analysis",
-            content={
-                "product_definition": product_definition,
-                "task_context": task,
-                "previous_work_referenced": len(previous_work),
-                "timestamp": datetime.now().isoformat()
-            }
-        )
+        1. Define specific MVP features (not generic ones)
+        2. Create detailed user personas with real pain points
+        3. Build a phased feature roadmap
+        4. Design user experience flows
+        5. Set measurable success metrics
         
-        # Store in shared memory (Qdrant) for other agents
-        await self.memory_manager.store_agent_memory(
-            agent_name=self.name,
-            memory_type="product_strategy",
-            content=product_definition,
-            is_shared=True,
-            confidence=confidence,
-            metadata={"task_id": task.get("id"), "agent": "Jordan Martinez"}
-        )
+        Make it actionable for the development team.
+        """
         
-        # Enhance product definition with tool insights
-        product_definition["market_intelligence"] = market_intelligence
-        product_definition["market_research"] = market_research
-        product_definition["persona_insights"] = persona_insights
-        
-        # Add automated recommendations
-        product_definition["ai_recommendations"] = self._generate_ai_recommendations(product_definition)
-        
-        # Check for collaboration opportunities
-        collaboration_needs = await self._identify_collaboration_needs(product_definition)
-        if collaboration_needs:
-            product_definition["collaboration_suggestions"] = collaboration_needs
-        
-        return {
-            "output": product_definition,
-            "confidence": confidence,
-            "summary": f"Product strategy defined with {len(product_definition['mvp_definition']['core_features'])} core features",
-            "agent": "Jordan Martinez",
-            "timestamp": datetime.now().isoformat()
-        }
+        synthesis = await self._think(synthesis_prompt)
+        state["recommendations"] = synthesis.get("recommendations", [])
+        return state
     
     def _generate_ai_recommendations(self, product_definition: Dict[str, Any]) -> List[str]:
         """Generate AI-powered product recommendations"""
