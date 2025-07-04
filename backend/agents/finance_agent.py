@@ -52,14 +52,28 @@ Provide structured output with:
 Be specific with numbers and realistic assumptions. Focus on actionable financial insights."""
     
     async def _execute_actions(self, state) -> Dict[str, Any]:
-        """Process financial modeling and analysis"""
+        """Process financial modeling and analysis with memory integration"""
         
         task = state["task"]
         context = state["context"]
         
-        # Get context from other agents
-        vision_data = context.get("cofounder_output", {})
-        product_data = context.get("product_output", {})
+        # Get relevant context using RAG (Qdrant)
+        global_context = await self.memory_manager.get_global_context_for_agent(
+            agent_name=self.name,
+            query="financial projections pricing revenue model funding"
+        )
+        
+        # Get my previous financial analysis from private memory (Neo4j)
+        previous_analysis = await self.memory_manager.get_agent_private_memory(
+            agent_name=self.name,
+            memory_type="financial_modeling",
+            limit=3
+        )
+        
+        # Extract context from shared memory
+        shared_context = global_context.get("shared_context", {})
+        vision_data = shared_context.get("cofounder_output", {})
+        product_data = shared_context.get("product_strategy", {})
         
         # Use advanced financial modeling
         business_model = {
@@ -166,12 +180,26 @@ Be specific with numbers and realistic assumptions. Focus on actionable financia
             "timestamp": datetime.now().isoformat()
         }
         
-        # Store in memory
+        # Store in private memory (Neo4j) for my future reference
+        await self.memory_manager.store_agent_private_memory(
+            agent_name=self.name,
+            memory_type="financial_modeling",
+            content={
+                "financial_model": financial_model,
+                "market_analysis": market_data,
+                "previous_analysis_count": len(previous_analysis),
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+        
+        # Store in shared memory (Qdrant) for other agents to access
         await self.memory_manager.store_agent_memory(
             agent_name=self.name,
-            memory_type="financial_model",
+            memory_type="financial_projections",
             content=financial_model,
-            metadata={"task_id": task.get("id"), "created_at": datetime.now().isoformat()}
+            is_shared=True,
+            confidence=confidence,
+            metadata={"task_id": task.get("id"), "agent": "David Park"}
         )
         
         return result

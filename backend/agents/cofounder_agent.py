@@ -158,16 +158,35 @@ When processing a vision, structure your output as:
         return ' '.join(key_terms[:3])
     
     async def chat(self, message: str, conversation_id: str, context: list = None) -> Dict[str, Any]:
-        """Chat interface for conversational vision refinement"""
+        """Chat interface for conversational vision refinement with memory"""
         try:
             context = context or []
             conversation_length = len(context)
             
+            # Store user message in private memory
+            await self.memory_manager.store_agent_private_memory(
+                agent_name=self.name,
+                memory_type="conversation",
+                content={
+                    "user_message": message,
+                    "conversation_id": conversation_id,
+                    "message_count": conversation_length + 1,
+                    "timestamp": datetime.now().isoformat()
+                }
+            )
+            
+            # Get relevant global context using RAG
+            global_context = await self.memory_manager.get_global_context_for_agent(
+                agent_name=self.name,
+                query=message
+            )
+            
             # After 5+ exchanges, provide final structured plan
             if conversation_length >= 5:
-                chat_prompt = f"""Based on our conversation, provide a FINAL STRUCTURED PLAN:
+                chat_prompt = f"""Based on our conversation and global context, provide a FINAL STRUCTURED PLAN:
                 
 User's latest: {message}
+Global context: {global_context.get('shared_context', {})}
                 
 ## 🚀 VISION SUMMARY
 [Summarize their startup vision]
@@ -195,10 +214,18 @@ Ready to distribute tasks to specialist agents.
                 """
                 vision_complete = True
             else:
-                # Continue gathering information
+                # Get previous conversation context from private memory
+                prev_conversations = await self.memory_manager.get_agent_private_memory(
+                    agent_name=self.name,
+                    memory_type="conversation",
+                    limit=5
+                )
+                
                 chat_prompt = f"""You are having a conversation to understand their startup vision.
                 
 User's message: {message}
+Previous context: {prev_conversations}
+Global insights: {global_context.get('semantic_results', [])}
                 
 Ask 2-3 focused questions about:
 - Target users and pain points
@@ -215,6 +242,18 @@ Ask 2-3 focused questions about:
             response = await self._call_llm(messages)
             
             response_content = response["choices"][0]["message"]["content"]
+            
+            # Store response in private memory
+            await self.memory_manager.store_agent_private_memory(
+                agent_name=self.name,
+                memory_type="conversation_response",
+                content={
+                    "response": response_content,
+                    "conversation_id": conversation_id,
+                    "vision_complete": vision_complete,
+                    "timestamp": datetime.now().isoformat()
+                }
+            )
             
             return {
                 "message": response_content,

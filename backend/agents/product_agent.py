@@ -50,17 +50,28 @@ Provide structured output with:
 Be specific and actionable. Focus on user value and business impact."""
     
     async def _execute_actions(self, state) -> Dict[str, Any]:
-        """Process product definition and persona creation"""
+        """Process product definition and persona creation with memory integration"""
         
         task = state["task"]
         context = state["context"]
         
-        # Get vision data from context
-        vision_data = context.get("cofounder_output", {})
+        # Get vision data from shared context (Qdrant RAG)
+        global_context = await self.memory_manager.get_global_context_for_agent(
+            agent_name=self.name,
+            query="product strategy user personas MVP features"
+        )
+        
+        # Get my previous product work from private memory (Neo4j)
+        previous_work = await self.memory_manager.get_agent_private_memory(
+            agent_name=self.name,
+            memory_type="product_analysis",
+            limit=3
+        )
+        
+        # Extract vision data
+        vision_data = global_context.get("shared_context", {}).get("cofounder_output", {})
         if not vision_data:
-            # Try to get from shared context directly
-            shared_context = await self.memory_manager.get_shared_context()
-            vision_data = shared_context.get("cofounder_output", [{}])[0].get("content", {})
+            vision_data = context.get("shared_context", {}).get("cofounder_output", {})
         
         # Use advanced tools for enhanced analysis
         market_intelligence = await self.market_intelligence._arun(vision_data.get("vision_statement", ""))
@@ -117,12 +128,26 @@ Be specific and actionable. Focus on user value and business impact."""
             "timestamp": datetime.now().isoformat()
         }
         
-        # Store in memory
+        # Store in private memory (Neo4j) for my future reference
+        await self.memory_manager.store_agent_private_memory(
+            agent_name=self.name,
+            memory_type="product_analysis",
+            content={
+                "product_definition": product_definition,
+                "task_context": task,
+                "previous_work_referenced": len(previous_work),
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+        
+        # Store in shared memory (Qdrant) for other agents
         await self.memory_manager.store_agent_memory(
             agent_name=self.name,
-            memory_type="product_definition",
+            memory_type="product_strategy",
             content=product_definition,
-            metadata={"task_id": task.get("id"), "created_at": datetime.now().isoformat()}
+            is_shared=True,
+            confidence=confidence,
+            metadata={"task_id": task.get("id"), "agent": "Jordan Martinez"}
         )
         
         # Enhance product definition with tool insights

@@ -422,12 +422,32 @@ class MarketingAgent(LangGraphAgent):
         return social_plan
     
     async def _general_marketing_analysis(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-        """General marketing analysis and recommendations"""
+        """General marketing analysis and recommendations with memory integration"""
         
-        vision_data = context.get("cofounder_output", {})
+        # Get relevant context using RAG (Qdrant)
+        global_context = await self.memory_manager.get_global_context_for_agent(
+            agent_name=self.name,
+            query="marketing strategy content campaigns brand positioning"
+        )
+        
+        # Get my previous marketing work from private memory (Neo4j)
+        previous_campaigns = await self.memory_manager.get_agent_private_memory(
+            agent_name=self.name,
+            memory_type="marketing_campaigns",
+            limit=3
+        )
+        
+        # Get customer data from other agents (Finance agent's customer analysis)
+        customer_insights = await self.memory_manager.semantic_search(
+            query="customer segments target users paying customers",
+            limit=3
+        )
+        
+        # Extract vision data from shared context
+        shared_context = global_context.get("shared_context", {})
+        vision_data = shared_context.get("cofounder_output", {})
         if not vision_data:
-            shared_context = await self.memory_manager.get_shared_context()
-            vision_data = shared_context.get("cofounder_output", [{}])[0].get("content", {})
+            vision_data = context.get("shared_context", {}).get("cofounder_output", {})
         
         vision_statement = vision_data.get("vision_statement", "AI assistant for professionals")
         target_users = vision_data.get("target_users", ["professionals"])
@@ -439,11 +459,26 @@ class MarketingAgent(LangGraphAgent):
             "growth_tactics": self._create_growth_tactics(vision_statement)
         }
         
+        # Store in private memory (Neo4j) for my future campaigns
+        await self.memory_manager.store_agent_private_memory(
+            agent_name=self.name,
+            memory_type="marketing_campaigns",
+            content={
+                "marketing_analysis": marketing_analysis,
+                "customer_insights_used": len(customer_insights),
+                "previous_campaigns_referenced": len(previous_campaigns),
+                "timestamp": datetime.now().isoformat()
+            }
+        )
+        
+        # Store in shared memory (Qdrant) for other agents
         await self.memory_manager.store_agent_memory(
             agent_name=self.name,
-            memory_type="marketing_analysis",
+            memory_type="marketing_strategy",
             content=marketing_analysis,
-            metadata={"task_id": task.get("id"), "created_at": datetime.now().isoformat()}
+            is_shared=True,
+            confidence=0.8,
+            metadata={"task_id": task.get("id"), "agent": "Emma Rodriguez"}
         )
         
         return {

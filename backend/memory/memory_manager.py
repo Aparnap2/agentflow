@@ -293,6 +293,39 @@ class MemoryManager:
         
         logger.warning("All memory systems cleared")
     
+    async def store_agent_private_memory(self, agent_name: str, memory_type: str, content: Dict[str, Any]) -> str:
+        """Store agent's private memory in Neo4j"""
+        return await self.graph_memory.write_private_memory(
+            agent_name=agent_name,
+            memory_type=memory_type,
+            content=content
+        )
+    
+    async def get_agent_private_memory(self, agent_name: str, memory_type: Optional[str] = None, limit: int = 10) -> List[Dict[str, Any]]:
+        """Get agent's private memory from Neo4j"""
+        return await self.graph_memory.query_private_memory(
+            agent_name=agent_name,
+            memory_type=memory_type,
+            limit=limit
+        )
+    
+    async def get_global_context_for_agent(self, agent_name: str, query: str) -> Dict[str, Any]:
+        """Get relevant global context for agent using RAG"""
+        # Semantic search in Qdrant for relevant context
+        search_results = await self.semantic_search(
+            query=query,
+            limit=5
+        )
+        
+        # Get shared context from Neo4j
+        shared_context = await self.get_shared_context()
+        
+        return {
+            "semantic_results": search_results,
+            "shared_context": shared_context,
+            "agent_focus": agent_name
+        }
+    
     def close(self):
         """Close all memory system connections"""
         self.graph_memory.close()

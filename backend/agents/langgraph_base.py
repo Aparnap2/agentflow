@@ -149,10 +149,21 @@ class LangGraphAgent:
         return selected_tools
 
     async def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute the agent workflow"""
+        """Execute the agent workflow with proper memory integration"""
         try:
-            # Get shared context
-            context = await self.memory_manager.get_shared_context()
+            # Get shared context from Qdrant (global)
+            shared_context = await self.memory_manager.get_shared_context()
+            
+            # Get agent's private memory from Neo4j (personalized)
+            private_memory = await self.memory_manager.get_agent_private_memory(self.name)
+            
+            # Combine contexts
+            context = {
+                "shared_context": shared_context,
+                "private_memory": private_memory,
+                "agent_expertise": self.personality.get("expertise_areas", []),
+                "previous_outputs": await self._get_previous_outputs()
+            }
             
             # Create state
             state = {
@@ -161,50 +172,20 @@ class LangGraphAgent:
                 "outputs": {}
             }
             
-            # Convert state to messages format for OpenRouter
-            messages = [
-                {"role": "system", "content": self._get_system_prompt()},
-                {"role": "user", "content": json.dumps({
-                    "task": task,
-                    "context": context
-                })}
-            ]
+            # Execute agent-specific actions
+            action_results = await self._execute_actions(state)
             
-            # Call LLM
-            response = await self._call_llm(messages)
-            response_content = response["choices"][0]["message"]["content"]
+            # Calculate confidence
+            confidence = self._calculate_confidence(action_results)
             
-            # Try to parse JSON, fallback to structured text
-            try:
-                action_results = json.loads(response_content)
-            except json.JSONDecodeError:
-                # Create structured output from text response
-                action_results = {
-                    "analysis": response_content,
-                    "agent": self.name,
-                    "task_type": task.get("type", "general"),
-                    "recommendations": ["Analysis completed"],
-                    "confidence": 0.7
-                }
-            
-            # Calculate confidence based on response
-            confidence = float(response.get("choices", [{}])[0].get("finish_reason", "") == "stop") * 0.8
-            
-            # Store results
-            await self.memory_manager.store_agent_memory(
-                agent_name=self.name,
-                memory_type=f"{self.name.lower()}_output",
-                content=action_results,
-                is_shared=True,
-                confidence=confidence,
-                metadata={"task_id": task.get("id")}
-            )
+            # Store in both memory systems
+            await self._store_in_memory_systems(task, action_results, confidence)
             
             return {
                 "status": "completed",
                 "output": action_results,
                 "confidence": confidence,
-                "requires_approval": confidence < 0.6,
+                "requires_approval": confidence < self.confidence_threshold,
                 "agent": self.name,
                 "task_id": task.get("id"),
                 "completed_at": datetime.now().isoformat()
@@ -212,12 +193,65 @@ class LangGraphAgent:
             
         except Exception as e:
             logger.error(f"{self.name} execution failed: {str(e)}")
+            # Store error in private memory
+            await self.memory_manager.store_agent_private_memory(
+                agent_name=self.name,
+                memory_type="error_log",
+                content={"error": str(e), "task": task, "timestamp": datetime.now().isoformat()}
+            )
             return {
                 "status": "error",
                 "error": str(e),
                 "agent": self.name,
                 "task_id": task.get("id")
             }
+    
+    async def _get_previous_outputs(self) -> List[Dict[str, Any]]:
+        """Get agent's previous outputs from memory"""
+        try:
+            return await self.memory_manager.get_agent_private_memory(self.name, memory_type="outputs")
+        except:
+            return []
+    
+    def _calculate_confidence(self, outputs: Dict[str, Any]) -> float:
+        """Calculate confidence based on output completeness"""
+        base_confidence = 0.7
+        
+        # Check output completeness
+        if isinstance(outputs, dict):
+            if len(outputs) > 3:  # Has multiple sections
+                base_confidence += 0.1
+            if "recommendations" in outputs or "next_steps" in outputs:
+                base_confidence += 0.1
+            if "analysis" in outputs or "strategy" in outputs:
+                base_confidence += 0.1
+        
+        return min(1.0, base_confidence)
+    
+    async def _store_in_memory_systems(self, task: Dict[str, Any], results: Dict[str, Any], confidence: float):
+        """Store results in both Neo4j (private) and Qdrant (shared)"""
+        # Store in private memory (Neo4j) - agent's personal context
+        await self.memory_manager.store_agent_private_memory(
+            agent_name=self.name,
+            memory_type=f"{self.name.lower()}_task",
+            content={
+                "task": task,
+                "results": results,
+                "confidence": confidence,
+                "timestamp": datetime.now().isoformat(),
+                "task_type": task.get("type", "general")
+            }
+        )
+        
+        # Store in shared memory (Qdrant) - global context for other agents
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type=f"{self.name.lower()}_output",
+            content=results,
+            is_shared=True,
+            confidence=confidence,
+            metadata={"task_id": task.get("id"), "agent": self.name}
+        )
     
     async def chat(self, message: str, conversation_id: Optional[str] = None) -> Dict[str, Any]:
         """Handle conversation chat - to be overridden by specific agents"""
