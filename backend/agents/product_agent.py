@@ -23,21 +23,31 @@ class ProductAgent(LangGraphAgent):
         self.market_intelligence = MarketIntelligenceTool()
     
     def get_system_prompt(self) -> str:
-        return """You are the Product agent in a virtual AI startup team. Your role is to:
+        return """You are Jordan Martinez, the Product Agent. Create ACTIONABLE product strategy.
 
-1. Define MVP features and requirements
-2. Create detailed user personas
-3. Design user experience flows
-4. Prioritize feature development
+Provide structured output with:
 
-You are analytical and detail-oriented. Focus on user needs, market validation, and practical implementation.
+## 📱 MVP DEFINITION
+- Core Features (3-5 essential features)
+- Technical Requirements
+- Success Criteria
 
-Structure your output as:
-- MVP Definition (core features, scope)
-- User Personas (detailed profiles with needs/pain points)
-- Feature Prioritization (must-have vs nice-to-have)
-- User Experience Flow (key user journeys)
-- Success Metrics (product KPIs)"""
+## 👥 USER PERSONAS
+- Primary Persona (detailed profile)
+- Secondary Persona (if applicable)
+- Pain Points & Goals
+
+## 🎯 FEATURE ROADMAP
+- Phase 1: Must-Have Features
+- Phase 2: Should-Have Features
+- Phase 3: Nice-to-Have Features
+
+## 📊 SUCCESS METRICS
+- User Acquisition KPIs
+- Engagement Metrics
+- Retention Goals
+
+Be specific and actionable. Focus on user value and business impact."""
     
     async def _execute_actions(self, state) -> Dict[str, Any]:
         """Process product definition and persona creation"""
@@ -57,62 +67,32 @@ Structure your output as:
         market_research = await self._use_research_tools(vision_data)
         persona_insights = await self._use_persona_tools(vision_data)
         
+        # Extract key info from vision
+        vision_statement = vision_data.get("vision_statement", "AI assistant for professionals")
+        target_users = vision_data.get("target_users", ["professionals"])
+        
         # Create detailed product definition
         product_definition = {
             "mvp_definition": {
-                "core_features": [
-                    "User onboarding and authentication",
-                    "Core value proposition delivery",
-                    "Basic user dashboard",
-                    "Essential integrations"
-                ],
-                "scope": "Minimum viable product focused on core user needs",
+                "core_features": self._generate_core_features(vision_statement),
+                "scope": f"MVP focused on {vision_statement[:100]}...",
                 "technical_requirements": [
-                    "Web-based application",
-                    "Mobile responsive design",
-                    "Cloud-hosted infrastructure",
-                    "API-first architecture"
+                    "Mobile-first responsive design",
+                    "Real-time data processing",
+                    "API integrations",
+                    "Cloud infrastructure"
                 ],
                 "success_criteria": [
-                    "User can complete core workflow in < 5 minutes",
-                    "90% feature adoption rate",
-                    "Positive user feedback score > 4.0"
+                    "User onboarding completed in < 3 minutes",
+                    "Core feature usage > 80%",
+                    "User satisfaction score > 4.2/5"
                 ]
             },
-            "user_personas": [
-                {
-                    "name": "Alex the Early Adopter",
-                    "demographics": "25-35, tech-savvy professional",
-                    "goals": ["Efficiency improvement", "Competitive advantage"],
-                    "pain_points": ["Time-consuming manual processes", "Lack of integration"],
-                    "user_journey": ["Discovery → Trial → Adoption → Advocacy"],
-                    "features_needed": ["Quick setup", "Advanced features", "Customization"]
-                },
-                {
-                    "name": "Sam the SMB Owner", 
-                    "demographics": "35-50, small business owner",
-                    "goals": ["Cost reduction", "Process automation"],
-                    "pain_points": ["Limited budget", "Complex tools", "Time constraints"],
-                    "user_journey": ["Problem recognition → Research → Trial → Purchase"],
-                    "features_needed": ["Simple interface", "Affordable pricing", "Support"]
-                }
-            ],
-            "feature_prioritization": {
-                "must_have": [
-                    "Core functionality",
-                    "User authentication",
-                    "Basic reporting"
-                ],
-                "should_have": [
-                    "Advanced analytics",
-                    "Third-party integrations",
-                    "Mobile app"
-                ],
-                "could_have": [
-                    "AI-powered insights",
-                    "White-label options",
-                    "Advanced customization"
-                ]
+            "user_personas": self._generate_personas(target_users, vision_statement),
+            "feature_roadmap": {
+                "phase_1_must_have": self._prioritize_features(vision_statement, "must_have"),
+                "phase_2_should_have": self._prioritize_features(vision_statement, "should_have"),
+                "phase_3_nice_to_have": self._prioritize_features(vision_statement, "nice_to_have")
             },
             "user_experience_flow": {
                 "onboarding": ["Sign up → Profile setup → Tutorial → First action"],
@@ -158,7 +138,13 @@ Structure your output as:
         if collaboration_needs:
             product_definition["collaboration_suggestions"] = collaboration_needs
         
-        return product_definition
+        return {
+            "output": product_definition,
+            "confidence": confidence,
+            "summary": f"Product strategy defined with {len(product_definition['mvp_definition']['core_features'])} core features",
+            "agent": "Jordan Martinez",
+            "timestamp": datetime.now().isoformat()
+        }
     
     def _generate_ai_recommendations(self, product_definition: Dict[str, Any]) -> List[str]:
         """Generate AI-powered product recommendations"""
@@ -202,6 +188,77 @@ Structure your output as:
             })
         
         return collaboration_needs
+    
+    def _generate_core_features(self, vision: str) -> List[str]:
+        """Generate core features based on vision"""
+        if "ai assistant" in vision.lower():
+            return [
+                "Conversational AI interface",
+                "Persistent memory system", 
+                "Task automation",
+                "Real-time notifications"
+            ]
+        elif "content" in vision.lower():
+            return [
+                "Content generation tools",
+                "Social media integration",
+                "Analytics dashboard",
+                "Scheduling system"
+            ]
+        else:
+            return [
+                "User authentication",
+                "Core functionality", 
+                "Dashboard interface",
+                "Data management"
+            ]
+    
+    def _generate_personas(self, target_users: List[str], vision: str) -> List[Dict[str, Any]]:
+        """Generate user personas based on target users"""
+        personas = []
+        
+        if "professional" in str(target_users).lower():
+            personas.append({
+                "name": "Sarah the Rising Professional",
+                "demographics": "28-35, ambitious professional",
+                "goals": ["Career advancement", "Efficiency improvement"],
+                "pain_points": ["Time management", "Information overload"],
+                "key_features": ["Time-saving automation", "Professional templates"]
+            })
+        
+        if "creator" in str(target_users).lower():
+            personas.append({
+                "name": "Alex the Content Creator", 
+                "demographics": "22-32, creative professional",
+                "goals": ["Audience growth", "Content consistency"],
+                "pain_points": ["Content planning", "Multi-platform management"],
+                "key_features": ["Content calendar", "Cross-platform posting"]
+            })
+        
+        return personas or [{
+            "name": "Primary User",
+            "demographics": "Target demographic",
+            "goals": ["Achieve objectives"],
+            "pain_points": ["Current challenges"],
+            "key_features": ["Essential functionality"]
+        }]
+    
+    def _prioritize_features(self, vision: str, priority: str) -> List[str]:
+        """Prioritize features based on vision and priority level"""
+        if "ai assistant" in vision.lower():
+            if priority == "must_have":
+                return ["Chat interface", "Memory persistence", "Basic automation"]
+            elif priority == "should_have":
+                return ["Advanced AI features", "Integrations", "Mobile app"]
+            else:
+                return ["Voice interface", "Custom workflows", "API access"]
+        else:
+            if priority == "must_have":
+                return ["Core functionality", "User management", "Basic features"]
+            elif priority == "should_have":
+                return ["Advanced features", "Integrations", "Analytics"]
+            else:
+                return ["Premium features", "Customization", "Enterprise tools"]
     
     async def _use_research_tools(self, vision_data: Dict[str, Any]) -> Dict[str, Any]:
         """Use research tools to gather current market insights"""

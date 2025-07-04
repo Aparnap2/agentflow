@@ -23,20 +23,33 @@ class FinanceAgent(LangGraphAgent):
         self.financial_modeling = FinancialModelingTool()
     
     def get_system_prompt(self) -> str:
-        return """You are the Finance agent in a virtual AI startup team. Your role is to:
+        return """You are David Park, the Finance Agent. Create ACTIONABLE financial strategy.
 
-1. Create financial models and projections
-2. Analyze pricing strategies and revenue models
-3. Calculate ROI scenarios and break-even analysis
-4. Assess funding requirements and cash flow
+Provide structured output with:
 
-You are analytical and quantitative. Focus on realistic assumptions, multiple scenarios, and clear financial metrics.
+## 💰 REVENUE MODEL
+- Pricing Tiers (3 tiers with specific prices)
+- Revenue Streams
+- Market Sizing
 
-Structure your output as:
-- Financial Model (revenue, costs, projections)
-- Pricing Strategy (models, tiers, competitive analysis)
-- ROI Analysis (scenarios, break-even, sensitivity)
-- Funding Requirements (startup costs, runway, milestones)"""
+## 📈 FINANCIAL PROJECTIONS
+- Year 1-3 Revenue/Cost/Profit
+- Customer Growth Projections
+- Unit Economics
+
+## 🎯 ROI ANALYSIS
+- Break-even Timeline
+- Customer Acquisition Cost
+- Lifetime Value
+- Key Ratios
+
+## 💵 FUNDING STRATEGY
+- Funding Requirements
+- Use of Funds
+- Milestones
+- Runway Analysis
+
+Be specific with numbers and realistic assumptions. Focus on actionable financial insights."""
     
     async def _execute_actions(self, state) -> Dict[str, Any]:
         """Process financial modeling and analysis"""
@@ -59,38 +72,16 @@ Structure your output as:
         market_data = await self._use_financial_tools(vision_data)
         pricing_analysis = await self._analyze_pricing_strategy(product_data)
         
+        # Extract vision info for dynamic pricing
+        vision_statement = vision_data.get("vision_statement", "")
+        target_users = vision_data.get("target_users", [])
+        
         # Create financial analysis
         financial_model = {
             "revenue_model": {
-                "primary_model": "SaaS Subscription",
-                "pricing_tiers": [
-                    {
-                        "tier": "Starter",
-                        "price": 29,
-                        "billing": "monthly",
-                        "features": ["Basic features", "Email support"],
-                        "target_segment": "Individual users"
-                    },
-                    {
-                        "tier": "Professional", 
-                        "price": 99,
-                        "billing": "monthly",
-                        "features": ["Advanced features", "Priority support", "Integrations"],
-                        "target_segment": "Small businesses"
-                    },
-                    {
-                        "tier": "Enterprise",
-                        "price": 299,
-                        "billing": "monthly", 
-                        "features": ["All features", "Custom integrations", "Dedicated support"],
-                        "target_segment": "Large organizations"
-                    }
-                ],
-                "revenue_streams": [
-                    "Subscription fees (80%)",
-                    "Setup/onboarding fees (15%)",
-                    "Professional services (5%)"
-                ]
+                "primary_model": self._determine_revenue_model(vision_statement),
+                "pricing_tiers": self._generate_pricing_tiers(vision_statement, target_users),
+                "revenue_streams": self._generate_revenue_streams(vision_statement)
             },
             "financial_projections": {
                 "year_1": {
@@ -183,13 +174,7 @@ Structure your output as:
             metadata={"task_id": task.get("id"), "created_at": datetime.now().isoformat()}
         )
         
-        # Enhance financial model with tool insights
-        financial_model_data["advanced_modeling"] = financial_model
-        financial_model_data["market_analysis"] = market_data
-        financial_model_data["pricing_analysis"] = pricing_analysis
-        financial_model_data["ai_insights"] = self._generate_financial_insights(financial_model_data)
-        
-        return financial_model_data
+        return result
     
     def _generate_financial_insights(self, financial_data: Dict[str, Any]) -> Dict[str, Any]:
         """Generate AI-powered financial insights"""
@@ -212,6 +197,106 @@ Structure your output as:
                 insights["funding_recommendations"].append("Secure funding to cover initial losses")
         
         return insights
+    
+    def _determine_revenue_model(self, vision: str) -> str:
+        """Determine revenue model based on vision"""
+        if "saas" in vision.lower() or "subscription" in vision.lower():
+            return "SaaS Subscription"
+        elif "marketplace" in vision.lower():
+            return "Marketplace Commission"
+        elif "ai assistant" in vision.lower():
+            return "Freemium + Premium Subscription"
+        else:
+            return "Subscription-based"
+    
+    def _generate_pricing_tiers(self, vision: str, target_users: list) -> list:
+        """Generate pricing tiers based on vision and users"""
+        if "ai assistant" in vision.lower():
+            return [
+                {
+                    "tier": "Free",
+                    "price": 0,
+                    "billing": "monthly",
+                    "features": ["Basic AI chat", "Limited queries"],
+                    "target_segment": "Individual users"
+                },
+                {
+                    "tier": "Pro",
+                    "price": 19,
+                    "billing": "monthly",
+                    "features": ["Unlimited queries", "Memory", "Integrations"],
+                    "target_segment": "Professionals"
+                },
+                {
+                    "tier": "Business",
+                    "price": 49,
+                    "billing": "monthly",
+                    "features": ["Team features", "API access", "Priority support"],
+                    "target_segment": "Small businesses"
+                }
+            ]
+        elif "content" in vision.lower():
+            return [
+                {
+                    "tier": "Creator",
+                    "price": 15,
+                    "billing": "monthly",
+                    "features": ["Content tools", "Basic analytics"],
+                    "target_segment": "Individual creators"
+                },
+                {
+                    "tier": "Pro Creator",
+                    "price": 39,
+                    "billing": "monthly",
+                    "features": ["Advanced tools", "Team collaboration"],
+                    "target_segment": "Professional creators"
+                },
+                {
+                    "tier": "Agency",
+                    "price": 99,
+                    "billing": "monthly",
+                    "features": ["White-label", "Client management"],
+                    "target_segment": "Agencies"
+                }
+            ]
+        else:
+            return [
+                {
+                    "tier": "Basic",
+                    "price": 29,
+                    "billing": "monthly",
+                    "features": ["Core features"],
+                    "target_segment": "Small users"
+                },
+                {
+                    "tier": "Professional",
+                    "price": 79,
+                    "billing": "monthly",
+                    "features": ["Advanced features"],
+                    "target_segment": "Professionals"
+                }
+            ]
+    
+    def _generate_revenue_streams(self, vision: str) -> list:
+        """Generate revenue streams based on vision"""
+        if "ai assistant" in vision.lower():
+            return [
+                "Subscription fees (70%)",
+                "API usage fees (20%)",
+                "Premium integrations (10%)"
+            ]
+        elif "content" in vision.lower():
+            return [
+                "Subscription fees (60%)",
+                "Template marketplace (25%)",
+                "Professional services (15%)"
+            ]
+        else:
+            return [
+                "Subscription fees (80%)",
+                "Setup fees (15%)",
+                "Support services (5%)"
+            ]
     
     async def _use_financial_tools(self, vision_data: Dict[str, Any]) -> Dict[str, Any]:
         """Use financial tools for current market analysis"""

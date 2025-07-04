@@ -424,36 +424,19 @@ class MarketingAgent(LangGraphAgent):
     async def _general_marketing_analysis(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         """General marketing analysis and recommendations"""
         
-        vision = context.get("vision", {})
-        finance_data = context.get("finance", {})
+        vision_data = context.get("cofounder_output", {})
+        if not vision_data:
+            shared_context = await self.memory_manager.get_shared_context()
+            vision_data = shared_context.get("cofounder_output", [{}])[0].get("content", {})
+        
+        vision_statement = vision_data.get("vision_statement", "AI assistant for professionals")
+        target_users = vision_data.get("target_users", ["professionals"])
         
         marketing_analysis = {
-            "market_positioning": {
-                "unique_value_proposition": vision.get("description", ""),
-                "target_market_size": "To be researched",
-                "competitive_advantage": "Innovation and user experience",
-                "brand_personality": ["innovative", "reliable", "user-focused"]
-            },
-            "marketing_mix": {
-                "product": "Core offering with unique features",
-                "price": finance_data.get("pricing_strategy", "Competitive pricing"),
-                "place": "Digital-first distribution",
-                "promotion": "Content marketing and social media"
-            },
-            "customer_journey": {
-                "awareness": ["SEO", "social media", "content marketing"],
-                "consideration": ["free trial", "demos", "case studies"],
-                "decision": ["testimonials", "pricing transparency", "support"],
-                "retention": ["onboarding", "customer success", "feature updates"],
-                "advocacy": ["referral program", "user community", "testimonials"]
-            },
-            "recommended_channels": [
-                "Content marketing (blog, guides)",
-                "Social media marketing",
-                "Email marketing",
-                "SEO and organic search",
-                "Partnership marketing"
-            ]
+            "brand_positioning": self._create_brand_positioning(vision_statement, target_users),
+            "content_strategy": self._create_content_strategy_simple(vision_statement, target_users),
+            "customer_acquisition": self._create_acquisition_campaigns(vision_statement, target_users),
+            "growth_tactics": self._create_growth_tactics(vision_statement)
         }
         
         await self.memory_manager.store_agent_memory(
@@ -463,4 +446,154 @@ class MarketingAgent(LangGraphAgent):
             metadata={"task_id": task.get("id"), "created_at": datetime.now().isoformat()}
         )
         
-        return marketing_analysis
+        return {
+            "output": marketing_analysis,
+            "confidence": 0.8,
+            "summary": f"Marketing strategy with {len(marketing_analysis['customer_acquisition']['campaign_ideas'])} campaigns",
+            "agent": "Emma Rodriguez",
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    def _create_brand_positioning(self, vision: str, target_users: list) -> dict:
+        """Create brand positioning based on vision"""
+        if "ai assistant" in vision.lower():
+            return {
+                "value_proposition": "Your intelligent AI companion that remembers, learns, and acts",
+                "brand_personality": ["Intelligent", "Reliable", "Personal", "Efficient"],
+                "key_messaging": "Stop repeating yourself - your AI remembers everything",
+                "competitive_advantage": "Persistent memory + proactive assistance"
+            }
+        elif "content" in vision.lower():
+            return {
+                "value_proposition": "Democratize personal brand creation without agency costs",
+                "brand_personality": ["Creative", "Accessible", "Empowering", "Professional"],
+                "key_messaging": "Professional branding for everyone, not just the wealthy",
+                "competitive_advantage": "Agency-quality results at fraction of the cost"
+            }
+        else:
+            return {
+                "value_proposition": "Transform how professionals work and grow",
+                "brand_personality": ["Innovative", "Trustworthy", "Results-driven"],
+                "key_messaging": "Work smarter, not harder",
+                "competitive_advantage": "Unique approach to professional productivity"
+            }
+    
+    def _create_content_strategy_simple(self, vision: str, target_users: list) -> dict:
+        """Create content strategy based on vision"""
+        if "ai assistant" in vision.lower():
+            return {
+                "content_pillars": [
+                    "AI productivity tips",
+                    "Memory and context examples", 
+                    "Professional workflow automation",
+                    "Success stories and case studies"
+                ],
+                "content_calendar": {
+                    "weekly_themes": ["AI Tips Monday", "Workflow Wednesday", "Feature Friday"],
+                    "monthly_focus": "Deep dive into specific use cases"
+                },
+                "distribution_channels": ["LinkedIn", "Twitter", "Product Hunt", "AI communities"]
+            }
+        elif "content" in vision.lower():
+            return {
+                "content_pillars": [
+                    "Personal branding tips",
+                    "Content creation tutorials",
+                    "Success transformations",
+                    "Industry insights"
+                ],
+                "content_calendar": {
+                    "weekly_themes": ["Transformation Tuesday", "Tip Thursday", "Success Sunday"],
+                    "monthly_focus": "Creator spotlight and case studies"
+                },
+                "distribution_channels": ["Instagram", "TikTok", "YouTube", "Creator communities"]
+            }
+        else:
+            return {
+                "content_pillars": ["Industry insights", "Product education", "Customer success", "Thought leadership"],
+                "content_calendar": {"weekly_themes": ["Monday Motivation", "Wednesday Wisdom", "Friday Features"]},
+                "distribution_channels": ["LinkedIn", "Blog", "Email", "Social media"]
+            }
+    
+    def _create_acquisition_campaigns(self, vision: str, target_users: list) -> dict:
+        """Create customer acquisition campaigns"""
+        if "ai assistant" in vision.lower():
+            return {
+                "primary_channels": ["LinkedIn ads", "Twitter", "Product Hunt", "AI newsletters"],
+                "campaign_ideas": [
+                    {
+                        "name": "Memory Revolution Campaign",
+                        "objective": "Highlight persistent memory advantage",
+                        "channels": ["LinkedIn", "Twitter", "AI communities"],
+                        "budget": "$5,000/month",
+                        "kpis": ["Sign-ups", "Demo requests", "Feature adoption"]
+                    },
+                    {
+                        "name": "Professional Productivity Series",
+                        "objective": "Show real-world use cases",
+                        "channels": ["LinkedIn articles", "Case studies", "Webinars"],
+                        "budget": "$3,000/month",
+                        "kpis": ["Engagement", "Leads", "Trial conversions"]
+                    }
+                ],
+                "funnel_strategy": {
+                    "awareness": "AI productivity content",
+                    "consideration": "Free trial with memory demo",
+                    "conversion": "Onboarding with personal use cases"
+                }
+            }
+        elif "content" in vision.lower():
+            return {
+                "primary_channels": ["Instagram", "TikTok", "YouTube", "Creator platforms"],
+                "campaign_ideas": [
+                    {
+                        "name": "Brand Transformation Challenge",
+                        "objective": "Show before/after transformations",
+                        "channels": ["Instagram", "TikTok", "YouTube"],
+                        "budget": "$8,000/month",
+                        "kpis": ["Participation", "User-generated content", "Sign-ups"]
+                    },
+                    {
+                        "name": "Creator Success Stories",
+                        "objective": "Build credibility and social proof",
+                        "channels": ["All social platforms", "Podcasts", "Interviews"],
+                        "budget": "$4,000/month",
+                        "kpis": ["Reach", "Engagement", "Referrals"]
+                    }
+                ],
+                "funnel_strategy": {
+                    "awareness": "Transformation content",
+                    "consideration": "Free brand audit",
+                    "conversion": "Quick wins in first week"
+                }
+            }
+        else:
+            return {
+                "primary_channels": ["Content marketing", "LinkedIn", "Email", "Partnerships"],
+                "campaign_ideas": [
+                    {"name": "Launch Campaign", "objective": "Brand awareness", "budget": "$10,000"},
+                    {"name": "Trial Campaign", "objective": "User acquisition", "budget": "$7,500"}
+                ],
+                "funnel_strategy": {"awareness": "Content", "consideration": "Trial", "conversion": "Onboarding"}
+            }
+    
+    def _create_growth_tactics(self, vision: str) -> dict:
+        """Create growth tactics based on vision"""
+        if "ai assistant" in vision.lower():
+            return {
+                "viral_mechanisms": ["Memory sharing features", "Productivity challenges", "AI tips sharing"],
+                "partnership_opportunities": ["Productivity apps", "Professional communities", "AI newsletters"],
+                "retention_tactics": ["Daily memory insights", "Productivity reports", "Feature discovery"]
+            }
+        elif "content" in vision.lower():
+            return {
+                "viral_mechanisms": ["Brand transformation sharing", "Template marketplace", "Success showcases"],
+                "partnership_opportunities": ["Creator platforms", "Design tools", "Marketing agencies"],
+                "retention_tactics": ["Weekly brand tips", "Template updates", "Community challenges"]
+            }
+        else:
+            return {
+                "viral_mechanisms": ["Referral program", "Social sharing", "User-generated content"],
+                "partnership_opportunities": ["Industry platforms", "Complementary tools", "Communities"],
+                "retention_tactics": ["Regular updates", "Feature education", "Success tracking"]
+            }
