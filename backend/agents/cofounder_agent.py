@@ -1,10 +1,10 @@
 from typing import Dict, Any
-from agents.langgraph_agent_base import LangGraphAgentBase
+from agents.langgraph_base import LangGraphAgent
 from tools.web_search import WebSearchTool
 from datetime import datetime
 from loguru import logger
 
-class CofounderAgent(LangGraphAgentBase):
+class CofounderAgent(LangGraphAgent):
     """🧠 Cofounder Agent - Captures vision, goals, target users"""
     
     def __init__(self, memory_manager, approval_manager):
@@ -33,7 +33,7 @@ When processing a vision, structure your output as:
 - Success Metrics (measurable goals)
 - Strategic Priorities (top 3-5 focus areas)"""
     
-    async def _analyze_node(self, state) -> Dict[str, Any]:
+    async def _execute_actions(self, state) -> Dict[str, Any]:
         """Cofounder-specific analysis with dynamic thinking"""
         task = state["task"]
         context = state["context"]

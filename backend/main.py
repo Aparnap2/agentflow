@@ -667,7 +667,10 @@ async def update_agent_configs(configs: dict):
 async def get_domain_reports():
     """Get modular domain-specific reports"""
     try:
-        return await report_service.get_all_reports()
+        if report_service:
+            return await report_service.get_all_reports()
+        else:
+            return {"error": "Report service not initialized"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -704,6 +707,21 @@ async def resume_workflow(thread_id: str):
     """Resume workflow from checkpoint"""
     try:
         result = await langgraph_orchestrator.resume_from_checkpoint(thread_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/agents/execute")
+async def execute_agent(request: dict):
+    """Execute specific agent"""
+    try:
+        agent_name = request.get("agent")
+        task = request.get("task")
+        
+        if not agent_name or not task:
+            raise HTTPException(status_code=400, detail="Agent name and task required")
+        
+        result = await orchestrator.execute_single_agent(agent_name, task)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

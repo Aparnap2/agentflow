@@ -1,9 +1,9 @@
 from typing import Dict, Any, List
-from agents.langgraph_agent_base import LangGraphAgentBase
+from agents.langgraph_base import LangGraphAgent
 from tools.web_search import WebSearchTool
 from datetime import datetime
 
-class ProductAgent(LangGraphAgentBase):
+class ProductAgent(LangGraphAgent):
     """🎯 Product Agent - Defines MVP, features, personas"""
     
     def __init__(self, memory_manager, approval_manager):
@@ -42,7 +42,7 @@ Provide structured output with:
 
 Be specific and actionable. Focus on user value and business impact."""
     
-    async def _analyze_node(self, state) -> Dict[str, Any]:
+    async def _execute_actions(self, state) -> Dict[str, Any]:
         """Product analysis with dynamic thinking"""
         task = state["task"]
         context = state["context"]

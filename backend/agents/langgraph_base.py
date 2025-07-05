@@ -228,6 +228,46 @@ class LangGraphAgent:
         
         return min(1.0, base_confidence)
     
+    async def _think(self, prompt: str) -> Dict[str, Any]:
+        """Core thinking method using LLM"""
+        try:
+            import aiohttp
+            import os
+            
+            api_key = os.getenv("OPENROUTER_API_KEY")
+            if not api_key:
+                return {"error": "No API key", "fallback": True}
+            
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json"
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": [
+                            {"role": "system", "content": f"You are {self.name}, expert in {self.role}. Think deeply and provide structured insights."},
+                            {"role": "user", "content": prompt}
+                        ],
+                        "temperature": self.temperature
+                    }
+                ) as response:
+                    if response.status == 200:
+                        result = await response.json()
+                        content = result["choices"][0]["message"]["content"]
+                        
+                        try:
+                            import json
+                            return json.loads(content)
+                        except:
+                            return {"insights": content, "confidence": 0.7}
+                    else:
+                        return {"error": "API call failed", "fallback": True}
+        except Exception as e:
+            return {"error": str(e), "fallback": True}
+    
     async def _store_in_memory_systems(self, task: Dict[str, Any], results: Dict[str, Any], confidence: float):
         """Store results in both Neo4j (private) and Qdrant (shared)"""
         # Store in private memory (Neo4j) - agent's personal context

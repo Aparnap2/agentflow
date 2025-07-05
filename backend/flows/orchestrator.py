@@ -287,11 +287,10 @@ class AgentOrchestrator:
                     )
                     
                     # Check if user has provided enough details (multiple exchanges)
-                    conversation_length = len(conv.get("messages", []))
+                    conversation_length = len(conversation_state.get("messages", []))
                     has_sufficient_detail = (
                         conversation_length >= 6 and  # At least 3 exchanges
-                        any(keyword in message.get("content", "").lower() 
-                            for message in conv.get("messages", [])[-4:] 
+                        any(keyword in str(conversation_state.get("messages", [])).lower() 
                             for keyword in ["target", "user", "problem", "solution", "market"])
                     )
                     
@@ -400,8 +399,7 @@ class AgentOrchestrator:
                 conversation_length = len(conv.get("messages", []))
                 has_sufficient_detail = (
                     conversation_length >= 6 and
-                    any(keyword in message.get("content", "").lower() 
-                        for message in conv.get("messages", [])[-4:] 
+                    any(keyword in str(conv.get("messages", [])).lower() 
                         for keyword in ["target", "user", "problem", "solution", "market"])
                 )
                 
