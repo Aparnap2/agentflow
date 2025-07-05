@@ -28,6 +28,7 @@ from services.agent_service import AgentService
 from services.report_service import ReportService
 from communication.event_bus import event_bus
 from workflows.langgraph_orchestrator import LangGraphOrchestrator
+from api.agent_logs import router as logs_router
 
 # Global instances
 orchestrator = None
@@ -97,6 +98,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Include logging router
+app.include_router(logs_router)
 
 # Request models
 class ProjectRequest(BaseModel):

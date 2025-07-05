@@ -1,6 +1,7 @@
 from typing import Dict, Any
 from agents.langgraph_base import LangGraphAgent
 from tools.web_search import WebSearchTool
+from utils.agent_logger import AgentLogger
 from datetime import datetime
 from loguru import logger
 
@@ -15,6 +16,7 @@ class CofounderAgent(LangGraphAgent):
         }
         super().__init__("Cofounder", "Vision & Strategy", memory_manager, approval_manager, personality)
         self.web_search = WebSearchTool()
+        self.agent_logger = AgentLogger("Cofounder")
     
     def _get_system_prompt(self) -> str:
         return """You are the Cofounder agent in a virtual AI startup team. Your role is to:
@@ -35,14 +37,21 @@ When processing a vision, structure your output as:
     
     async def _execute_actions(self, state) -> Dict[str, Any]:
         """Cofounder-specific analysis with dynamic thinking"""
+        self.agent_logger.log_node_start("execute_actions", state)
+        
         task = state["task"]
         context = state["context"]
         
-        # Get memory and context
+        # Get memory and context with logging
+        logger.info(f"🔍 [{self.name}] Retrieving private memory...")
         private_memory = await self.memory_manager.get_agent_private_memory(self.name, limit=3)
+        self.agent_logger.log_memory_access("private_memory", "read", len(private_memory))
+        
+        logger.info(f"🌐 [{self.name}] Retrieving global context...")
         global_context = await self.memory_manager.get_global_context_for_agent(
             self.name, "vision strategy market opportunity"
         )
+        self.agent_logger.log_memory_access("global_context", "read", len(str(global_context)))
         
         # Let me think about this vision
         analysis_prompt = f"""
@@ -64,8 +73,17 @@ When processing a vision, structure your output as:
         Return JSON with: vision_statement, target_users, market_opportunity, strategic_priorities, competitive_advantage
         """
         
+        logger.info(f"🤖 [{self.name}] Starting LLM analysis...")
+        self.agent_logger.log_llm_call(len(analysis_prompt), 0, self.model)
+        
         analysis = await self._think(analysis_prompt)
+        
+        logger.info(f"📝 [{self.name}] Analysis complete: {len(str(analysis))} chars")
+        self.agent_logger.log_llm_call(len(analysis_prompt), len(str(analysis)), self.model)
+        
         state["analysis"] = analysis
+        self.agent_logger.log_node_complete("execute_actions", analysis)
+        
         return state
     
     async def _synthesize_node(self, state) -> Dict[str, Any]:
@@ -133,10 +151,14 @@ When processing a vision, structure your output as:
     async def chat(self, message: str, conversation_id: str, context: list = None) -> Dict[str, Any]:
         """Chat interface for conversational vision refinement with memory"""
         try:
+            logger.info(f"💬 [{self.name}] Starting chat - Message: {message[:50]}...")
+            self.agent_logger.log_node_start("chat", {"message": message, "context_length": len(context or [])})
+            
             context = context or []
             conversation_length = len(context)
             
             # Store user message in private memory
+            logger.info(f"💾 [{self.name}] Storing user message in private memory...")
             await self.memory_manager.store_agent_private_memory(
                 agent_name=self.name,
                 memory_type="conversation",
@@ -147,12 +169,15 @@ When processing a vision, structure your output as:
                     "timestamp": datetime.now().isoformat()
                 }
             )
+            self.agent_logger.log_memory_access("private_memory", "write", 1)
             
             # Get relevant global context using RAG
+            logger.info(f"🔍 [{self.name}] Retrieving global context via RAG...")
             global_context = await self.memory_manager.get_global_context_for_agent(
                 agent_name=self.name,
                 query=message
             )
+            self.agent_logger.log_memory_access("global_context_rag", "read", len(str(global_context)))
             
             # After 5+ exchanges, provide final structured plan
             if conversation_length >= 5:
@@ -188,11 +213,13 @@ Ready to distribute tasks to specialist agents.
                 vision_complete = True
             else:
                 # Get previous conversation context from private memory
+                logger.info(f"📚 [{self.name}] Retrieving conversation history...")
                 prev_conversations = await self.memory_manager.get_agent_private_memory(
                     agent_name=self.name,
                     memory_type="conversation",
                     limit=5
                 )
+                self.agent_logger.log_memory_access("conversation_history", "read", len(prev_conversations))
                 
                 chat_prompt = f"""You are having a conversation to understand their startup vision.
                 
@@ -212,11 +239,16 @@ Ask 2-3 focused questions about:
                 {"role": "system", "content": self._get_system_prompt()},
                 {"role": "user", "content": chat_prompt}
             ]
+            
+            logger.info(f"🤖 [{self.name}] Making LLM call...")
+            self.agent_logger.log_llm_call(len(chat_prompt), 0, self.model)
+            
             response = await self._call_llm(messages)
             
             response_content = response["choices"][0]["message"]["content"]
             
             # Store response in private memory
+            logger.info(f"💾 [{self.name}] Storing response in private memory...")
             await self.memory_manager.store_agent_private_memory(
                 agent_name=self.name,
                 memory_type="conversation_response",
@@ -227,10 +259,15 @@ Ask 2-3 focused questions about:
                     "timestamp": datetime.now().isoformat()
                 }
             )
+            self.agent_logger.log_memory_access("conversation_response", "write", 1)
+            
+            logger.info(f"✅ [{self.name}] Chat complete - Vision complete: {vision_complete}")
+            self.agent_logger.log_node_complete("chat", {"vision_complete": vision_complete, "response_length": len(response_content)})
             
             return {
                 "message": response_content,
-                "vision_complete": vision_complete
+                "vision_complete": vision_complete,
+                "execution_log": self.agent_logger.get_execution_log()[-5:]  # Last 5 log entries
             }
         except Exception as e:
             logger.error(f"=== COFOUNDER CHAT ERROR ===")
