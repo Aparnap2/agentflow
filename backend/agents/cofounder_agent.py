@@ -42,6 +42,13 @@ When processing a vision, structure your output as:
         task = state["task"]
         context = state["context"]
         
+        # Check for coordination mode
+        coordination_mode = task.get("coordination_mode", False)
+        peer_context = task.get("peer_context", {})
+        
+        if coordination_mode:
+            logger.info(f"🤝 [{self.name}] Running in coordination mode with peer context: {list(peer_context.keys())}")
+        
         # Get memory and context with logging
         logger.info(f"🔍 [{self.name}] Retrieving private memory...")
         private_memory = await self.memory_manager.get_agent_private_memory(self.name, limit=3)
@@ -53,14 +60,16 @@ When processing a vision, structure your output as:
         )
         self.agent_logger.log_memory_access("global_context", "read", len(str(global_context)))
         
-        # Let me think about this vision
+        # Enhanced prompt with coordination context
+        coordination_context = f"\nPeer agent insights: {peer_context}" if coordination_mode else ""
+        
         analysis_prompt = f"""
         I'm Alex Chen, a visionary cofounder. I need to analyze this startup idea:
         
         Task: {task}
         Context: {context}
         My previous insights: {private_memory}
-        Market intelligence: {global_context}
+        Market intelligence: {global_context}{coordination_context}
         
         Let me think deeply about:
         1. What's the core problem being solved?

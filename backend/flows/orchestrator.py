@@ -15,6 +15,7 @@ from memory.memory_manager import MemoryManager
 from memory.graph_memory import GraphMemory
 from approvals.approval_manager import ApprovalManager
 from memory.state_manager import StateManager
+from coordination.auto_coordinator import AutoCoordinator
 
 class AgentOrchestrator:
     """Orchestrates agent execution following the PRD DAG workflow"""
@@ -47,6 +48,7 @@ class AgentOrchestrator:
         self.execution_timeline = []
         self.current_project_id = None
         self.conversations = {}  # Add conversations attribute
+        self.auto_coordinator = AutoCoordinator(self.agents, self.memory_manager)
         
     async def start_project(self, vision: str, user_name: str = "User", approval_mode: str = "manual") -> Dict[str, Any]:
         """Start new project following PRD execution flow"""
@@ -422,6 +424,23 @@ class AgentOrchestrator:
                 "ready_for_approval": False
             }
     
+    async def auto_execute_from_vision(self, vision: str) -> Dict[str, Any]:
+        """Auto-execute project with agent coordination"""
+        try:
+            execution_id = await self.auto_coordinator.auto_execute_project(vision)
+            return {
+                "status": "started",
+                "execution_id": execution_id,
+                "message": "Auto-execution started with agent coordination"
+            }
+        except Exception as e:
+            logger.error(f"Auto-execution failed: {e}")
+            return {"status": "error", "error": str(e)}
+    
+    async def get_auto_execution_status(self) -> Dict[str, Any]:
+        """Get auto-execution status"""
+        return self.auto_coordinator.get_execution_status()
+    
     async def approve_and_distribute(self, conversation_id: str) -> Dict[str, Any]:
         """Approve conversation and distribute tasks to sub-agents"""
         try:
@@ -515,12 +534,19 @@ class AgentOrchestrator:
             conv["status"] = "approved"
             conv["project_id"] = project_id
             
-            logger.info(f"Created project {project_id} with {len(tasks)} tasks")
+            # Extract vision from conversation for auto-execution
+            vision_text = " ".join([msg.get("content", "") for msg in conv["messages"] if msg.get("role") == "user"])
+            
+            # Start auto-execution
+            auto_result = await self.auto_execute_from_vision(vision_text)
+            
+            logger.info(f"Created project {project_id} with auto-execution: {auto_result}")
             
             return {
                 "project_id": project_id,
                 "tasks": tasks,
-                "agents_assigned": list(tasks.keys())
+                "agents_assigned": list(tasks.keys()),
+                "auto_execution": auto_result
             }
             
         except Exception as e:

@@ -730,6 +730,40 @@ async def execute_agent(request: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/auto-execute")
+async def auto_execute_project(request: dict):
+    """Auto-execute project with agent coordination"""
+    try:
+        vision = request.get("vision")
+        if not vision:
+            raise HTTPException(status_code=400, detail="Vision required")
+        
+        result = await orchestrator.auto_execute_from_vision(vision)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/auto-execute/status")
+async def get_auto_execution_status():
+    """Get auto-execution status"""
+    try:
+        return await orchestrator.get_auto_execution_status()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/agents/logs/live")
+async def get_live_agent_logs():
+    """Get live agent execution logs"""
+    try:
+        status = await orchestrator.get_auto_execution_status()
+        return {
+            "logs": status.get("recent_logs", []),
+            "status": status.get("status", "idle"),
+            "total_entries": status.get("log_entries", 0)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
