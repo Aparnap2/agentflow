@@ -2,272 +2,179 @@
 
 **Transform your startup idea into a complete business plan with AI agents working as your virtual team.**
 
-AgentFlow is a production-ready AI platform where 8 specialized agents collaborate to analyze, plan, and execute your startup vision. From initial concept to comprehensive business reports, experience the power of AI-driven entrepreneurship.
+## ✨ **Final MVP Features**
 
-## ✨ **What Makes AgentFlow Special**
-
-### 🧠 **8 Specialized AI Agents**
-- **🎯 Cofounder Agent** - Captures and refines your vision
-- **📋 Manager Agent** - Creates roadmaps and assigns tasks  
-- **🛠️ Product Agent** - Develops product strategy and features
-- **💰 Finance Agent** - Financial modeling and projections
+### 🧠 **8 Specialized AI Agents with Auto-Coordination**
+- **🎯 Cofounder Agent** - Vision analysis and strategy
+- **📋 Manager Agent** - Auto task assignment and coordination  
+- **🛠️ Product Agent** - MVP definition and user personas
+- **💰 Finance Agent** - Financial projections and pricing
 - **📈 Marketing Agent** - Marketing strategy and campaigns
 - **⚖️ Legal Agent** - Compliance and legal requirements
 - **💼 Sales Agent** - Sales strategy and forecasting
-- **🔧 Operations Agent** - Operations planning and optimization
+- **🔧 Operations Agent** - Operations planning
 
-### 🤝 **Real-Time Agent Collaboration**
-- Agents share context and collaborate on complex decisions
-- Cross-functional insights (Marketing → Finance customer data)
-- Intelligent task distribution and parallel execution
+### 🤝 **Auto-Coordination System**
+- Manager automatically assigns tasks based on context
+- Agents communicate and share insights with each other
+- Coordinated execution with dependency management
+- Real-time execution logs and status tracking
+
+### 🔐 **Authentication & Database**
+- Supabase authentication with demo mode fallback
+- User projects and conversation persistence
+- Agent outputs saved to database
+- Row-level security for multi-tenant support
 
 ### 🧠 **Advanced Memory Systems**
-- **Neo4j Graph Memory** - Relationship mapping and context
-- **Qdrant Vector Memory** - Semantic search and retrieval
-- **Redis State Management** - Real-time conversation persistence
+- **Neo4j Graph Memory** - Agent relationships and context
+- **Qdrant Vector Memory** - Semantic search and RAG
+- **Redis State Management** - Real-time conversation state
 
-### 📊 **Executive-Grade Dashboards**
-- Real-time KPI monitoring and predictive analytics
-- Professional PDF/HTML report generation
-- Interactive data visualization with charts
-- Export capabilities for presentations
+## 🚀 **Quick Start**
 
-### 🎨 **Modern Tech Stack**
-- **Backend**: FastAPI + LangGraph + OpenRouter LLMs
-- **Frontend**: React + Tailwind CSS + Recharts
-- **Memory**: Neo4j + Qdrant + Redis
-- **AI**: DeepSeek/OpenRouter with 25+ specialized prompts
-
-## 🚀 **Quick Start (60 seconds)**
-
-### **Option 1: One-Command Startup**
-```bash
-git clone <repository-url>
-cd agentflow
-./start_agentflow.sh
-```
-
-### **Option 2: Manual Setup**
-
-#### **1. Prerequisites**
-- Python 3.8+ 
-- Node.js 16+
-- pnpm (recommended) or npm
-
-#### **2. Environment Setup**
+### **1. Environment Setup**
 ```bash
 # Copy environment template
 cp .env.example .env
 
-# Edit with your API keys
+# Edit with your API keys (only OPENROUTER_API_KEY required)
 nano .env
 ```
 
-**Required API Keys:**
-- `OPENROUTER_API_KEY` - Get free key at [OpenRouter.ai](https://openrouter.ai)
-- `NEO4J_URI` - Free at [Neo4j Aura](https://neo4j.com/cloud/aura/)
-- `QDRANT_URL` - Free at [Qdrant Cloud](https://cloud.qdrant.io)
-- `REDIS_URL` - Free at [Upstash](https://upstash.com)
-
-#### **3. Backend Setup**
+### **2. Backend Setup**
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 uvicorn main:app --reload
 ```
 
-#### **4. Frontend Setup**
+### **3. Frontend Setup**
 ```bash
 cd frontend
-pnpm install
-pnpm dev
+npm install
+npm run dev
 ```
 
-#### **5. Access the Platform**
+### **4. Access AgentFlow**
 - 🌐 **Frontend**: http://localhost:5173
 - 🔧 **API**: http://localhost:8000
 - 📚 **API Docs**: http://localhost:8000/docs
 
-## 🎯 **How to Use AgentFlow**
+## 🎯 **How to Use**
 
-### **Method 1: Conversational Approach**
+### **Method 1: Auto-Execute (Recommended)**
 1. Visit http://localhost:5173
-2. Click "Chat with AI Cofounder"
-3. Describe your startup idea naturally
-4. Refine your vision through conversation
-5. Approve to distribute tasks to specialist agents
-6. Watch real-time collaboration and results
+2. Sign up/Sign in (or use demo mode)
+3. Start conversation with AI Cofounder
+4. Approve vision → Auto-execution starts
+5. Watch agents coordinate in real-time
+6. Get comprehensive business analysis
 
-### **Method 2: Direct Project Start**
-1. Click "Start Project"
-2. Enter your detailed vision
-3. Automatic task distribution to all agents
-4. Monitor progress on the dashboard
-5. Export comprehensive business reports
-
-### **Method 3: API Integration**
+### **Method 2: API Integration**
 ```python
-import requests
-
 # Start conversation
 response = requests.post('http://localhost:8000/api/conversation/start', 
-    json={'message': 'I want to create a food delivery app'})
+    json={'message': 'I want to create a productivity app'})
 
-conversation_id = response.json()['conversation_id']
-
-# Approve and distribute
+# Approve and auto-execute
 requests.post(f'http://localhost:8000/api/conversation/{conversation_id}/approve')
 
-# Get results
-outputs = requests.get('http://localhost:8000/api/outputs').json()
+# Watch execution logs
+logs = requests.get('http://localhost:8000/api/agents/logs/live').json()
 ```
 
-## 📊 **Features Showcase**
+## 📊 **Key API Endpoints**
 
-### **🤖 Intelligent Conversation Flow**
-- Natural language vision capture
-- Context-aware follow-up questions
-- Vision completeness detection
-- Seamless handoff to specialist agents
+### **Authentication**
+- `POST /api/auth/signup` - User registration
+- `POST /api/auth/signin` - User login
+- `GET /api/auth/user` - Get current user
 
-### **⚡ Parallel Agent Execution**
-- 8 agents working simultaneously
-- Real-time progress monitoring
-- Cross-agent data sharing
-- Intelligent error handling and retries
+### **Auto-Coordination**
+- `POST /api/auto-execute` - Auto-execute project
+- `GET /api/auto-execute/status` - Get execution status
+- `GET /api/agents/logs/live` - Live execution logs
 
-### **📈 Advanced Analytics**
-- Project success prediction
-- Revenue trend forecasting
-- Market timing analysis
-- Risk assessment and mitigation
+### **Projects & Data**
+- `GET /api/projects` - User's projects
+- `GET /api/outputs` - Agent outputs
+- `GET /api/analytics/predictions` - Predictive analytics
 
-### **📋 Professional Reports**
-- Executive dashboard with KPIs
-- Financial projections and modeling
-- Marketing intelligence and campaigns
-- Legal compliance and risk analysis
-- Sales forecasting and strategy
-- PDF/HTML export capabilities
-
-### **🔄 Real-Time Collaboration**
-- Agent-to-agent communication
-- Shared context and memory
-- Cross-functional insights
-- Collaborative decision making
-
-## 🏗️ **Architecture Overview**
+## 🏗️ **Architecture**
 
 ```
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────┐
 │   React Frontend │────│   FastAPI Backend │────│  Memory Systems │
-│   • Dashboard    │    │   • 25+ Endpoints │    │  • Neo4j Graph  │
-│   • 13+ Pages    │    │   • Agent Orchestr│    │  • Qdrant Vector│
-│   • Real-time UI │    │   • LLM Integration│    │  • Redis State  │
+│   • Auth UI      │    │   • Auto-Coord   │    │  • Neo4j Graph  │
+│   • Live Logs    │    │   • Agent Comm    │    │  • Qdrant Vector│
+│   • Real-time    │    │   • LLM Integration│    │  • Redis State  │
 └─────────────────┘    └──────────────────┘    └─────────────────┘
                                 │
                        ┌────────┴────────┐
                        │   8 AI Agents   │
-                       │  • Specialized  │
-                       │  • Collaborative│
-                       │  • LLM-Powered  │
+                       │  • Auto-Coord   │
+                       │  • Inter-Comm   │
+                       │  • LangGraph    │
                        └─────────────────┘
 ```
 
-## 🔧 **API Endpoints**
+## 🔧 **Configuration**
 
-### **Core Conversation**
-- `POST /api/conversation/start` - Start new conversation
-- `POST /api/conversation/{id}/message` - Continue conversation
-- `POST /api/conversation/{id}/approve` - Approve and distribute
+### **Required**
+- `OPENROUTER_API_KEY` - Get free key at [OpenRouter.ai](https://openrouter.ai)
 
-### **Agent Management**
-- `GET /api/agents/status` - Get all agent statuses
-- `POST /api/agents/execute` - Execute specific agent
-- `GET /api/outputs` - Get all agent outputs
-
-### **Reports & Analytics**
-- `GET /api/reports/comprehensive` - Full business report
-- `POST /api/reports/generate-pdf` - Generate PDF report
-- `GET /api/analytics/predictions` - Predictive analytics
-
-### **Memory & Collaboration**
-- `GET /api/memory/stats` - Memory system statistics
-- `POST /api/collaboration/request` - Agent collaboration
-- `GET /api/collaboration/history` - Collaboration history
-
-## 🎨 **Frontend Pages**
-
-- **🏠 Dashboard** - Executive overview and KPIs
-- **💬 Conversation** - Chat with AI Cofounder
-- **🎯 Vision** - Project vision and goals
-- **👥 Agents** - Agent status and management
-- **📊 Analytics** - Predictive insights
-- **📋 Reports** - Comprehensive business reports
-- **🏢 Virtual Office** - Agent collaboration view
-- **⚙️ Settings** - Configuration and preferences
-
-## 🔐 **Security & Privacy**
-
-- API key encryption and secure storage
-- No sensitive data stored in logs
-- Conversation data encrypted in Redis
-- CORS protection and input validation
-- Optional local deployment for privacy
+### **Optional (Demo Mode Available)**
+- `SUPABASE_URL` & `SUPABASE_ANON_KEY` - Database
+- `NEO4J_URI` & credentials - Graph memory
+- `QDRANT_URL` & `QDRANT_API_KEY` - Vector memory
+- `REDIS_URL` - State management
 
 ## 🚀 **Production Deployment**
 
-### **Docker Deployment**
+### **Backend**
 ```bash
-docker-compose up -d
+gunicorn main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker
 ```
 
-### **Manual Production Setup**
+### **Frontend**
 ```bash
-# Backend
-gunicorn main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker
-
-# Frontend
-pnpm build
+npm run build
 serve -s dist
 ```
 
-### **Environment Variables for Production**
-```bash
-DEBUG=false
-APPROVAL_MODE=auto
-LOG_LEVEL=WARNING
-```
+### **Database Setup**
+1. Create Supabase project
+2. Run `database/schema.sql` in SQL editor
+3. Add environment variables
 
 ## 📈 **Current Status**
 
-✅ **95% Complete - Production Ready**
-- 8 specialized agents with LLM integration
-- Real-time conversation and collaboration
-- Advanced memory systems (Neo4j + Qdrant + Redis)
-- Professional dashboards and reports
-- PDF/HTML export capabilities
-- 25+ API endpoints fully functional
-- 13+ frontend pages with real-time updates
+✅ **100% Complete - Production Ready MVP**
+- 8 specialized agents with auto-coordination
+- Real-time agent communication and execution
+- Authentication and database integration
+- Advanced memory systems with RAG
+- Professional UI with live execution logs
+- Comprehensive business analysis outputs
+- Demo mode for easy testing
 
 ## 🎯 **Success Metrics**
 
-- **Technical Excellence**: Full-stack AI platform with advanced orchestration
-- **Business Value**: Complete startup analysis in minutes vs weeks
-- **User Experience**: Conversational interface with professional outputs
-- **Scalability**: Cloud-ready architecture with enterprise features
-- **Innovation**: Real-time AI agent collaboration with shared memory
+- **Technical Excellence**: Full-stack AI platform with auto-coordination
+- **Business Value**: Complete startup analysis with agent collaboration
+- **User Experience**: Real-time visibility into AI agent workflows
+- **Scalability**: Multi-tenant architecture with Supabase
+- **Innovation**: First AI platform with true agent auto-coordination
 
 ## 🤝 **Contributing**
 
-AgentFlow is designed as a showcase of advanced AI engineering. The codebase demonstrates:
-- Production-ready FastAPI architecture
-- Advanced LangGraph agent orchestration
-- Multi-modal memory systems
-- Real-time collaboration patterns
-- Professional UI/UX design
+AgentFlow demonstrates advanced AI engineering patterns:
+- LangGraph-based agent orchestration
+- Auto-coordination and inter-agent communication
+- Multi-modal memory systems with RAG
+- Production-ready authentication and database
+- Real-time execution visibility
 
 ## 📄 **License**
 
@@ -275,4 +182,4 @@ MIT License - Built for portfolio demonstration and commercial use.
 
 ---
 
-**Ready to transform your startup idea into reality? Start AgentFlow and watch AI agents build your business plan in real-time!** 🚀
+**Ready to see AI agents coordinate and build your business plan automatically? Start AgentFlow and watch the magic happen!** 🚀

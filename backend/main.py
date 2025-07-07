@@ -29,6 +29,8 @@ from services.report_service import ReportService
 from communication.event_bus import event_bus
 from workflows.langgraph_orchestrator import LangGraphOrchestrator
 from api.agent_logs import router as logs_router
+from auth.supabase_auth import supabase_auth
+from database.supabase_db import supabase_db
 
 # Global instances
 orchestrator = None
@@ -102,6 +104,55 @@ app.add_middleware(
 # Include logging router
 app.include_router(logs_router)
 
+# Auth endpoints
+@app.post("/api/auth/signup")
+async def signup(request: AuthRequest):
+    """User signup"""
+    try:
+        result = await supabase_auth.sign_up(
+            email=request.email,
+            password=request.password,
+            metadata={"name": request.name} if request.name else None
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/auth/signin")
+async def signin(request: AuthRequest):
+    """User signin"""
+    try:
+        result = await supabase_auth.sign_in(
+            email=request.email,
+            password=request.password
+        )
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/auth/user")
+async def get_current_user(user: dict = Depends(supabase_auth.verify_token)):
+    """Get current user"""
+    return user
+
+@app.get("/api/projects")
+async def get_user_projects(user: dict = Depends(supabase_auth.verify_token)):
+    """Get user's projects"""
+    try:
+        projects = await supabase_db.get_user_projects(user["id"])
+        return {"projects": projects}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/projects")
+async def create_project(request: dict, user: dict = Depends(supabase_auth.verify_token)):
+    """Create new project"""
+    try:
+        project = await supabase_db.create_project(user["id"], request)
+        return project
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 # Request models
 class ProjectRequest(BaseModel):
     vision: str
@@ -116,6 +167,11 @@ class ConversationRequest(BaseModel):
     message: str
     history: Optional[List[Dict[str, str]]] = None
     agent: Optional[str] = None
+
+class AuthRequest(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = None
 
 class CollaborationRequest(BaseModel):
     requesting_agent: str
@@ -519,10 +575,18 @@ async def respond_to_approval(approval_id: str, response: ApprovalResponse):
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/conversation/start")
-async def start_conversation(request: ConversationRequest):
+async def start_conversation(request: ConversationRequest, user: dict = Depends(supabase_auth.verify_token)):
     """Start conversation with Cofounder agent"""
     try:
         result = await orchestrator.start_conversation(request.message)
+        
+        # Save conversation to database
+        await supabase_db.save_conversation(user["id"], {
+            "id": result["conversation_id"],
+            "messages": [{"role": "user", "content": request.message}],
+            "status": "active"
+        })
+        
         return {"response": result["response"], "conversation_id": result["conversation_id"], "ready_for_approval": result.get("ready_for_approval", False)}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -537,10 +601,20 @@ async def continue_conversation(conversation_id: str, request: ConversationReque
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/conversation/{conversation_id}/approve")
-async def approve_conversation(conversation_id: str):
+async def approve_conversation(conversation_id: str, user: dict = Depends(supabase_auth.verify_token)):
     """Approve conversation and start task distribution"""
     try:
         result = await orchestrator.approve_and_distribute(conversation_id)
+        
+        # Create project in database
+        project_data = {
+            "name": f"Project {result['project_id']}",
+            "vision": "Auto-generated from conversation",
+            "status": "in_progress",
+            "conversation_id": conversation_id
+        }
+        await supabase_db.create_project(user["id"], project_data)
+        
         return {"status": "approved", "project_id": result["project_id"], "tasks": result["tasks"]}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
