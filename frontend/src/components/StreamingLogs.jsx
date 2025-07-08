@@ -1,15 +1,17 @@
 import React, { useState, useEffect } from 'react';
+import { useAuth } from './AuthProvider';
 
 const StreamingLogs = ({ isActive }) => {
   const [logs, setLogs] = useState([]);
   const [status, setStatus] = useState('idle');
+  const { apiCall } = useAuth();
 
   useEffect(() => {
     if (!isActive) return;
 
     const fetchLogs = async () => {
       try {
-        const response = await fetch('/api/agents/logs/live');
+        const response = await apiCall('/api/agents/logs/live');
         const data = await response.json();
         setLogs(data.logs || []);
         setStatus(data.status || 'idle');

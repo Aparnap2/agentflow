@@ -18,13 +18,20 @@ export const AuthProvider = ({ children }) => {
     // Check for existing session
     const checkAuth = async () => {
       try {
-        const response = await fetch('/api/auth/user');
-        if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
+        const token = localStorage.getItem('auth_token');
+        if (token) {
+          const response = await fetch('/api/auth/user', {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (response.ok) {
+            const userData = await response.json();
+            setUser(userData);
+          } else {
+            localStorage.removeItem('auth_token');
+          }
         }
       } catch (error) {
-        console.log('No active session');
+        localStorage.removeItem('auth_token');
       } finally {
         setLoading(false);
       }
@@ -82,12 +89,25 @@ export const AuthProvider = ({ children }) => {
     localStorage.removeItem('auth_token');
   };
 
+  // Helper function to make authenticated API calls
+  const apiCall = async (url, options = {}) => {
+    const token = localStorage.getItem('auth_token');
+    const headers = {
+      'Content-Type': 'application/json',
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+      ...options.headers
+    };
+    
+    return fetch(url, { ...options, headers });
+  };
+
   const value = {
     user,
     loading,
     signIn,
     signUp,
-    signOut
+    signOut,
+    apiCall
   };
 
   return (

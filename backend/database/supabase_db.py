@@ -58,7 +58,8 @@ class SupabaseDB:
     async def get_user_projects(self, user_id: str) -> List[Dict[str, Any]]:
         """Get user's projects"""
         if self.demo_mode:
-            return self.demo_data.get("projects", [])
+            all_projects = self.demo_data.get("projects", [])
+            return [p for p in all_projects if p.get("user_id") == user_id]
         
         try:
             async with httpx.AsyncClient() as client:
@@ -104,6 +105,42 @@ class SupabaseDB:
                         "Prefer": "return=representation"
                     },
                     json=agent_output
+                )
+                
+                if response.status_code in [200, 201]:
+                    return response.json()[0] if isinstance(response.json(), list) else response.json()
+                else:
+                    return {"error": response.text}
+        except Exception as e:
+            return {"error": str(e)}
+
+    async def save_conversation(self, user_id: str, conversation_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Save conversation to database"""
+        conversation = {
+            "id": conversation_data.get("id", f"conv_{datetime.now().strftime('%Y%m%d_%H%M%S')}"),
+            "user_id": user_id,
+            "messages": conversation_data.get("messages", []),
+            "status": conversation_data.get("status", "active"),
+            "created_at": datetime.now().isoformat(),
+            "updated_at": datetime.now().isoformat()
+        }
+        
+        if self.demo_mode:
+            if "conversations" not in self.demo_data:
+                self.demo_data["conversations"] = []
+            self.demo_data["conversations"].append(conversation)
+            return conversation
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    f"{self.supabase_url}/rest/v1/conversations",
+                    headers={
+                        "apikey": self.supabase_key,
+                        "Content-Type": "application/json",
+                        "Prefer": "return=representation"
+                    },
+                    json=conversation
                 )
                 
                 if response.status_code in [200, 201]:
