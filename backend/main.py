@@ -879,7 +879,7 @@ async def stream_logs():
                 
                 await asyncio.sleep(2)  # Update every 2 seconds
             except Exception as e:
-                yield f"data: {{"error": "{str(e)}"}}\n\n"
+                yield f"data: {{\"error\": \"{str(e)}\"}}\n\n"
                 break
     
     return StreamingResponse(generate_logs(), media_type="text/plain")

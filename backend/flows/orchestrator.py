@@ -11,6 +11,11 @@ from agents.product_agent import ProductAgent
 from agents.finance_agent import FinanceAgent
 from agents.marketing_agent import MarketingAgent
 from agents.legal_agent import LegalAgent
+from agents.closer_agent import CloserAgent
+from agents.assistant_agent import AssistantAgent
+from agents.workflow_agent import WorkflowAgent
+from agents.amplifier_agent import AmplifierAgent
+from agents.money_agent import MoneyAgent
 from memory.memory_manager import MemoryManager
 from memory.graph_memory import GraphMemory
 from approvals.approval_manager import ApprovalManager
@@ -37,14 +42,21 @@ class AgentOrchestrator:
             "Legal": LegalAgent(self.memory_manager, self.approval_manager)
         }
         
-        # Add new specialized agents
+        # Add specialized agents based on real-world AI agent types
+        self.agents["Closer"] = CloserAgent(self.memory_manager, self.approval_manager)
+        self.agents["Assistant"] = AssistantAgent(self.memory_manager, self.approval_manager)
+        self.agents["Workflow"] = WorkflowAgent(self.memory_manager, self.approval_manager)
+        self.agents["Amplifier"] = AmplifierAgent(self.memory_manager, self.approval_manager)
+        self.agents["Money"] = MoneyAgent(self.memory_manager, self.approval_manager)
+        
+        # Add legacy agents if available
         try:
             from agents.sales_agent import SalesAgent
             from agents.operations_agent import OperationsAgent
             self.agents["Sales"] = SalesAgent(self.memory_manager, self.approval_manager)
             self.agents["Operations"] = OperationsAgent(self.memory_manager, self.approval_manager)
         except ImportError:
-            pass  # New agents not available yet
+            pass
         self.execution_timeline = []
         self.current_project_id = None
         self.conversations = {}  # Add conversations attribute
