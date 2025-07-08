@@ -838,6 +838,29 @@ async def get_live_agent_logs():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.post("/api/test-coordination")
+async def test_coordination():
+    """Test agent coordination system"""
+    try:
+        test_vision = "AI-powered productivity app for remote workers with task management and team collaboration features"
+        
+        logger.info(f"🧪 Testing coordination with vision: {test_vision}")
+        
+        # Start coordination
+        result = await orchestrator.auto_execute_from_vision(test_vision)
+        
+        # Get immediate status
+        status = await orchestrator.get_auto_execution_status()
+        
+        return {
+            "test_started": True,
+            "result": result,
+            "current_status": status,
+            "message": "Check /api/agents/logs/live for real-time updates"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

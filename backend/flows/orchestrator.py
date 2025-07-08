@@ -537,16 +537,20 @@ class AgentOrchestrator:
             # Extract vision from conversation for auto-execution
             vision_text = " ".join([msg.get("content", "") for msg in conv["messages"] if msg.get("role") == "user"])
             
-            # Start auto-execution
-            auto_result = await self.auto_execute_from_vision(vision_text)
+            # Start ACTUAL auto-coordination (this is the key fix!)
+            logger.info(f"🚀 Starting REAL agent coordination for vision: {vision_text[:100]}...")
             
-            logger.info(f"Created project {project_id} with auto-execution: {auto_result}")
+            # This will make agents actually talk to each other
+            coordination_result = await self.auto_coordinator.auto_execute_project(vision_text)
+            
+            logger.info(f"✅ Agent coordination completed: {coordination_result}")
             
             return {
                 "project_id": project_id,
                 "tasks": tasks,
                 "agents_assigned": list(tasks.keys()),
-                "auto_execution": auto_result
+                "coordination_started": True,
+                "execution_id": coordination_result
             }
             
         except Exception as e:

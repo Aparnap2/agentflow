@@ -43,9 +43,17 @@ Provide structured output with:
 Be specific and actionable. Focus on user value and business impact."""
     
     async def _execute_actions(self, state) -> Dict[str, Any]:
-        """Product analysis with dynamic thinking"""
+        """Product analysis with dynamic thinking and coordination"""
         task = state["task"]
         context = state["context"]
+        
+        # Check for coordination mode
+        coordination_mode = task.get("coordination_mode", False)
+        peer_context = task.get("peer_context", {})
+        
+        logger.info(f"🎆 [{self.name}] Coordination mode: {coordination_mode}")
+        if peer_context:
+            logger.info(f"🤝 [{self.name}] Received context from peers: {list(peer_context.keys())}")
         
         # Get relevant context
         private_memory = await self.memory_manager.get_agent_private_memory(self.name, limit=3)
@@ -53,13 +61,20 @@ Be specific and actionable. Focus on user value and business impact."""
             self.name, "product strategy MVP user personas features"
         )
         
+        # Build enhanced prompt with peer insights
+        peer_insights = ""
+        if coordination_mode and peer_context:
+            peer_insights = f"\n\nPEER AGENT INSIGHTS:\n"
+            for agent, insights in peer_context.items():
+                peer_insights += f"- {agent}: {str(insights)[:200]}...\n"
+        
         analysis_prompt = f"""
         I'm Jordan Martinez, a product strategist. I need to define the product strategy:
         
         Task: {task}
         Context: {context}
         My previous product work: {private_memory}
-        Vision insights: {global_context}
+        Vision insights: {global_context}{peer_insights}
         
         Let me think about:
         1. What's the core user problem we're solving?
@@ -67,6 +82,8 @@ Be specific and actionable. Focus on user value and business impact."""
         3. What's the minimum viable product?
         4. How do we prioritize features?
         5. What's our user experience strategy?
+        
+        {"I'm working with other agents - I should consider their insights in my analysis." if coordination_mode else ""}
         
         I need to be specific about features, not generic.
         Return JSON with: mvp_definition, user_personas, feature_roadmap, success_metrics
