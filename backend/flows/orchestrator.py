@@ -222,25 +222,33 @@ class AgentOrchestrator:
     async def get_outputs(self) -> Dict[str, Any]:
         """Get all generated outputs in frontend-expected format"""
         try:
-            # Get shared context which contains agent outputs
-            shared_context = await self.memory_manager.get_shared_context()
-            
-            # Format outputs for frontend - prioritize data directory files
             formatted_outputs = {}
             
-            # Check for exported files in data directory (primary source)
+            # Get from shared memory first (most recent)
+            shared_context = await self.memory_manager.get_shared_context()
+            
+            # Process shared context outputs
+            for key, value in shared_context.items():
+                if isinstance(value, dict) and value.get('agent'):
+                    agent_name = value['agent']
+                    formatted_outputs[f"{agent_name.lower()}.json"] = {
+                        "agent": agent_name,
+                        "data": value.get('content', value),
+                        "confidence": value.get('confidence', 0.8),
+                        "timestamp": value.get('timestamp', datetime.now().isoformat())
+                    }
+            
+            # Also check data directory for exported files
             data_dir = "data"
             if os.path.exists(data_dir):
                 for filename in os.listdir(data_dir):
-                    if filename.endswith('.json'):
+                    if filename.endswith('.json') and filename not in formatted_outputs:
                         filepath = os.path.join(data_dir, filename)
                         try:
                             with open(filepath, 'r') as f:
                                 file_data = json.load(f)
                                 
-                                # Extract the actual output data
                                 if "outputs" in file_data:
-                                    # Get the first output key (e.g., "cofounder_output")
                                     output_key = list(file_data["outputs"].keys())[0]
                                     output_content = file_data["outputs"][output_key]
                                     
@@ -251,7 +259,6 @@ class AgentOrchestrator:
                                         "timestamp": output_content.get("timestamp", file_data.get("exported_at", datetime.now().isoformat()))
                                     }
                                 else:
-                                    # Fallback for direct format
                                     formatted_outputs[filename] = {
                                         "agent": file_data.get("agent", "Unknown"),
                                         "data": file_data,
@@ -260,6 +267,21 @@ class AgentOrchestrator:
                                     }
                         except Exception as e:
                             logger.error(f"Failed to read {filename}: {e}")
+            
+            # If no outputs found, return demo data to show structure
+            if not formatted_outputs:
+                formatted_outputs = {
+                    "demo_analysis.json": {
+                        "agent": "System",
+                        "data": {
+                            "message": "No analysis completed yet. Start a conversation with the AI Cofounder to generate comprehensive business analysis.",
+                            "available_agents": list(self.agents.keys()),
+                            "next_steps": ["Start conversation", "Approve vision", "Watch agent coordination"]
+                        },
+                        "confidence": 1.0,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                }
             
             return formatted_outputs
             

@@ -197,7 +197,45 @@ async def start_project(request: ProjectRequest):
 async def get_agents_status():
     """Get status of all agents including new specialized agents"""
     try:
-        return await agent_service.get_all_agents_status()
+        if agent_service:
+            return await agent_service.get_all_agents_status()
+        else:
+            # Fallback to orchestrator agents
+            agents_status = {}
+            for name, agent in orchestrator.agents.items():
+                agents_status[name] = {
+                    "name": name,
+                    "status": "active",
+                    "expertise": getattr(agent.personality, 'expertise', []),
+                    "description": getattr(agent.personality, 'description', f"{name} agent")
+                }
+            return agents_status
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/agents/list")
+async def get_agents_list():
+    """Get list of all available agents"""
+    try:
+        agents_info = {}
+        for name, agent in orchestrator.agents.items():
+            agents_info[name] = {
+                "name": name,
+                "type": agent.__class__.__name__,
+                "expertise": getattr(agent.personality, 'expertise', []),
+                "description": getattr(agent.personality, 'description', f"{name} specialist agent"),
+                "model": getattr(agent.personality, 'model', 'deepseek/deepseek-chat:free')
+            }
+        return {
+            "agents": agents_info,
+            "total_count": len(agents_info),
+            "categories": {
+                "strategic": ["Cofounder", "Manager"],
+                "business": ["Product", "Finance", "Marketing", "Legal"],
+                "operations": ["Sales", "Operations", "Workflow", "Assistant"],
+                "specialized": ["Closer", "Amplifier", "Money"]
+            }
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

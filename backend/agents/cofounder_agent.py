@@ -188,8 +188,10 @@ When processing a vision, structure your output as:
             )
             self.agent_logger.log_memory_access("global_context_rag", "read", len(str(global_context)))
             
-            # After 5+ exchanges, provide final structured plan
-            if conversation_length >= 5:
+            # After 3+ exchanges with sufficient detail, provide final structured plan
+            has_key_info = any(keyword in message.lower() for keyword in ['target', 'user', 'customer', 'market', 'problem', 'solution', 'revenue', 'business'])
+            
+            if conversation_length >= 3 and has_key_info:
                 chat_prompt = f"""Based on our conversation and global context, provide a FINAL STRUCTURED PLAN:
                 
 User's latest: {message}
@@ -230,17 +232,33 @@ Ready to distribute tasks to specialist agents.
                 )
                 self.agent_logger.log_memory_access("conversation_history", "read", len(prev_conversations))
                 
-                chat_prompt = f"""You are having a conversation to understand their startup vision.
+                # Ask strategic questions based on what's missing
+                missing_info = []
+                conversation_text = str(prev_conversations).lower()
+                
+                if 'target' not in conversation_text and 'user' not in conversation_text:
+                    missing_info.append('target users')
+                if 'market' not in conversation_text and 'competition' not in conversation_text:
+                    missing_info.append('market size and competition')
+                if 'revenue' not in conversation_text and 'money' not in conversation_text:
+                    missing_info.append('business model and revenue')
+                if 'problem' not in conversation_text and 'pain' not in conversation_text:
+                    missing_info.append('specific problem being solved')
+                
+                focus_areas = missing_info[:2] if missing_info else ['market validation', 'competitive advantage']
+                
+                chat_prompt = f"""You are Alex Chen, an experienced startup cofounder. Continue this strategic conversation:
                 
 User's message: {message}
 Previous context: {prev_conversations}
-Global insights: {global_context.get('semantic_results', [])}
                 
-Ask 2-3 focused questions about:
-- Target users and pain points
-- Market opportunity
-- Unique value proposition
-- Business model
+Ask 2-3 SPECIFIC questions focusing on: {', '.join(focus_areas)}
+                
+Be direct and strategic. Examples:
+- "Who exactly are your first 100 customers?"
+- "What's your unfair advantage over [specific competitor]?"
+- "How will you make money in month 1 vs year 1?"
+- "What problem costs your users $X per month right now?"
                 """
                 vision_complete = False
             
