@@ -2,6 +2,7 @@ from typing import Dict, Any, List
 from agents.langgraph_base import LangGraphAgent
 import json
 from datetime import datetime
+from loguru import logger
 
 class ManagerAgent(LangGraphAgent):
     """🧭 Manager Agent - Breaks vision into workstreams + assigns agents"""
@@ -45,10 +46,19 @@ Structure your output as:
         task = state["task"]
         context = state["context"]
         
-        # Get vision from context
+        # Handle auto-coordination mode
+        if task.get("mode") == "auto_coordination":
+            vision = task.get("vision", "")
+            logger.info(f"Manager handling auto-coordination for vision: {vision[:50]}...")
+            return self._create_auto_coordination_plan(vision)
+        
+        # Get vision from context or task
         vision_data = context.get("cofounder_output", {})
-        if not vision_data:
-            raise ValueError("No vision found in shared context")
+        if not vision_data and task.get("vision"):
+            vision_data = {"vision_statement": task.get("vision", "AI productivity app")}
+        elif not vision_data:
+            # Create minimal vision data
+            vision_data = {"vision_statement": "AI productivity application"}
         
         # Create comprehensive project breakdown
         project_plan = {
@@ -201,3 +211,26 @@ Structure your output as:
             }
         }
         return {"tasks": tasks, "project_id": project_id}
+    
+    def _create_auto_coordination_plan(self, vision: str) -> Dict[str, Any]:
+        """Create plan for auto-coordination mode"""
+        logger.info(f"Creating auto-coordination plan for: {vision}")
+        
+        plan = {
+            "project_roadmap": {
+                "phase_1": {"name": "Foundation", "duration": "2 weeks"},
+                "phase_2": {"name": "Development", "duration": "4 weeks"},
+                "phase_3": {"name": "Launch", "duration": "Ongoing"}
+            },
+            "agent_assignments": {
+                "Product": {"type": "product_planning", "primary_tasks": ["Define MVP", "Create personas"]},
+                "Finance": {"type": "financial_planning", "primary_tasks": ["Financial model", "Pricing"]},
+                "Marketing": {"type": "content_strategy", "primary_tasks": ["Marketing strategy", "Content plan"]},
+                "Legal": {"type": "compliance_check", "primary_tasks": ["Terms of service", "Privacy policy"]}
+            },
+            "vision": vision,
+            "confidence": 0.8
+        }
+        
+        logger.info(f"Auto-coordination plan created with {len(plan['agent_assignments'])} agent assignments")
+        return plan

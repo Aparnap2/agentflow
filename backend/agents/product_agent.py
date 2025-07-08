@@ -2,6 +2,7 @@ from typing import Dict, Any, List
 from agents.langgraph_base import LangGraphAgent
 from tools.web_search import WebSearchTool
 from datetime import datetime
+from loguru import logger
 
 class ProductAgent(LangGraphAgent):
     """🎯 Product Agent - Defines MVP, features, personas"""

@@ -2,7 +2,7 @@
 Enhanced AgentFlow API with advanced agent capabilities and comprehensive reporting
 """
 
-from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -104,6 +104,32 @@ app.add_middleware(
 # Include logging router
 app.include_router(logs_router)
 
+# Request models
+class AuthRequest(BaseModel):
+    email: str
+    password: str
+    name: Optional[str] = None
+
+class ProjectRequest(BaseModel):
+    vision: str
+    user_name: Optional[str] = "User"
+    approval_mode: Optional[str] = "manual"
+
+class ApprovalResponse(BaseModel):
+    action: str
+    feedback: Optional[str] = None
+
+class ConversationRequest(BaseModel):
+    message: str
+    history: Optional[List[Dict[str, str]]] = None
+    agent: Optional[str] = None
+
+class CollaborationRequest(BaseModel):
+    requesting_agent: str
+    target_agent: str
+    request_type: str
+    context: Optional[Dict[str, Any]] = {}
+
 # Auth endpoints
 @app.post("/api/auth/signup")
 async def signup(request: AuthRequest):
@@ -152,32 +178,6 @@ async def create_project(request: dict, user: dict = Depends(supabase_auth.verif
         return project
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-# Request models
-class ProjectRequest(BaseModel):
-    vision: str
-    user_name: Optional[str] = "User"
-    approval_mode: Optional[str] = "manual"
-
-class ApprovalResponse(BaseModel):
-    action: str  # approve, deny, edit, retry
-    feedback: Optional[str] = None
-
-class ConversationRequest(BaseModel):
-    message: str
-    history: Optional[List[Dict[str, str]]] = None
-    agent: Optional[str] = None
-
-class AuthRequest(BaseModel):
-    email: str
-    password: str
-    name: Optional[str] = None
-
-class CollaborationRequest(BaseModel):
-    requesting_agent: str
-    target_agent: str
-    request_type: str
-    context: Optional[Dict[str, Any]] = {}
 
 # API Endpoints
 @app.post("/api/start-project")
@@ -860,6 +860,29 @@ async def test_coordination():
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/stream/logs")
+async def stream_logs():
+    """Stream agent execution logs in real-time"""
+    from fastapi.responses import StreamingResponse
+    import json
+    import asyncio
+    
+    async def generate_logs():
+        while True:
+            try:
+                status = await orchestrator.get_auto_execution_status()
+                logs = status.get("recent_logs", [])
+                
+                for log in logs[-5:]:  # Last 5 logs
+                    yield f"data: {json.dumps(log)}\n\n"
+                
+                await asyncio.sleep(2)  # Update every 2 seconds
+            except Exception as e:
+                yield f"data: {{"error": "{str(e)}"}}\n\n"
+                break
+    
+    return StreamingResponse(generate_logs(), media_type="text/plain")
 
 if __name__ == "__main__":
     import uvicorn
