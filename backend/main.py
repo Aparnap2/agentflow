@@ -31,6 +31,7 @@ from workflows.langgraph_orchestrator import LangGraphOrchestrator
 from api.agent_logs import router as logs_router
 from auth.supabase_auth import supabase_auth
 from database.supabase_db import supabase_db
+from services.llm_service import llm_service
 
 # Global instances
 orchestrator = None
@@ -671,13 +672,16 @@ async def execute_agent(request: dict):
 @app.get("/api/health")
 async def health_check():
     """Health check endpoint"""
+    llm_health = llm_service.get_health_status()
+    
     return {
         "status": "healthy",
         "agents_available": len(orchestrator.agents) if orchestrator else 0,
         "memory_systems": {
             "vector_memory": "available",
             "graph_memory": "available" if hasattr(orchestrator, 'graph_memory') else "fallback"
-        }
+        },
+        "llm_providers": llm_health
     }
 
 @app.websocket("/ws/agent-updates")

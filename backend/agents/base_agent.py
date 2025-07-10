@@ -4,9 +4,11 @@ from enum import Enum
 import asyncio
 from datetime import datetime
 from loguru import logger
+import json
 
 from memory.memory_manager import MemoryManager
 from tools.tool_registry import ToolRegistry
+from services.llm_service import llm_service, LLMProvider
 
 class AgentStatus(Enum):
     IDLE = "idle"
@@ -150,4 +152,83 @@ class BaseAgent(ABC):
             "status": self.status.value,
             "current_task": self.current_task.get("id") if self.current_task else None,
             "outputs_ready": bool(self.outputs)
+        }
+    
+    async def _generate_response(
+        self, 
+        prompt: str, 
+        context: Optional[Dict[str, Any]] = None,
+        temperature: float = 0.7
+    ) -> Dict[str, Any]:
+        """Generate LLM response with structured output"""
+        
+        # Build system message
+        system_message = self.get_system_prompt()
+        
+        # Get shared context if available
+        if context is None:
+            context = await self._get_shared_context()
+        
+        # Build messages
+        messages = [
+            {"role": "system", "content": system_message},
+            {"role": "user", "content": self._build_prompt(prompt, context)}
+        ]
+        
+        try:
+            # Generate response
+            response = await llm_service.generate_response(
+                messages=messages,
+                agent_name=self.name,
+                temperature=temperature,
+                max_tokens=4000,
+                preferred_provider=LLMProvider.OPENROUTER
+            )
+            
+            # Parse structured response
+            return self._parse_response(response.content, response.confidence)
+            
+        except Exception as e:
+            logger.error(f"{self.name} LLM generation failed: {e}")
+            return {
+                "error": str(e),
+                "confidence": 0.0,
+                "content": "Unable to generate response"
+            }
+    
+    def _build_prompt(self, prompt: str, context: Dict[str, Any]) -> str:
+        """Build enhanced prompt with context"""
+        context_str = ""
+        if context:
+            context_str = f"\n\nContext:\n{json.dumps(context, indent=2)}"
+        
+        return f"{prompt}{context_str}\n\nPlease provide a structured response with confidence score."
+    
+    def _parse_response(self, content: str, confidence: float) -> Dict[str, Any]:
+        """Parse LLM response into structured format"""
+        
+        # Try to extract JSON if present
+        try:
+            if '{' in content and '}' in content:
+                start = content.find('{')
+                end = content.rfind('}') + 1
+                json_str = content[start:end]
+                parsed = json.loads(json_str)
+                
+                return {
+                    "content": content,
+                    "structured_output": parsed,
+                    "confidence": confidence,
+                    "agent": self.name,
+                    "timestamp": datetime.now().isoformat()
+                }
+        except:
+            pass
+        
+        # Default format
+        return {
+            "content": content,
+            "confidence": confidence,
+            "agent": self.name,
+            "timestamp": datetime.now().isoformat()
         }
