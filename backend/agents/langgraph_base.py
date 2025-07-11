@@ -6,12 +6,39 @@ import asyncio
 import json
 from typing import Dict, List, Any, Optional, TypedDict
 from datetime import datetime
-from langgraph.graph import StateGraph, END
+from loguru import logger
+
+try:
+    from langgraph.graph import StateGraph, END
+except ImportError as e:
+    logger.warning(f"LangGraph import failed: {e}. Using fallback implementation.")
+    # Fallback implementations
+    class StateGraph:
+        def __init__(self, state_schema):
+            self.state_schema = state_schema
+            self.nodes = {}
+            self.edges = []
+            
+        def add_node(self, name, func):
+            self.nodes[name] = func
+            
+        def add_edge(self, from_node, to_node):
+            self.edges.append((from_node, to_node))
+            
+        def add_conditional_edges(self, from_node, condition, mapping):
+            pass
+            
+        def set_entry_point(self, node):
+            self.entry_point = node
+            
+        def compile(self, **kwargs):
+            return self
+    
+    END = "__end__"
 from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain.tools import BaseTool
 from tools.tool_registry import ToolRegistry
 import aiohttp
-from loguru import logger
 
 from memory.memory_manager import MemoryManager
 from approvals.approval_manager import ApprovalManager

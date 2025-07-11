@@ -606,11 +606,37 @@ class AgentOrchestrator:
             "project_id": task.get("project_id")
         }
         
-        # Execute agent
-        result = await agent.execute(execution_task)
-        self._log_execution(agent_name, result)
+        # Track execution start time
+        start_time = datetime.now()
         
-        return result
+        try:
+            # Execute agent
+            result = await agent.execute(execution_task)
+            self._log_execution(agent_name, result)
+            
+            # Track analytics
+            from analytics.analytics_service import analytics_service
+            execution_time = (datetime.now() - start_time).total_seconds()
+            await analytics_service.track_agent_execution(
+                agent_name=agent_name,
+                task_type=task.get("type", "unknown"),
+                execution_time=execution_time,
+                confidence=result.get("confidence", 0.0),
+                success="error" not in result,
+                user_id=task.get("user_id", "anonymous")
+            )
+            
+            return result
+            
+        except Exception as e:
+            # Track error
+            from analytics.analytics_service import analytics_service
+            await analytics_service.track_error(
+                error_type="agent_execution_error",
+                agent_name=agent_name,
+                recoverable=False
+            )
+            raise
     
     async def update_agent_configs(self, configs: Dict[str, Any]) -> Dict[str, Any]:
         """Update agent configurations"""

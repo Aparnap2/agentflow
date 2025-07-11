@@ -13,7 +13,7 @@ The **AgentFlow** workflow is designed to transform a user's startup idea into a
 
 2. **Task Planning**:
    - The **Manager Agent** analyzes the idea, identifies required tasks (e.g., market analysis, financial modeling), and creates a task queue in Redis.
-   - Dependencies between tasks are stored in Neo4j (e.g., Marketing depends on Product’s user personas).
+   - Dependencies between tasks are stored in Neo4j (e.g., Marketing depends on Product's user personas).
 
 3. **Parallel Task Execution**:
    - Specialized agents (Product, Finance, Marketing, Legal, Sales, Operations) execute tasks concurrently:
@@ -21,7 +21,7 @@ The **AgentFlow** workflow is designed to transform a user's startup idea into a
      - **Finance Agent**: Generates financial projections, using Neo4j for context.
      - **Marketing Agent**: Develops campaign strategies, leveraging Qdrant for trends.
      - **Legal Agent**: Identifies compliance requirements, searching Qdrant for regulations.
-     - **Sales/Operations Agents**: Build strategies based on other agents’ outputs.
+     - **Sales/Operations Agents**: Build strategies based on other agents' outputs.
    - The **Manager Agent** monitors progress via Redis, resolving conflicts (e.g., resource contention).
 
 4. **Result Aggregation**:
@@ -121,7 +121,7 @@ The UI is designed to be modern, responsive, and portfolio-ready, showcasing the
 4. **Results Page**:
    - **Purpose**: Display the final business plan and allow follow-up actions.
    - **Features**: Downloadable PDF report, interactive visualizations (e.g., market analysis graphs), and follow-up task triggers (e.g., email scheduling).
-   - **Design**: Clean layout with sections for each agent’s output, styled with Tailwind CSS.
+   - **Design**: Clean layout with sections for each agent's output, styled with Tailwind CSS.
 
 ### UI Structure (Mermaid)
 Below is a **Mermaid class diagram** representing the UI component hierarchy and their relationships.
@@ -186,7 +186,7 @@ classDiagram
 - **Axios**: API calls to the FastAPI backend.
 
 ### UI Design Principles
-- **Responsive**: Adapts to desktop and mobile using Tailwind’s responsive utilities.
+- **Responsive**: Adapts to desktop and mobile using Tailwind's responsive utilities.
 - **Interactive**: Real-time updates (via WebSockets or polling) for task statuses and workflow changes.
 - **Professional**: Clean typography, consistent colors (e.g., blue/white theme), and subtle animations for portfolio appeal.
 
@@ -195,12 +195,16 @@ classDiagram
 ## 💡 Addressing Pain Points
 
 ### Workflow
-- **Problem**: Unclear how agents collaborate and tasks flow.
-- **Solution**: The Mermaid flowchart clarifies the process, with the Manager Agent orchestrating tasks, Redis handling queuing, and Neo4j managing dependencies. Parallel execution and visualization ensure clarity and efficiency.
+- **Problem**: Unclear how agents collaborate and tasks flow with high resource usage
+- **Solution**: The Mermaid flowchart clarifies the process, with LangGraph for efficient agent workflows, lazy initialization to reduce resource usage, and caching to minimize token usage and database queries
 
 ### UI
-- **Problem**: Original UI lacks modern appeal for a portfolio.
-- **Solution**: The refactored UI uses Tailwind CSS for styling, React Flow for interactive workflows, and Chart.js for visualizations. The component hierarchy (Mermaid class diagram) ensures modularity and ease of maintenance.
+- **Problem**: Original UI lacks modern appeal and has performance issues
+- **Solution**: The refactored UI uses Tailwind CSS for styling, React Flow for interactive workflows, and optimized React components (like ReactMarkdown) for better performance
+
+### Performance
+- **Problem**: High resource usage at startup and excessive data transactions
+- **Solution**: Implemented lazy initialization for all components, caching for context and LLM calls, and optimized queue management to reduce resource usage
 
 ---
 
@@ -208,25 +212,37 @@ classDiagram
 
 To implement this workflow and UI:
 1. **Workflow**:
-   - Use **FastAPI** to handle task queuing (Redis) and dependency management (Neo4j).
-   - Integrate **Qdrant** for semantic search using `sentence-transformers/all-MiniLM-L6-v2` (free via Hugging Face).
-   - Implement the Manager Agent to monitor Redis and resolve task conflicts.
+   - Use **FastAPI** with **LangGraph** for efficient agent workflows and state management
+   - Implement lazy initialization for all components to reduce startup time and resource usage
+   - Use caching for context and LLM calls to minimize token usage and database queries
+   - Integrate **Qdrant** for semantic search using `sentence-transformers/all-MiniLM-L6-v2` (free via Hugging Face)
+   - Implement the Manager Agent to monitor Redis and resolve task conflicts
 
 2. **UI**:
-   - Set up **React** with `create-react-app` and install `tailwindcss`, `react-flow-renderer`, and `chart.js`.
-   - Create components as described (HomePage, WorkflowCanvas, etc.) and style with Tailwind.
-   - Use Axios to fetch task statuses and plan outputs from the FastAPI backend.
+   - Set up **React** with `create-react-app` and install `tailwindcss`, `react-flow-renderer`, and `chart.js`
+   - Create components as described (HomePage, WorkflowCanvas, etc.) and style with Tailwind
+   - Use Axios to fetch task statuses and plan outputs from the FastAPI backend
+   - Implement proper component patterns (e.g., using `components` prop for ReactMarkdown)
 
 3. **Free Services**:
-   - **Neo4j AuraDB Free**: Set up via [neo4j.com](https://neo4j.com/cloud/aura/) for graph storage.
-   - **Qdrant Cloud Free**: Configure via [cloud.qdrant.io](https://cloud.qdrant.io/) for vector search.
-   - **Redis Labs Free**: Use [redislabs.com](https://redislabs.com/) for state management.
+   - **Neo4j AuraDB Free**: Set up via [neo4j.com](https://neo4j.com/cloud/aura/) for graph storage
+   - **Qdrant Cloud Free**: Configure via [cloud.qdrant.io](https://cloud.qdrant.io/) for vector search
+   - **Redis Labs Free**: Use [redislabs.com](https://redislabs.com/) for state management
 
 ---
 
 ## 📚 Next Steps
 
-- **Code Workflow**: Implement the task queue in `backend/workflows/task_orchestration.py` using Redis and dependency logic in `backend/memory/graph_memory.py` with Neo4j.
-- **Build UI**: Set up React components in `frontend/src/components/` and integrate React Flow for the WorkflowCanvas.
-- **Test**: Simulate a startup idea (e.g., "sustainable fashion brand") and verify agent outputs in the Dashboard and Results Page.
-- **Polish**: Add animations (e.g., Tailwind’s `hover` effects) and exportable PDF reports for portfolio appeal.
+- **Memory Optimization**: Implement context pruning to reduce token usage and add compression for large memory objects
+- **Agent Communication**: Implement more efficient message passing between agents and reduce redundant context in agent communications
+- **LangGraph Improvements**: Optimize state transitions to reduce token usage and implement more efficient node execution patterns
+- **Performance Monitoring**: Add detailed performance metrics for each agent and implement token usage tracking
+- **Frontend Optimizations**: Implement virtualized lists for large datasets and add progressive loading for agent outputs
+
+## 🔧 Recent Improvements
+
+- **Lazy Initialization**: Implemented lazy initialization for all components to reduce startup time and resource usage
+- **Context Caching**: Added TTL-based caching for global context to reduce database queries
+- **LLM Call Optimization**: Implemented caching for similar prompts to reduce token usage
+- **ReactMarkdown Fix**: Updated component to use proper styling approach
+- **Queue Management**: Optimized queue system to initialize only when needed

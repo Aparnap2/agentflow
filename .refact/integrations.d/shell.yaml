@@ -1,0 +1,14 @@
+timeout: '10'
+output_filter:
+  limit_lines: 400
+  limit_chars: 40000
+  valuable_top_or_bottom: top
+  grep: (?i)error
+  grep_context_lines: 5
+  remove_from_output: ''
+available:
+  on_your_laptop: false
+  when_isolated: false
+confirmation:
+  ask_user: []
+  deny: []

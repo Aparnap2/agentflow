@@ -16,6 +16,7 @@ neo4j==5.28.1
 qdrant-client==1.7.0
 graphiti-core==0.3.0
 redis==5.0.1
+redis[asyncio]==5.0.1
 
 # Tools & Integrations
 crawl4ai==0.2.77

@@ -6,7 +6,7 @@ import axios from 'axios';
 
 // Configuration
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
-const API_TIMEOUT = 30000; // 30 seconds
+const API_TIMEOUT = 60000; // 60 seconds
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
 
@@ -91,31 +91,42 @@ class APIService {
     this.eventListeners = new Map();
   }
 
-  // WebSocket connection
+  // Enhanced WebSocket connection for real-time events
   connectWebSocket() {
     if (this.websocket?.readyState === WebSocket.OPEN) {
       return;
     }
 
-    const wsUrl = API_BASE_URL.replace('http', 'ws') + '/ws/agent-updates';
+    const wsUrl = API_BASE_URL.replace('http', 'ws') + '/ws/agent-events';
     this.websocket = new WebSocket(wsUrl);
     
     this.websocket.onopen = () => {
-      console.log('WebSocket connected');
+      console.log('🔌 WebSocket connected to agent events');
       this.emit('websocket:connected');
     };
     
     this.websocket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
+        
+        // Emit specific event types for components to subscribe to
+        if (data.type) {
+          this.emit(`event:${data.type}`, data);
+        }
+        
+        // Also emit the original websocket events for backward compatibility
         this.emit(`websocket:${data.type}`, data);
+        
+        // Emit general event for debugging
+        this.emit('websocket:message', data);
+        
       } catch (error) {
         console.error('WebSocket message parse error:', error);
       }
     };
     
     this.websocket.onclose = () => {
-      console.log('WebSocket disconnected');
+      console.log('🔌 WebSocket disconnected');
       this.emit('websocket:disconnected');
       
       // Reconnect after 3 seconds
@@ -126,6 +137,23 @@ class APIService {
       console.error('WebSocket error:', error);
       this.emit('websocket:error', error);
     };
+  }
+
+  // Connect to legacy WebSocket for backward compatibility
+  connectLegacyWebSocket() {
+    const wsUrl = API_BASE_URL.replace('http', 'ws') + '/ws/agent-updates';
+    const legacyWs = new WebSocket(wsUrl);
+
+    legacyWs.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        this.emit(`websocket:${data.type}`, data);
+      } catch (error) {
+        console.error('Legacy WebSocket message parse error:', error);
+      }
+    };
+
+    return legacyWs;
   }
 
   // Event system
@@ -149,6 +177,43 @@ class APIService {
   emit(event, data) {
     const listeners = this.eventListeners.get(event) || [];
     listeners.forEach(listener => listener(data));
+  }
+
+  // Generic request methods
+  async get(url, params = {}, config = {}) {
+    try {
+      const response = await api.get(url, { params, ...config });
+      return response;
+    } catch (error) {
+      throw this.handleError(error, `GET request to ${url} failed`);
+    }
+  }
+
+  async post(url, data, config = {}) {
+    try {
+      const response = await api.post(url, data, config);
+      return response;
+    } catch (error) {
+      throw this.handleError(error, `POST request to ${url} failed`);
+    }
+  }
+
+  async put(url, data, config = {}) {
+    try {
+      const response = await api.put(url, data, config);
+      return response;
+    } catch (error) {
+      throw this.handleError(error, `PUT request to ${url} failed`);
+    }
+  }
+
+  async delete(url, config = {}) {
+    try {
+      const response = await api.delete(url, config);
+      return response;
+    } catch (error) {
+      throw this.handleError(error, `DELETE request to ${url} failed`);
+    }
   }
 
   // Authentication
@@ -445,6 +510,91 @@ class APIService {
       return response.data;
     } catch (error) {
       throw this.handleError(error, 'Failed to get live agent logs');
+    }
+  }
+
+  // Enhanced Session Management
+  async startEnhancedSession(userData) {
+    try {
+      const response = await api.post('/api/enhanced/start-session', userData);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error, 'Failed to start enhanced session');
+    }
+  }
+
+  async continueEnhancedSession(sessionId, message) {
+    try {
+      const response = await api.post(`/api/enhanced/continue-session?session_id=${sessionId}`, { message });
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error, 'Failed to continue enhanced session');
+    }
+  }
+
+  async approveAndExecute(sessionId) {
+    try {
+      const response = await api.post(`/api/enhanced/approve-and-execute?session_id=${sessionId}`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error, 'Failed to approve and execute session');
+    }
+  }
+
+  async getSessionStatus(sessionId) {
+    try {
+      const response = await api.get(`/api/enhanced/session-status?session_id=${sessionId}`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error, 'Failed to get session status');
+    }
+  }
+
+  async getSessionResults(sessionId) {
+    try {
+      const response = await api.get(`/api/enhanced/session-results?session_id=${sessionId}`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error, 'Failed to get session results');
+    }
+  }
+
+  async getLiveLogs(sessionId = null) {
+    try {
+      const url = sessionId 
+        ? `/api/enhanced/live-logs?session_id=${sessionId}`
+        : '/api/enhanced/live-logs';
+      const response = await api.get(url);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error, 'Failed to get live logs');
+    }
+  }
+
+  async getSystemMetrics() {
+    try {
+      const response = await api.get('/api/enhanced/system-metrics');
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error, 'Failed to get system metrics');
+    }
+  }
+
+  async cancelSession(sessionId) {
+    try {
+      const response = await api.post(`/api/enhanced/cancel-session?session_id=${sessionId}`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error, 'Failed to cancel session');
+    }
+  }
+
+  async cleanupSessions(maxAgeHours = 24) {
+    try {
+      const response = await api.post(`/api/enhanced/cleanup-sessions?max_age_hours=${maxAgeHours}`);
+      return response.data;
+    } catch (error) {
+      throw this.handleError(error, 'Failed to cleanup sessions');
     }
   }
 

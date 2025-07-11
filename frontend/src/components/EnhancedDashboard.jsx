@@ -159,6 +159,8 @@ const StatsCard = ({ title, value, icon: Icon, color = "blue", trend = null }) =
   </div>
 );
 
+import { useNavigate } from 'react-router-dom';
+
 const EnhancedDashboard = () => {
   const [agents, setAgents] = useState({});
   const [agentsStatus, setAgentsStatus] = useState({});
@@ -169,7 +171,8 @@ const EnhancedDashboard = () => {
   const [autoRefresh, setAutoRefresh] = useState(true);
   const [systemStats, setSystemStats] = useState({});
   const [selectedAgent, setSelectedAgent] = useState(null);
-  const [conversationStarted, setConversationStarted] = useState(false);
+const [activeSession, setActiveSession] = useState(null);
+  const navigate = useNavigate();
 
   // Load initial data
   useEffect(() => {
@@ -267,18 +270,28 @@ const EnhancedDashboard = () => {
     }
   };
 
-  const handleStartConversation = async () => {
+  const handleStartEnhancedSession = async () => {
     try {
       const message = "I want to start a new business. Can you help me develop a comprehensive business plan?";
-      const response = await apiService.startConversation(message);
+      const response = await apiService.startEnhancedSession({
+        user_id: 'default_user',
+        message: message
+      });
       
-      setConversationStarted(true);
-      console.log('Conversation started:', response);
+      setActiveSession(response.session_id);
       
-      // Show success message or redirect to conversation page
+      // Navigate to enhanced workflow page with initial AI response
+      navigate('/enhanced-workflow', { 
+        state: { 
+          sessionId: response.session_id,
+          conversationId: response.conversation_id,
+          initialAssistantMessage: response.response,
+          initialUserMessage: message
+        } 
+      });
     } catch (err) {
-      console.error('Failed to start conversation:', err);
-      setError(`Failed to start conversation: ${err.message}`);
+      console.error('Failed to start enhanced session:', err);
+      setError(`Failed to start enhanced session: ${err.message}`);
     }
   };
 
@@ -374,11 +387,11 @@ const EnhancedDashboard = () => {
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
           <div className="flex flex-wrap gap-3">
             <button
-              onClick={handleStartConversation}
+              onClick={handleStartEnhancedSession}
               className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 transition-colors"
             >
               <MessageSquare className="h-4 w-4" />
-              Start New Project
+              Start Enhanced Project
             </button>
             <button
               onClick={handleAutoExecute}

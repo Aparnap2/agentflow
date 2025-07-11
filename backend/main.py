@@ -8,6 +8,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Dict, Any, Optional, List
 import asyncio
+import json
 from datetime import datetime
 from loguru import logger
 from contextlib import asynccontextmanager
@@ -22,6 +23,7 @@ load_dotenv(env_path)
 from flows.orchestrator import AgentOrchestrator
 from outputs.report_generator import ReportGenerator
 from analytics.predictor import SimplePredictor
+from analytics.analytics_service import analytics_service
 from collaboration.agent_collaborator import AgentCollaborator
 from approvals.advanced_approval import AdvancedApprovalManager, ApprovalType
 from services.agent_service import AgentService
@@ -29,12 +31,16 @@ from services.report_service import ReportService
 from communication.event_bus import event_bus
 from workflows.langgraph_orchestrator import LangGraphOrchestrator
 from api.agent_logs import router as logs_router
+from api.analytics_api import router as analytics_router
 from auth.supabase_auth import supabase_auth
 from database.supabase_db import supabase_db
 from services.llm_service import llm_service
+from coordination.enhanced_orchestrator import get_enhanced_orchestrator
+from task_queue.enhanced_queue_manager import queue_manager
 
 # Global instances
 orchestrator = None
+enhanced_orchestrator = None
 report_generator = None
 predictor = None
 collaborator = None
@@ -68,10 +74,14 @@ manager = ConnectionManager()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Manage application lifespan"""
-    global orchestrator, report_generator, predictor, collaborator, agent_service, report_service, langgraph_orchestrator
+    global orchestrator, enhanced_orchestrator, report_generator, predictor, collaborator, agent_service, report_service, langgraph_orchestrator
     
     # Startup
     orchestrator = AgentOrchestrator()
+    
+    # Initialize enhanced orchestrator without connecting to queue system yet
+    enhanced_orchestrator = await get_enhanced_orchestrator(orchestrator.memory_manager, connect_queue=False)
+    
     report_generator = ReportGenerator()
     predictor = SimplePredictor()
     collaborator = AgentCollaborator(orchestrator.memory_manager, orchestrator.memory_manager.vector_memory)
@@ -85,6 +95,9 @@ async def lifespan(app: FastAPI):
     # Shutdown
     if orchestrator:
         orchestrator.close()
+    
+    # Shutdown queue system
+    await queue_manager.stop_all()
 
 app = FastAPI(
     title="AgentFlow API",
@@ -102,8 +115,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Include logging router
+# Include routers
 app.include_router(logs_router)
+app.include_router(analytics_router)
 
 # Request models
 class AuthRequest(BaseModel):
@@ -181,6 +195,69 @@ async def create_project(request: dict, user: dict = Depends(supabase_auth.verif
         raise HTTPException(status_code=500, detail=str(e))
 
 # API Endpoints
+
+# Enhanced Orchestrator Endpoints
+@app.post("/api/enhanced/start-session")
+async def enhanced_start_session(request: dict):
+    """Start a new session with enhanced automation"""
+    try:
+        user_id = request.get("user_id", "default_user")
+        initial_message = request.get("message", "I want to start a new project.")
+        response = await enhanced_orchestrator.start_chat_session(user_id, initial_message)
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/enhanced/continue-session")
+async def enhanced_continue_session(session_id: str, request: dict):
+    """Continue an existing session"""
+    try:
+        message = request.get("message", "Continue with the plan.")
+        response = await enhanced_orchestrator.continue_chat_session(session_id, message)
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/enhanced/approve-and-execute")
+async def enhanced_approve_and_execute(session_id: str):
+    """Approve a session's vision and execute"""
+    try:
+        response = await enhanced_orchestrator.approve_and_execute(session_id)
+        return response
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/enhanced/session-status")
+async def get_session_status(session_id: str):
+    """Get status of an enhanced session"""
+    try:
+        return await enhanced_orchestrator.get_session_status(session_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/enhanced/live-logs")
+async def get_live_logs(session_id: Optional[str] = None):
+    """Get live execution logs"""
+    try:
+        return await enhanced_orchestrator.get_live_logs(session_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/enhanced/session-results")
+async def get_session_results(session_id: str):
+    """Get results of an enhanced session"""
+    try:
+        return await enhanced_orchestrator.get_session_results(session_id)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/enhanced/system-metrics")
+async def get_system_metrics():
+    """Get system-wide enhanced metrics"""
+    try:
+        return await enhanced_orchestrator.get_system_metrics()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 @app.post("/api/start-project")
 async def start_project(request: ProjectRequest):
     """Start new project with enhanced agent capabilities"""
@@ -616,6 +693,7 @@ async def respond_to_approval(approval_id: str, response: ApprovalResponse):
 @app.post("/api/conversation/start")
 async def start_conversation(request: ConversationRequest, user: dict = Depends(supabase_auth.verify_token)):
     """Start conversation with Cofounder agent"""
+    start_time = datetime.now()
     try:
         result = await orchestrator.start_conversation(request.message)
         
@@ -626,8 +704,24 @@ async def start_conversation(request: ConversationRequest, user: dict = Depends(
             "status": "active"
         })
         
+        # Track analytics
+        response_time = (datetime.now() - start_time).total_seconds()
+        await analytics_service.track_user_interaction(
+            interaction_type="conversation_start",
+            content_length=len(request.message),
+            response_time=response_time,
+            user_id=user["id"]
+        )
+        
         return {"response": result["response"], "conversation_id": result["conversation_id"], "ready_for_approval": result.get("ready_for_approval", False)}
     except Exception as e:
+        # Track error
+        await analytics_service.track_error(
+            error_type="conversation_start_error",
+            agent_name="Cofounder",
+            recoverable=True,
+            user_id=user["id"]
+        )
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/conversation/{conversation_id}/message")
@@ -681,7 +775,11 @@ async def health_check():
             "vector_memory": "available",
             "graph_memory": "available" if hasattr(orchestrator, 'graph_memory') else "fallback"
         },
-        "llm_providers": llm_health
+        "llm_providers": llm_health,
+        "analytics": {
+            "enabled": analytics_service.mixpanel_enabled,
+            "events_tracked": len(analytics_service.local_events)
+        }
     }
 
 @app.websocket("/ws/agent-updates")
@@ -702,6 +800,48 @@ async def websocket_endpoint(websocket: WebSocket):
                     "timestamp": datetime.now().isoformat()
                 })
     except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+@app.websocket("/ws/agent-events")
+async def websocket_events(websocket: WebSocket):
+    """WebSocket endpoint for real-time queue events and agent activity"""
+    await manager.connect(websocket)
+    
+    # Subscribe to Redis pub/sub for queue events
+    redis = queue_manager.redis
+    pubsub = redis.pubsub()
+    
+    try:
+        await pubsub.subscribe("agentflow_events")
+        logger.info("🔌 WebSocket client connected to agent events stream")
+        
+        while True:
+            # Check for Redis pub/sub messages
+            message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=1.0)
+            
+            if message and message['type'] == 'message':
+                try:
+                    event = json.loads(message['data'])
+                    # Stream all queue events to client
+                    await websocket.send_json({
+                        "source": "queue_event",
+                        **event
+                    })
+                except json.JSONDecodeError:
+                    logger.error(f"Failed to decode Redis message: {message['data']}")
+            
+            # Also send periodic system metrics
+            await asyncio.sleep(0.1)
+            
+    except WebSocketDisconnect:
+        logger.info("🔌 WebSocket client disconnected from agent events")
+        await pubsub.unsubscribe("agentflow_events")
+        await pubsub.close()
+        manager.disconnect(websocket)
+    except Exception as e:
+        logger.error(f"WebSocket error: {e}")
+        await pubsub.unsubscribe("agentflow_events")
+        await pubsub.close()
         manager.disconnect(websocket)
 
 @app.get("/api/approvals/advanced/pending")
@@ -831,20 +971,7 @@ async def resume_workflow(thread_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/api/agents/execute")
-async def execute_agent(request: dict):
-    """Execute specific agent"""
-    try:
-        agent_name = request.get("agent")
-        task = request.get("task")
-        
-        if not agent_name or not task:
-            raise HTTPException(status_code=400, detail="Agent name and task required")
-        
-        result = await orchestrator.execute_single_agent(agent_name, task)
-        return result
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/auto-execute")
 async def auto_execute_project(request: dict):
@@ -877,6 +1004,24 @@ async def get_live_agent_logs():
             "status": status.get("status", "idle"),
             "total_entries": status.get("log_entries", 0)
         }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/enhanced/cancel-session")
+async def cancel_session(session_id: str):
+    """Cancel an active enhanced session"""
+    try:
+        result = await enhanced_orchestrator.cancel_session(session_id)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/enhanced/cleanup-sessions")
+async def cleanup_old_sessions(max_age_hours: int = 24):
+    """Cleanup old sessions"""
+    try:
+        result = await enhanced_orchestrator.cleanup_old_sessions(max_age_hours)
+        return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
