@@ -114,17 +114,20 @@ class ContentGeneratorTool(BaseTool):
 
 
 class MarketingAgent(LangGraphAgent):
-    """Marketing Agent responsible for content strategy and SEO"""
+    """Enhanced Marketing Agent - Content strategy + Brand amplification capabilities"""
     
     def __init__(self, memory_manager, approval_manager):
         personality = {
             "tone": "creative and data-driven",
-            "focus": "brand awareness and lead generation",
-            "expertise": ["content marketing", "SEO", "social media", "analytics"],
+            "focus": "brand awareness, lead generation, and content amplification",
+            "expertise": [
+                "content marketing", "SEO", "social media", "analytics",
+                "brand amplification", "content performance", "viral marketing", "influencer outreach"
+            ],
             "model": "deepseek/deepseek-chat:free",
             "temperature": 0.7,
             "confidence_threshold": 0.6,
-            "description": "Plans content strategy, SEO optimization, and social media campaigns"
+            "description": "Enhanced marketing agent with content amplification and performance optimization"
         }
         
         super().__init__(
@@ -156,8 +159,65 @@ class MarketingAgent(LangGraphAgent):
             return await self._perform_seo_analysis(task, context)
         elif task_type == "social_media_plan":
             return await self._create_social_media_plan(task, context)
+        elif task_type == "content_amplification":
+            return await self._amplify_content_performance(task, context)
+        elif task_type == "viral_strategy":
+            return await self._create_viral_strategy(task, context)
         else:
             return await self._general_marketing_analysis(task, context)
+    
+    async def _amplify_content_performance(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        """Amplify content performance using consolidated Amplifier capabilities"""
+        content_data = task.get("content_data", {})
+        brand_data = context.get("brand_data", {})
+        
+        # Analyze current performance
+        performance_analysis = await self.analyze_content_performance(content_data)
+        
+        # Create viral content strategy
+        viral_strategy = await self.create_viral_content_strategy(brand_data)
+        
+        # Optimize reach
+        reach_optimization = await self.optimize_content_reach(content_data)
+        
+        amplification_plan = {
+            "performance_insights": performance_analysis,
+            "viral_content_strategy": viral_strategy,
+            "reach_optimization": reach_optimization,
+            "implementation_timeline": {
+                "week_1": "Performance analysis and strategy refinement",
+                "week_2": "Content optimization and influencer outreach",
+                "week_3": "Campaign launch and monitoring",
+                "week_4": "Performance review and iteration"
+            }
+        }
+        
+        return amplification_plan
+    
+    async def _create_viral_strategy(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
+        """Create comprehensive viral marketing strategy"""
+        brand_data = context.get("brand_data", {})
+        
+        viral_strategy = await self.create_viral_content_strategy(brand_data)
+        
+        # Add specific viral campaign ideas
+        viral_campaigns = {
+            "challenge_campaign": {
+                "name": "Brand Transformation Challenge",
+                "mechanics": "Users share before/after using product",
+                "incentive": "Featured on brand channels + prizes",
+                "platforms": ["TikTok", "Instagram", "Twitter"]
+            },
+            "user_generated_content": {
+                "name": "Success Stories Campaign",
+                "mechanics": "Users share success stories with branded hashtag",
+                "incentive": "Monthly winner gets premium features",
+                "platforms": ["LinkedIn", "Twitter", "Instagram"]
+            }
+        }
+        
+        viral_strategy["campaign_ideas"] = viral_campaigns
+        return viral_strategy
     
     async def _create_content_strategy(self, task: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
         """Create comprehensive content marketing strategy"""
@@ -632,3 +692,82 @@ class MarketingAgent(LangGraphAgent):
                 "partnership_opportunities": ["Industry platforms", "Complementary tools", "Communities"],
                 "retention_tactics": ["Regular updates", "Feature education", "Success tracking"]
             }
+    
+    # === AMPLIFIER CAPABILITIES (consolidated from Amplifier Agent) ===
+    async def analyze_content_performance(self, content_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze content performance and suggest amplification strategies"""
+        performance_prompt = f"""
+        Analyze content performance and suggest amplification:
+        
+        Content Data: {content_data}
+        
+        Provide:
+        1. Performance metrics analysis
+        2. Top performing content types
+        3. Amplification opportunities
+        4. Optimization recommendations
+        5. Distribution strategy improvements
+        """
+        
+        analysis = await self._think(performance_prompt)
+        return {"performance_analysis": analysis, "confidence": 0.8}
+    
+    async def create_viral_content_strategy(self, brand_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create viral content strategy for brand amplification"""
+        viral_strategy = {
+            "viral_triggers": [
+                "Emotional storytelling",
+                "Controversial takes (tasteful)",
+                "Behind-the-scenes content",
+                "User-generated content campaigns",
+                "Interactive challenges"
+            ],
+            "amplification_tactics": [
+                "Cross-platform content repurposing",
+                "Influencer partnerships",
+                "Community engagement",
+                "Trending hashtag utilization",
+                "Real-time marketing"
+            ],
+            "content_formats": {
+                "high_engagement": ["Video content", "Interactive polls", "Live streams"],
+                "shareable": ["Infographics", "Quote cards", "Memes"],
+                "educational": ["How-to guides", "Tips threads", "Case studies"]
+            },
+            "distribution_matrix": {
+                "linkedin": "Professional insights and thought leadership",
+                "twitter": "Real-time updates and community engagement",
+                "instagram": "Visual storytelling and behind-the-scenes",
+                "tiktok": "Trending content and challenges",
+                "youtube": "Long-form educational content"
+            }
+        }
+        
+        return viral_strategy
+    
+    async def optimize_content_reach(self, content_metrics: Dict[str, Any]) -> Dict[str, Any]:
+        """Optimize content reach based on performance data"""
+        optimization_recommendations = {
+            "timing_optimization": {
+                "best_posting_times": ["9-10 AM", "1-2 PM", "7-8 PM"],
+                "optimal_frequency": "3-4 posts per week per platform",
+                "seasonal_adjustments": "Increase frequency during peak engagement periods"
+            },
+            "format_optimization": {
+                "high_performing_formats": ["Video content", "Carousel posts", "Interactive content"],
+                "underperforming_formats": ["Text-only posts", "Stock photos"],
+                "recommendations": "Focus 70% budget on video and interactive content"
+            },
+            "audience_optimization": {
+                "engagement_segments": "Target high-engagement audience segments",
+                "lookalike_audiences": "Create lookalike audiences from top performers",
+                "retargeting_strategy": "Retarget engaged users with conversion content"
+            },
+            "amplification_budget": {
+                "organic_reach": "40% of effort",
+                "paid_amplification": "35% of budget",
+                "influencer_partnerships": "25% of budget"
+            }
+        }
+        
+        return optimization_recommendations

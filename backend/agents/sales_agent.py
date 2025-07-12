@@ -9,17 +9,20 @@ from agents.langgraph_base import LangGraphAgent
 from tools.web_search import WebSearchTool
 from tools.advanced_tools import FinancialModelingTool, RiskAssessmentTool
 class SalesAgent(LangGraphAgent):
-    """Sales Agent responsible for revenue forecasting and sales strategy"""
+    """Enhanced Sales Agent - Revenue forecasting + Lead qualification + Deal closing"""
     
     def __init__(self, memory_manager, approval_manager):
         personality = {
             "tone": "results-driven and analytical",
-            "focus": "revenue generation and customer acquisition",
-            "expertise": ["sales forecasting", "pipeline management", "customer segmentation", "revenue optimization"],
+            "focus": "revenue generation, customer acquisition, and deal closing",
+            "expertise": [
+                "sales forecasting", "pipeline management", "customer segmentation", "revenue optimization",
+                "lead qualification", "deal closing", "objection handling", "sales psychology"
+            ],
             "model": "openai/gpt-3.5-turbo",
             "temperature": 0.4,
             "confidence_threshold": 0.75,
-            "description": "Develops sales strategies, forecasts revenue, and optimizes customer acquisition"
+            "description": "Enhanced sales agent with lead qualification and deal closing capabilities"
         }
         
         super().__init__(
@@ -242,3 +245,88 @@ class SalesAgent(LangGraphAgent):
         
         segment_scores.sort(key=lambda x: x[1], reverse=True)
         return [name for name, _ in segment_scores]
+    
+    # === CLOSER CAPABILITIES (consolidated from Closer Agent) ===
+    async def qualify_lead(self, lead_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Qualify leads using BANT criteria (consolidated from Closer agent)"""
+        qualification_prompt = f"""
+        Qualify this lead using BANT criteria:
+        
+        Lead Data: {lead_data}
+        
+        Analyze:
+        1. Budget - Do they have budget allocated?
+        2. Authority - Are they the decision maker?
+        3. Need - Do they have a clear pain point?
+        4. Timeline - When do they need a solution?
+        
+        Provide qualification score (1-10) and next steps.
+        """
+        
+        qualification = await self._think(qualification_prompt)
+        lead_score = self._calculate_lead_score(lead_data)
+        
+        return {
+            "qualification_analysis": qualification,
+            "lead_score": lead_score,
+            "qualification_status": "qualified" if lead_score >= 7 else "needs_nurturing",
+            "next_steps": self._get_next_steps(lead_score),
+            "confidence": 0.85
+        }
+    
+    async def create_closing_strategy(self, opportunity_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Create deal closing strategy (consolidated from Closer agent)"""
+        return {
+            "closing_techniques": {
+                "assumptive_close": "When shall we schedule the implementation?",
+                "alternative_close": "Would you prefer the monthly or annual plan?",
+                "urgency_close": "This pricing is available until end of quarter",
+                "summary_close": "Based on our discussion, this solves X, Y, Z"
+            },
+            "objection_handling": {
+                "price_objection": {
+                    "response": "Let's look at the ROI calculation together",
+                    "supporting_materials": ["ROI calculator", "Case studies", "Cost comparison"]
+                },
+                "feature_objection": {
+                    "response": "Let me show you how this feature works in practice",
+                    "supporting_materials": ["Live demo", "Feature comparison", "Roadmap"]
+                },
+                "timing_objection": {
+                    "response": "What would need to happen for this to be a priority?",
+                    "supporting_materials": ["Implementation timeline", "Quick wins", "Pilot program"]
+                }
+            },
+            "success_metrics": {
+                "close_rate": "Target 25% of qualified opportunities",
+                "sales_cycle": "Average 30-45 days for SMB, 60-90 for enterprise",
+                "deal_size": "Average $5K SMB, $25K enterprise annually"
+            }
+        }
+    
+    def _calculate_lead_score(self, lead_data: Dict[str, Any]) -> int:
+        """Calculate lead score based on qualification criteria"""
+        score = 0
+        
+        if lead_data.get("budget_allocated") or lead_data.get("budget_range"):
+            score += 3
+        
+        if lead_data.get("job_title", "").lower() in ["ceo", "cto", "vp", "director", "manager"]:
+            score += 2
+        
+        if lead_data.get("pain_points") or lead_data.get("current_solution_issues"):
+            score += 3
+        
+        if lead_data.get("timeline", "").lower() in ["immediate", "this quarter", "urgent"]:
+            score += 2
+        
+        return min(10, score)
+    
+    def _get_next_steps(self, lead_score: int) -> List[str]:
+        """Get next steps based on lead score"""
+        if lead_score >= 8:
+            return ["Schedule demo immediately", "Send proposal within 48 hours", "Involve decision makers"]
+        elif lead_score >= 6:
+            return ["Qualify further", "Schedule discovery call", "Send relevant case studies"]
+        else:
+            return ["Add to nurture campaign", "Send educational content", "Follow up in 30 days"]

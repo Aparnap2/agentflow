@@ -7,14 +7,9 @@ from loguru import logger
 
 from agents.cofounder_agent import CofounderAgent
 from agents.manager_agent import ManagerAgent
-from agents.product_agent import ProductAgent
 from agents.finance_agent import FinanceAgent
 from agents.marketing_agent import MarketingAgent
 from agents.legal_agent import LegalAgent
-from agents.closer_agent import CloserAgent
-from agents.assistant_agent import AssistantAgent
-from agents.workflow_agent import WorkflowAgent
-from agents.amplifier_agent import AmplifierAgent
 from agents.money_agent import MoneyAgent
 from memory.memory_manager import MemoryManager
 from memory.graph_memory import GraphMemory
@@ -32,29 +27,20 @@ class AgentOrchestrator:
         self.approval_manager = ApprovalManager()
         self.state_manager = StateManager()
         
-        # Initialize agents with shared systems
+        # Initialize core agents with shared systems (streamlined architecture)
         self.agents = {
             "Cofounder": CofounderAgent(self.memory_manager, self.approval_manager),
             "Manager": ManagerAgent(self.memory_manager, self.approval_manager),
-            "Product": ProductAgent(self.memory_manager, self.approval_manager),
             "Finance": FinanceAgent(self.memory_manager, self.approval_manager),
             "Marketing": MarketingAgent(self.memory_manager, self.approval_manager),
-            "Legal": LegalAgent(self.memory_manager, self.approval_manager)
+            "Legal": LegalAgent(self.memory_manager, self.approval_manager),
+            "Money": MoneyAgent(self.memory_manager, self.approval_manager)
         }
         
-        # Add specialized agents based on real-world AI agent types
-        self.agents["Closer"] = CloserAgent(self.memory_manager, self.approval_manager)
-        self.agents["Assistant"] = AssistantAgent(self.memory_manager, self.approval_manager)
-        self.agents["Workflow"] = WorkflowAgent(self.memory_manager, self.approval_manager)
-        self.agents["Amplifier"] = AmplifierAgent(self.memory_manager, self.approval_manager)
-        self.agents["Money"] = MoneyAgent(self.memory_manager, self.approval_manager)
-        
-        # Add legacy agents if available
+        # Add sales agent if available
         try:
             from agents.sales_agent import SalesAgent
-            from agents.operations_agent import OperationsAgent
             self.agents["Sales"] = SalesAgent(self.memory_manager, self.approval_manager)
-            self.agents["Operations"] = OperationsAgent(self.memory_manager, self.approval_manager)
         except ImportError:
             pass
         self.execution_timeline = []
@@ -128,12 +114,10 @@ class AgentOrchestrator:
         agent_assignments = manager_result.get("output", {}).get("agent_assignments", {})
         specialist_tasks = []
         
-        # Create tasks for available specialist agents
-        available_agents = ["Product", "Finance", "Marketing", "Legal"]
+        # Create tasks for available specialist agents (streamlined set)
+        available_agents = ["Finance", "Marketing", "Legal", "Money"]
         if "Sales" in self.agents:
             available_agents.append("Sales")
-        if "Operations" in self.agents:
-            available_agents.append("Operations")
             
         for agent_name in available_agents:
             if agent_name in agent_assignments and agent_name in self.agents:

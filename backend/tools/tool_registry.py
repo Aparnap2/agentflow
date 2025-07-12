@@ -7,15 +7,18 @@ import httpx
 from loguru import logger
 
 
-class ToolRegistry:
-    """Registry for agent tools as specified in PRD"""
+class EnhancedToolRegistry:
+    """Enhanced tool registry with access control and usage tracking"""
     
     def __init__(self, agent_name: str):
         self.agent_name = agent_name
         self.tools = {}
+        self.access_control = {}  # tool_name -> allowed_agents
+        self.usage_stats = {}     # tool_name -> usage statistics
+        self.tool_dependencies = {}  # tool_name -> required_tools
         self._register_common_tools()
         self._register_agent_specific_tools()
-        # OpenRouter API will be configured per request
+        self._setup_access_control()
     
     def _register_common_tools(self):
         """Register tools available to all agents"""
@@ -26,20 +29,58 @@ class ToolRegistry:
         })
     
     def _register_agent_specific_tools(self):
-        """Register tools specific to each agent type"""
+        """Register tools specific to each agent type (streamlined for 7 agents)"""
         agent_tools = {
             "Cofounder": ["memory_write", "memory_query", "llm_reasoning"],
-            "Manager": ["memory_read_all", "task_assign", "workflow_generate"],
-            "Product": ["rag_search", "persona_create", "json_export"],
+            "Manager": ["memory_read_all", "task_assign", "workflow_generate", "persona_create", "json_export"],  # Enhanced with Product capabilities
             "Finance": ["api_finance_call", "web_fetch", "memory_cross_query"],
-            "Marketing": ["web_crawl_social", "content_generate", "seo_keywords"],
-            "Legal": ["template_generate_tos", "compliance_check"]
+            "Marketing": ["web_crawl_social", "content_generate", "seo_keywords", "content_amplify"],  # Enhanced with Amplifier capabilities
+            "Legal": ["template_generate_tos", "compliance_check"],
+            "Sales": ["lead_qualify", "deal_analyze", "closing_strategy"],  # Enhanced with Closer capabilities
+            "Money": ["payment_process", "financial_operations"]
         }
         
         if self.agent_name in agent_tools:
             for tool_name in agent_tools[self.agent_name]:
                 if tool_name not in self.tools:
                     self.tools[tool_name] = self._create_tool(tool_name)
+    
+    def _setup_access_control(self):
+        """Setup access control for tools"""
+        self.access_control = {
+            "memory_write": ["*"],  # All agents
+            "memory_query": ["*"],  # All agents
+            "llm_reasoning": ["*"],  # All agents
+            "memory_read_all": ["Manager"],  # Manager only
+            "task_assign": ["Manager"],  # Manager only
+            "workflow_generate": ["Manager"],  # Manager only
+            "persona_create": ["Manager"],  # Manager (consolidated from Product)
+            "json_export": ["Manager", "Finance", "Marketing"],  # Multiple agents
+            "api_finance_call": ["Finance", "Money"],  # Finance agents
+            "web_fetch": ["Finance", "Marketing", "Legal"],  # Multiple agents
+            "memory_cross_query": ["Finance", "Manager"],  # Cross-agent access
+            "web_crawl_social": ["Marketing"],  # Marketing only
+            "content_generate": ["Marketing"],  # Marketing only
+            "seo_keywords": ["Marketing"],  # Marketing only
+            "content_amplify": ["Marketing"],  # Marketing (consolidated from Amplifier)
+            "template_generate_tos": ["Legal"],  # Legal only
+            "compliance_check": ["Legal"],  # Legal only
+            "lead_qualify": ["Sales"],  # Sales (consolidated from Closer)
+            "deal_analyze": ["Sales"],  # Sales (consolidated from Closer)
+            "closing_strategy": ["Sales"],  # Sales (consolidated from Closer)
+            "payment_process": ["Money"],  # Money only
+            "financial_operations": ["Money"]  # Money only
+        }
+        
+        # Initialize usage stats
+        for tool_name in self.tools.keys():
+            self.usage_stats[tool_name] = {
+                "calls": 0,
+                "success": 0,
+                "failures": 0,
+                "avg_execution_time": 0.0,
+                "last_used": None
+            }
     
     def _create_tool(self, tool_name: str) -> LCBaseTool:
         """Factory method to create tools"""
@@ -57,7 +98,14 @@ class ToolRegistry:
             "content_generate": ContentGenerateTool(),
             "seo_keywords": SEOKeywordsTool(),
             "template_generate_tos": TOSTemplateTool(),
-            "compliance_check": ComplianceCheckTool()
+            "compliance_check": ComplianceCheckTool(),
+            # Enhanced tools for consolidated capabilities
+            "content_amplify": ContentAmplifyTool(),
+            "lead_qualify": LeadQualifyTool(),
+            "deal_analyze": DealAnalyzeTool(),
+            "closing_strategy": ClosingStrategyTool(),
+            "payment_process": PaymentProcessTool(),
+            "financial_operations": FinancialOperationsTool()
         }
         return tool_map.get(tool_name)
     
@@ -90,8 +138,91 @@ class ToolRegistry:
         return self.tools
     
     def get_tool(self, name: str) -> LCBaseTool:
-        """Get specific tool by name"""
+        """Get specific tool by name with access control"""
+        if not self._has_access(name):
+            raise PermissionError(f"Agent {self.agent_name} does not have access to tool {name}")
         return self.tools.get(name)
+    
+    def _has_access(self, tool_name: str) -> bool:
+        """Check if agent has access to tool"""
+        allowed_agents = self.access_control.get(tool_name, [])
+        return "*" in allowed_agents or self.agent_name in allowed_agents
+    
+    async def execute_tool(self, tool_name: str, **kwargs) -> Dict[str, Any]:
+        """Execute tool with usage tracking and access control"""
+        import time
+        
+        if not self._has_access(tool_name):
+            return {
+                "error": f"Access denied: Agent {self.agent_name} cannot use tool {tool_name}",
+                "success": False
+            }
+        
+        tool = self.tools.get(tool_name)
+        if not tool:
+            return {
+                "error": f"Tool {tool_name} not found",
+                "success": False
+            }
+        
+        # Track usage
+        start_time = time.time()
+        self.usage_stats[tool_name]["calls"] += 1
+        
+        try:
+            result = await tool._arun(**kwargs)
+            execution_time = time.time() - start_time
+            
+            # Update success stats
+            self.usage_stats[tool_name]["success"] += 1
+            self.usage_stats[tool_name]["last_used"] = time.time()
+            
+            # Update average execution time
+            current_avg = self.usage_stats[tool_name]["avg_execution_time"]
+            total_calls = self.usage_stats[tool_name]["calls"]
+            self.usage_stats[tool_name]["avg_execution_time"] = (
+                (current_avg * (total_calls - 1) + execution_time) / total_calls
+            )
+            
+            return {
+                "result": result,
+                "success": True,
+                "execution_time": execution_time
+            }
+            
+        except Exception as e:
+            self.usage_stats[tool_name]["failures"] += 1
+            return {
+                "error": str(e),
+                "success": False,
+                "execution_time": time.time() - start_time
+            }
+    
+    def get_usage_stats(self) -> Dict[str, Any]:
+        """Get tool usage statistics"""
+        return {
+            "agent": self.agent_name,
+            "total_tools": len(self.tools),
+            "accessible_tools": len([t for t in self.tools.keys() if self._has_access(t)]),
+            "usage_stats": self.usage_stats,
+            "most_used_tools": sorted(
+                self.usage_stats.items(),
+                key=lambda x: x[1]["calls"],
+                reverse=True
+            )[:5]
+        }
+    
+    def register_tool(self, tool_name: str, tool: LCBaseTool, allowed_agents: List[str] = None):
+        """Register a new tool with access control"""
+        self.tools[tool_name] = tool
+        self.access_control[tool_name] = allowed_agents or [self.agent_name]
+        self.usage_stats[tool_name] = {
+            "calls": 0,
+            "success": 0,
+            "failures": 0,
+            "avg_execution_time": 0.0,
+            "last_used": None
+        }
 
 # Tool implementations
 class MemoryWriteTool(LCBaseTool):
@@ -317,3 +448,67 @@ class ComplianceCheckTool(LCBaseTool):
     
     async def _arun(self, content: str) -> str:
         return f"Compliance check for content"
+
+# Enhanced tools for consolidated capabilities
+class ContentAmplifyTool(LCBaseTool):
+    name: str = "content_amplify"
+    description: str = "Amplify content performance (consolidated from Amplifier agent)"
+    
+    def _run(self, content_data: dict) -> str:
+        return f"Content amplification analysis for {len(content_data)} items"
+    
+    async def _arun(self, content_data: dict) -> str:
+        return f"Content amplification analysis for {len(content_data)} items"
+
+class LeadQualifyTool(LCBaseTool):
+    name: str = "lead_qualify"
+    description: str = "Qualify leads using BANT criteria (consolidated from Closer agent)"
+    
+    def _run(self, lead_data: dict) -> str:
+        return f"Lead qualification score: {lead_data.get('score', 'TBD')}"
+    
+    async def _arun(self, lead_data: dict) -> str:
+        return f"Lead qualification score: {lead_data.get('score', 'TBD')}"
+
+class DealAnalyzeTool(LCBaseTool):
+    name: str = "deal_analyze"
+    description: str = "Analyze deal health (consolidated from Closer agent)"
+    
+    def _run(self, deal_data: dict) -> str:
+        return f"Deal health analysis: {deal_data.get('health', 'analyzing')}"
+    
+    async def _arun(self, deal_data: dict) -> str:
+        return f"Deal health analysis: {deal_data.get('health', 'analyzing')}"
+
+class ClosingStrategyTool(LCBaseTool):
+    name: str = "closing_strategy"
+    description: str = "Create closing strategy (consolidated from Closer agent)"
+    
+    def _run(self, opportunity_data: dict) -> str:
+        return f"Closing strategy for {opportunity_data.get('type', 'opportunity')}"
+    
+    async def _arun(self, opportunity_data: dict) -> str:
+        return f"Closing strategy for {opportunity_data.get('type', 'opportunity')}"
+
+class PaymentProcessTool(LCBaseTool):
+    name: str = "payment_process"
+    description: str = "Process payments and transactions"
+    
+    def _run(self, payment_data: dict) -> str:
+        return f"Payment processed: {payment_data.get('amount', 'TBD')}"
+    
+    async def _arun(self, payment_data: dict) -> str:
+        return f"Payment processed: {payment_data.get('amount', 'TBD')}"
+
+class FinancialOperationsTool(LCBaseTool):
+    name: str = "financial_operations"
+    description: str = "Handle financial operations and reporting"
+    
+    def _run(self, operation_type: str) -> str:
+        return f"Financial operation: {operation_type} completed"
+    
+    async def _arun(self, operation_type: str) -> str:
+        return f"Financial operation: {operation_type} completed"
+
+# Backward compatibility alias
+ToolRegistry = EnhancedToolRegistry

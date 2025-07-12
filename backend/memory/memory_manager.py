@@ -13,19 +13,60 @@ from .graph_memory import GraphMemory
 from .vector_memory import VectorMemory
 
 
-class MemoryManager:
-    """Unified memory manager for agent collaboration"""
+class OptimizedMemoryManager:
+    """Optimized memory manager with caching and lazy loading"""
     
     def __init__(self):
-        self.graph_memory = GraphMemory()
-        self.vector_memory = VectorMemory()
+        self._graph_memory = None
+        self._vector_memory = None
+        self._cache = {}
+        self._cache_ttl = {}
+        self._ttl_seconds = 300  # 5 minutes
         self.output_dir = Path("./data")
         self.output_dir.mkdir(exist_ok=True)
+    
+    @property
+    def graph_memory(self):
+        """Lazy initialization of graph memory"""
+        if self._graph_memory is None:
+            self._graph_memory = GraphMemory()
+        return self._graph_memory
+    
+    @property
+    def vector_memory(self):
+        """Lazy initialization of vector memory"""
+        if self._vector_memory is None:
+            self._vector_memory = VectorMemory()
+        return self._vector_memory
+    
+    async def get_with_cache(self, key: str, fetch_func):
+        """Get data with caching"""
+        import time
+        now = time.time()
+        
+        if key in self._cache and now - self._cache_ttl.get(key, 0) < self._ttl_seconds:
+            return self._cache[key]
+        
+        result = await fetch_func()
+        self._cache[key] = result
+        self._cache_ttl[key] = now
+        return result
+    
+    def invalidate_cache(self, pattern: str = None):
+        """Invalidate cache entries"""
+        if pattern:
+            keys_to_remove = [k for k in self._cache.keys() if pattern in k]
+            for key in keys_to_remove:
+                self._cache.pop(key, None)
+                self._cache_ttl.pop(key, None)
+        else:
+            self._cache.clear()
+            self._cache_ttl.clear()
     
     async def store_agent_memory(self, agent_name: str, memory_type: str, content: Dict[str, Any], 
                                metadata: Optional[Dict[str, Any]] = None, is_shared: bool = False,
                                confidence: float = 1.0) -> str:
-        """Store memory in both graph and vector systems"""
+        """Store memory in both graph and vector systems with cache invalidation"""
         
         # Store in graph memory
         if is_shared:
@@ -62,6 +103,10 @@ class MemoryManager:
                     doc_id=f"{agent_name}_{memory_type}_{timestamp}"
                 )
         
+        # Invalidate relevant cache entries
+        self.invalidate_cache("shared_context")
+        self.invalidate_cache("search_")
+        
         return str(timestamp)
     
     async def query_agent_memory(self, agent_name: str, memory_type: Optional[str] = None,
@@ -94,51 +139,59 @@ class MemoryManager:
     
     async def semantic_search(self, query: str, agent_name: Optional[str] = None,
                             memory_type: Optional[str] = None, limit: int = 5) -> List[Dict[str, Any]]:
-        """Perform semantic search across memories"""
+        """Perform semantic search across memories with caching"""
+        cache_key = f"search_{hash(query)}_{agent_name}_{memory_type}_{limit}"
         
-        # Build filter conditions
-        filter_conditions = {}
-        if agent_name:
-            filter_conditions["agent"] = agent_name
-        if memory_type:
-            filter_conditions["type"] = memory_type
+        async def perform_search():
+            # Build filter conditions
+            filter_conditions = {}
+            if agent_name:
+                filter_conditions["agent"] = agent_name
+            if memory_type:
+                filter_conditions["type"] = memory_type
+            
+            # Search vector memory
+            search_results = await self.vector_memory.search(
+                query=query,
+                limit=limit,
+                filter_conditions=filter_conditions if filter_conditions else None
+            )
+            
+            return search_results
         
-        # Search vector memory
-        search_results = await self.vector_memory.search(
-            query=query,
-            limit=limit,
-            filter_conditions=filter_conditions if filter_conditions else None
-        )
-        
-        return search_results
+        return await self.get_with_cache(cache_key, perform_search)
     
     async def get_shared_context(self, min_confidence: float = 0.7) -> Dict[str, Any]:
-        """Get current shared context for agents"""
+        """Get current shared context for agents with caching"""
+        cache_key = f"shared_context_{min_confidence}"
         
-        shared_memories = await self.graph_memory.query_shared_memory(min_confidence=min_confidence)
-        
-        # Organize by memory type
-        context = {}
-        for memory in shared_memories:
-            mem_type = memory.get("type", "general")
-            if mem_type not in context:
-                context[mem_type] = []
+        async def fetch_shared_context():
+            shared_memories = await self.graph_memory.query_shared_memory(min_confidence=min_confidence)
             
-            context[mem_type].append({
-                "content": memory["content"],
-                "author": memory["author"],
-                "confidence": memory["confidence"],
-                "timestamp": memory["timestamp"]
-            })
+            # Organize by memory type
+            context = {}
+            for memory in shared_memories:
+                mem_type = memory.get("type", "general")
+                if mem_type not in context:
+                    context[mem_type] = []
+                
+                context[mem_type].append({
+                    "content": memory["content"],
+                    "author": memory["author"],
+                    "confidence": memory["confidence"],
+                    "timestamp": memory["timestamp"]
+                })
+            
+            # Get the most recent/highest confidence entry for each type
+            consolidated_context = {}
+            for mem_type, memories in context.items():
+                # Sort by confidence first, then by timestamp
+                memories.sort(key=lambda x: (x["confidence"], x["timestamp"]), reverse=True)
+                consolidated_context[mem_type] = memories[0]["content"]
+            
+            return consolidated_context
         
-        # Get the most recent/highest confidence entry for each type
-        consolidated_context = {}
-        for mem_type, memories in context.items():
-            # Sort by confidence first, then by timestamp
-            memories.sort(key=lambda x: (x["confidence"], x["timestamp"]), reverse=True)
-            consolidated_context[mem_type] = memories[0]["content"]
-        
-        return consolidated_context
+        return await self.get_with_cache(cache_key, fetch_shared_context)
     
     async def export_all_outputs(self) -> Dict[str, str]:
         """Export all memory data to various formats"""
@@ -328,5 +381,11 @@ class MemoryManager:
     
     def close(self):
         """Close all memory system connections"""
-        self.graph_memory.close()
+        if self._graph_memory:
+            self._graph_memory.close()
         # Vector memory client will be closed automatically
+        self._cache.clear()
+        self._cache_ttl.clear()
+
+# Backward compatibility alias
+MemoryManager = OptimizedMemoryManager

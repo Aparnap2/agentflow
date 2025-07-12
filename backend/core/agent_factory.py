@@ -43,9 +43,9 @@ class AgentFactory:
     
     def create_orchestrator(self, agent_types: Optional[List[str]] = None) -> GraphOrchestrator:
         """Create an orchestrator with specified agents"""
-        # Default agent types
+        # Default agent types (streamlined)
         if agent_types is None:
-            agent_types = ["cofounder", "manager", "product", "finance", "marketing", "legal"]
+            agent_types = ["cofounder", "manager", "finance", "marketing", "legal", "money", "sales"]
         
         # Create any missing agents
         for agent_type in agent_types:
@@ -66,21 +66,15 @@ class AgentFactory:
         return orchestrator
     
     def _get_agent_role(self, agent_type: str) -> str:
-        """Get role description for agent type"""
+        """Get role description for agent type (streamlined)"""
         roles = {
             "cofounder": "Vision & Strategy",
-            "manager": "Project Management",
-            "product": "Product Management",
-            "finance": "Financial Planning",
-            "marketing": "Content & Marketing",
+            "manager": "Project Management & Coordination",
+            "finance": "Financial Planning & Analysis",
+            "marketing": "Content, Marketing & Brand Amplification",
             "legal": "Legal & Compliance",
-            "sales": "Sales & Revenue",
-            "operations": "Operations & Process",
-            "assistant": "Executive Assistant",
-            "closer": "Sales Intelligence & Closing",
-            "amplifier": "Content & Brand",
-            "money": "Financial Operations",
-            "workflow": "Process & Systems"
+            "sales": "Sales, Revenue & Customer Relations",
+            "money": "Financial Operations & Transactions"
         }
         
         return roles.get(agent_type.lower(), "Specialist")
