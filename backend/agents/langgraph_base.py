@@ -43,6 +43,7 @@ import aiohttp
 from memory.memory_manager import MemoryManager
 from approvals.approval_manager import ApprovalManager
 from agents.personalities import get_personality_prompt, get_agent_config
+from task_queue.enhanced_queue_manager import queue_manager, TaskPriority
 
 
 class AgentState(TypedDict):
@@ -178,6 +179,16 @@ class LangGraphAgent:
     async def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the agent workflow with proper memory integration"""
         try:
+            # Add task to queue if not already queued
+            if not task.get("queued") and hasattr(queue_manager, 'redis') and queue_manager.redis:
+                await queue_manager.add_task(
+                    queue_name="agent_tasks",
+                    task_type=f"{self.name.lower()}_execution",
+                    payload={**task, "agent_name": self.name, "queued": True},
+                    priority=TaskPriority.NORMAL,
+                    agent_id=self.name
+                )
+            
             # Get shared context from Qdrant (global)
             shared_context = await self.memory_manager.get_shared_context()
             

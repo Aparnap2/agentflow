@@ -45,7 +45,7 @@ class AgentFactory:
         """Create an orchestrator with specified agents"""
         # Default agent types (streamlined)
         if agent_types is None:
-            agent_types = ["cofounder", "manager", "finance", "marketing", "legal", "money", "sales"]
+            agent_types = ["cofounder", "manager", "finance", "marketing", "legal", "sales"]
         
         # Create any missing agents
         for agent_type in agent_types:

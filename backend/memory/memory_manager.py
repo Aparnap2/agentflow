@@ -11,6 +11,7 @@ from loguru import logger
 
 from .graph_memory import GraphMemory
 from .vector_memory import VectorMemory
+from task_queue.enhanced_queue_manager import queue_manager
 
 
 class OptimizedMemoryManager:
@@ -19,8 +20,6 @@ class OptimizedMemoryManager:
     def __init__(self):
         self._graph_memory = None
         self._vector_memory = None
-        self._cache = {}
-        self._cache_ttl = {}
         self._ttl_seconds = 300  # 5 minutes
         self.output_dir = Path("./data")
         self.output_dir.mkdir(exist_ok=True)
@@ -40,28 +39,46 @@ class OptimizedMemoryManager:
         return self._vector_memory
     
     async def get_with_cache(self, key: str, fetch_func):
-        """Get data with caching"""
-        import time
-        now = time.time()
-        
-        if key in self._cache and now - self._cache_ttl.get(key, 0) < self._ttl_seconds:
-            return self._cache[key]
-        
-        result = await fetch_func()
-        self._cache[key] = result
-        self._cache_ttl[key] = now
-        return result
+        """Get data with Redis caching"""
+        try:
+            # Check if queue manager has Redis connection
+            if hasattr(queue_manager, 'redis') and queue_manager.redis:
+                # Try to get from Redis cache
+                cached_data = await queue_manager.redis.get(f"memory_cache:{key}")
+                if cached_data:
+                    return json.loads(cached_data)
+                
+                # Cache miss - fetch and store
+                result = await fetch_func()
+                await queue_manager.redis.setex(
+                    f"memory_cache:{key}", 
+                    self._ttl_seconds, 
+                    json.dumps(result, default=str)
+                )
+                return result
+            else:
+                # Fallback to direct fetch if Redis not available
+                return await fetch_func()
+        except Exception as e:
+            logger.warning(f"Cache error, falling back to direct fetch: {e}")
+            return await fetch_func()
     
-    def invalidate_cache(self, pattern: str = None):
-        """Invalidate cache entries"""
-        if pattern:
-            keys_to_remove = [k for k in self._cache.keys() if pattern in k]
-            for key in keys_to_remove:
-                self._cache.pop(key, None)
-                self._cache_ttl.pop(key, None)
-        else:
-            self._cache.clear()
-            self._cache_ttl.clear()
+    async def invalidate_cache(self, pattern: str = None):
+        """Invalidate Redis cache entries"""
+        try:
+            if hasattr(queue_manager, 'redis') and queue_manager.redis:
+                if pattern:
+                    # Get all cache keys matching pattern
+                    keys = await queue_manager.redis.keys(f"memory_cache:*{pattern}*")
+                    if keys:
+                        await queue_manager.redis.delete(*keys)
+                else:
+                    # Clear all memory cache keys
+                    keys = await queue_manager.redis.keys("memory_cache:*")
+                    if keys:
+                        await queue_manager.redis.delete(*keys)
+        except Exception as e:
+            logger.warning(f"Cache invalidation error: {e}")
     
     async def store_agent_memory(self, agent_name: str, memory_type: str, content: Dict[str, Any], 
                                metadata: Optional[Dict[str, Any]] = None, is_shared: bool = False,
@@ -104,8 +121,8 @@ class OptimizedMemoryManager:
                 )
         
         # Invalidate relevant cache entries
-        self.invalidate_cache("shared_context")
-        self.invalidate_cache("search_")
+        await self.invalidate_cache("shared_context")
+        await self.invalidate_cache("search_")
         
         return str(timestamp)
     
@@ -384,8 +401,7 @@ class OptimizedMemoryManager:
         if self._graph_memory:
             self._graph_memory.close()
         # Vector memory client will be closed automatically
-        self._cache.clear()
-        self._cache_ttl.clear()
+        # Redis cache is managed by queue_manager
 
 # Backward compatibility alias
 MemoryManager = OptimizedMemoryManager

@@ -1,3 +1,5 @@
+import json
+import re
 from typing import Dict, Any
 from agents.langgraph_base import LangGraphAgent
 from tools.web_search import WebSearchTool
@@ -180,55 +182,44 @@ When processing a vision, structure your output as:
             )
             self.agent_logger.log_memory_access("private_memory", "write", 1)
             
-            # Get relevant global context using RAG
+            # Get relevant global context using RAG with caching
             logger.info(f"🔍 [{self.name}] Retrieving global context via RAG...")
-            global_context = await self.memory_manager.get_global_context_for_agent(
-                agent_name=self.name,
-                query=message
+            cache_key = f"global_context_{self.name}_{hash(message[:50])}"
+            global_context = await self.memory_manager.get_with_cache(
+                cache_key,
+                lambda: self.memory_manager.get_global_context_for_agent(self.name, message)
             )
             self.agent_logger.log_memory_access("global_context_rag", "read", len(str(global_context)))
             
-            # After 3+ exchanges with sufficient detail, provide final structured plan
-            has_key_info = any(keyword in message.lower() for keyword in ['target', 'user', 'customer', 'market', 'problem', 'solution', 'revenue', 'business'])
+            # Generic completion logic - provide output after sufficient exchanges
+            should_complete = conversation_length >= 2 or any(phrase in message.lower() for phrase in [
+                'generate', 'create', 'start', 'provide', 'give me', 'show me', 'help me',
+                'no more details', 'thats enough', 'proceed', 'continue'
+            ])
             
-            if conversation_length >= 3 and has_key_info:
-                chat_prompt = f"""Based on our conversation and global context, provide a FINAL STRUCTURED PLAN:
+            if should_complete:
+                chat_prompt = f"""Based on our conversation, provide a comprehensive response as {self.name}:
                 
-User's latest: {message}
+User's request: {message}
+Conversation context: {prev_conversations if 'prev_conversations' in locals() else []}
 Global context: {global_context.get('shared_context', {})}
                 
-## 🚀 VISION SUMMARY
-[Summarize their startup vision]
+As {self.name} with expertise in {', '.join(self.personality.get('expertise', []))}, provide:
+1. A clear summary of what we've discussed
+2. Specific recommendations based on my expertise
+3. Actionable next steps
+4. Any deliverables the user requested
 
-## 🎯 TARGET USERS  
-[Define primary user segments]
-
-## 📊 MARKET OPPORTUNITY
-[Market size and competition]
-
-## 🔄 EXECUTION PHASES
-
-### Phase 1: Foundation (Weeks 1-2)
-- Product Agent: Analyze user needs and MVP features
-- Finance Agent: Create financial projections and funding strategy
-
-### Phase 2: Development (Weeks 3-4)  
-- Marketing Agent: Develop content strategy and campaigns
-- Legal Agent: Handle compliance and legal requirements
-
-## 📋 NEXT STEPS
-Ready to distribute tasks to specialist agents.
-
-**Vision is ready for approval!**
+Be helpful and complete the conversation with valuable output.
                 """
                 vision_complete = True
             else:
-                # Get previous conversation context from private memory
+                # Get previous conversation context from private memory with caching
                 logger.info(f"📚 [{self.name}] Retrieving conversation history...")
-                prev_conversations = await self.memory_manager.get_agent_private_memory(
-                    agent_name=self.name,
-                    memory_type="conversation",
-                    limit=5
+                cache_key = f"conversation_history_{self.name}_{conversation_id}"
+                prev_conversations = await self.memory_manager.get_with_cache(
+                    cache_key,
+                    lambda: self.memory_manager.get_agent_private_memory(self.name, "conversation", 5)
                 )
                 self.agent_logger.log_memory_access("conversation_history", "read", len(prev_conversations))
                 
@@ -247,19 +238,22 @@ Ready to distribute tasks to specialist agents.
                 
                 focus_areas = missing_info[:2] if missing_info else ['market validation', 'competitive advantage']
                 
-                chat_prompt = f"""You are Alex Chen, an experienced startup cofounder. Continue this strategic conversation:
-                
+                # Generic questioning logic
+                if conversation_length == 0:
+                    chat_prompt = f"""You are {self.name}, a {self.role} specialist.
+                    
+User's message: {message}
+                    
+Ask 1-2 relevant questions based on your expertise in {', '.join(self.personality.get('expertise', []))} to better understand their needs.
+                    """
+                else:
+                    chat_prompt = f"""You are {self.name}. Continue this conversation:
+                    
 User's message: {message}
 Previous context: {prev_conversations}
-                
-Ask 2-3 SPECIFIC questions focusing on: {', '.join(focus_areas)}
-                
-Be direct and strategic. Examples:
-- "Who exactly are your first 100 customers?"
-- "What's your unfair advantage over [specific competitor]?"
-- "How will you make money in month 1 vs year 1?"
-- "What problem costs your users $X per month right now?"
-                """
+                    
+Ask 1 final question to clarify their needs, then offer to provide specific recommendations based on your expertise.
+                    """
                 vision_complete = False
             
             messages = [

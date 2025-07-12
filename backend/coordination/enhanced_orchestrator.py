@@ -15,10 +15,10 @@ from communication.event_bus import event_bus
 from memory.memory_manager import MemoryManager
 from agents.cofounder_agent import CofounderAgent
 from agents.manager_agent import ManagerAgent
-from agents.product_agent import ProductAgent
 from agents.finance_agent import FinanceAgent
 from agents.marketing_agent import MarketingAgent
 from agents.legal_agent import LegalAgent
+from agents.sales_agent import SalesAgent
 
 @dataclass
 class WorkflowSession:
@@ -43,20 +43,20 @@ class EnhancedOrchestrator:
         self.agents = {
             "Cofounder": CofounderAgent(memory_manager, None),
             "Manager": ManagerAgent(memory_manager, None), 
-            "Product": ProductAgent(memory_manager, None),
             "Finance": FinanceAgent(memory_manager, None),
             "Marketing": MarketingAgent(memory_manager, None),
-            "Legal": LegalAgent(memory_manager, None)
+            "Legal": LegalAgent(memory_manager, None),
+            "Sales": SalesAgent(memory_manager, None)
         }
         
         # Agent execution order and dependencies
         self.execution_graph = {
             "Cofounder": {"depends_on": [], "triggers": ["Manager"]},
-            "Manager": {"depends_on": ["Cofounder"], "triggers": ["Product", "Finance", "Marketing", "Legal"]},
-            "Product": {"depends_on": ["Manager"], "triggers": []},
+            "Manager": {"depends_on": ["Cofounder"], "triggers": ["Finance", "Marketing", "Legal", "Sales"]},
             "Finance": {"depends_on": ["Manager"], "triggers": []},
             "Marketing": {"depends_on": ["Manager"], "triggers": []},
-            "Legal": {"depends_on": ["Manager"], "triggers": []}
+            "Legal": {"depends_on": ["Manager"], "triggers": []},
+            "Sales": {"depends_on": ["Manager"], "triggers": []}
         }
         
         # Real-time monitoring
@@ -400,7 +400,7 @@ class EnhancedOrchestrator:
             manager_result = session.results.get("Manager", {})
             
             # Queue all specialist agents in parallel
-            specialist_agents = ["Product", "Finance", "Marketing", "Legal"]
+            specialist_agents = ["Finance", "Marketing", "Legal", "Sales"]
             specialist_tasks = []
             
             for agent_name in specialist_agents:
