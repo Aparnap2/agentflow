@@ -11,11 +11,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Import controllers
-from api.agents_controller import router as agents_router
-from api.workflows_controller import router as workflows_router
-from api.langgraph_controller import router as langgraph_router
 from api.auth_controller import router as auth_router
 from api.health_controller import router as health_router
+from api.workflow_controller import router as workflow_router
+from api.enhanced_controller import router as enhanced_router
 
 # Create FastAPI app
 app = FastAPI(
@@ -36,9 +35,8 @@ app.add_middleware(
 # Include routers
 app.include_router(health_router)
 app.include_router(auth_router)
-app.include_router(agents_router)
-app.include_router(workflows_router)
-app.include_router(langgraph_router)
+app.include_router(workflow_router)
+app.include_router(enhanced_router)
 
 @app.get("/")
 async def root():

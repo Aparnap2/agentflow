@@ -45,10 +45,10 @@ const WorkflowVisualizer = () => {
   const agentConfig = {
     Cofounder: { icon: Brain, position: { x: 250, y: 50 } },
     Manager: { icon: Users, position: { x: 250, y: 150 } },
-    Product: { icon: Target, position: { x: 100, y: 250 } },
-    Finance: { icon: DollarSign, position: { x: 200, y: 250 } },
-    Marketing: { icon: Megaphone, position: { x: 300, y: 250 } },
-    Legal: { icon: Scale, position: { x: 400, y: 250 } }
+    Finance: { icon: DollarSign, position: { x: 150, y: 250 } },
+    Marketing: { icon: Megaphone, position: { x: 250, y: 250 } },
+    Legal: { icon: Scale, position: { x: 350, y: 250 } },
+    Sales: { icon: Target, position: { x: 450, y: 250 } }
   }
 
   useEffect(() => {
@@ -81,10 +81,10 @@ const WorkflowVisualizer = () => {
 
     const newEdges = [
       { id: 'cofounder-manager', source: 'Cofounder', target: 'Manager', animated: true },
-      { id: 'manager-product', source: 'Manager', target: 'Product', animated: true },
       { id: 'manager-finance', source: 'Manager', target: 'Finance', animated: true },
       { id: 'manager-marketing', source: 'Manager', target: 'Marketing', animated: true },
-      { id: 'manager-legal', source: 'Manager', target: 'Legal', animated: true }
+      { id: 'manager-legal', source: 'Manager', target: 'Legal', animated: true },
+      { id: 'manager-sales', source: 'Manager', target: 'Sales', animated: true }
     ]
 
     setNodes(newNodes)

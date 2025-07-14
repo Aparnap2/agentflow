@@ -9,6 +9,9 @@ develop-eggs/
 dist/
 downloads/
 eggs/
+# Ignore all Markdown files except README.md
+*.md
+!README.md
 .eggs/
 lib/
 lib64/

@@ -1,6 +1,3 @@
-To address your request for a detailed vision of the **AgentFlow** workflow and UI, I'll describe the refined workflow and user interface for your AI Virtual Office Platform, keeping it aligned with the original concept of specialized AI agents collaborating to solve business problems. The workflow will be visualized using **Mermaid** to illustrate the agent interactions and task flow, and I'll describe the UI components with a focus on their layout and functionality, also using Mermaid for a high-level UI structure diagram. The solution will use free services, maintain the core logic of the original system, and address your pain points (workflow clarity and UI modernization) to ensure a portfolio-ready project.
-
----
 
 ## 🌟 Workflow Description
 
@@ -16,21 +13,20 @@ The **AgentFlow** workflow is designed to transform a user's startup idea into a
    - Dependencies between tasks are stored in Neo4j (e.g., Marketing depends on Product's user personas).
 
 3. **Parallel Task Execution**:
-   - Specialized agents (Product, Finance, Marketing, Legal, Sales, Operations) execute tasks concurrently:
-     - **Product Agent**: Defines MVP and personas, querying Qdrant for market data.
-     - **Finance Agent**: Generates financial projections, using Neo4j for context.
+   - Specialized agents (Finance, Marketing, Legal, Sales) execute tasks concurrently:
+     - **Finance Agent**: Generates financial projections, using cached context for efficiency.
      - **Marketing Agent**: Develops campaign strategies, leveraging Qdrant for trends.
      - **Legal Agent**: Identifies compliance requirements, searching Qdrant for regulations.
-     - **Sales/Operations Agents**: Build strategies based on other agents' outputs.
-   - The **Manager Agent** monitors progress via Redis, resolving conflicts (e.g., resource contention).
+     - **Sales Agent**: Build sales strategies based on other agents' outputs.
+   - The **Enhanced Orchestrator** monitors progress via Redis queue system, with lazy initialization and caching.
 
 4. **Result Aggregation**:
-   - The **Manager Agent** collects outputs, stored in Neo4j as a business plan graph.
-   - The **Amplifier Agent** generates a polished report, using Qdrant for templates.
+   - The **Enhanced Orchestrator** collects outputs, stored in Neo4j as a business plan graph.
+   - Results are cached in Redis to reduce database queries and improve performance.
 
 5. **User Delivery**:
-   - The **Cofounder Agent** presents the business plan via the UI, with visualizations (e.g., charts) from Neo4j data.
-   - The **Assistant Agent** handles follow-ups (e.g., emails, scheduling).
+   - The **Cofounder Agent** presents results via the UI, with data retrieved from cached sources.
+   - The system provides real-time updates through WebSocket connections.
 
 ### Workflow Visualization (Mermaid)
 Below is a **Mermaid flowchart** representing the AgentFlow workflow, showing how agents interact and tasks flow from user input to final output.
@@ -46,19 +42,20 @@ graph TD
     end
     
     subgraph Parallel Task Execution
-        D -->|Assigns Tasks| F[Product Agent]
-        D -->|Assigns Tasks| G[Finance Agent]
-        D -->|Assigns Tasks| H[Marketing Agent]
-        D -->|Assigns Tasks| I[Legal Agent]
-        D -->|Assigns Tasks| J[Sales Agent]
-        D -->|Assigns Tasks| K[Operations Agent]
+        D -->|Assigns Tasks| F[Finance Agent]
+        D -->|Assigns Tasks| G[Marketing Agent]
+        D -->|Assigns Tasks| H[Legal Agent]
+        D -->|Assigns Tasks| I[Sales Agent]
         
-        F -->|Queries| L[Qdrant: Semantic Search]
-        G -->|Queries| E
-        H -->|Queries| L
-        I -->|Queries| L
-        J -->|Depends on| F
-        K -->|Depends on| F
+        F -->|Cached Queries| L[Qdrant: Semantic Search]
+        G -->|Cached Queries| L
+        H -->|Cached Queries| L
+        I -->|Cached Queries| L
+        
+        F -->|Uses Cache| R[Redis Cache]
+        G -->|Uses Cache| R
+        H -->|Uses Cache| R
+        I -->|Uses Cache| R
     end
     
     subgraph Result Aggregation
@@ -66,18 +63,15 @@ graph TD
         G -->|Output| C
         H -->|Output| C
         I -->|Output| C
-        J -->|Output| C
-        K -->|Output| C
         C -->|Stores Plan| E
-        C -->|Polishes Output| M[Amplifier Agent]
-        M -->|Uses Templates| L
+        C -->|Caches Results| R
     end
     
     subgraph Delivery
-        M -->|Final Plan| B
+        C -->|Final Results| B
         B -->|Presents via UI| N[User: Business Plan]
-        B -->|Follow-ups| O[Assistant Agent]
-        O -->|Emails/Scheduling| N
+        B -->|Real-time Updates| W[WebSocket]
+        W -->|Live Updates| N
     end
 ```
 

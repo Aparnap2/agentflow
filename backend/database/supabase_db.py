@@ -10,7 +10,7 @@ from datetime import datetime
 class SupabaseDB:
     def __init__(self):
         self.supabase_url = os.getenv("SUPABASE_URL")
-        self.supabase_key = os.getenv("SUPABASE_ANON_KEY")
+        self.supabase_key = os.getenv("SUPABASE_KEY")
         
         if not all([self.supabase_url, self.supabase_key]):
             self.demo_mode = True

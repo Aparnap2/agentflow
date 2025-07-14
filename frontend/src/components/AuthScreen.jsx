@@ -94,13 +94,31 @@ const AuthScreen = () => {
           </button>
         </form>
 
-        <div className="mt-6 text-center">
+        <div className="mt-6 text-center space-y-3">
           <button
             onClick={() => setIsSignUp(!isSignUp)}
-            className="text-blue-600 hover:text-blue-800 text-sm"
+            className="text-blue-600 hover:text-blue-800 text-sm block w-full"
           >
             {isSignUp ? 'Already have an account? Sign In' : "Don't have an account? Sign Up"}
           </button>
+          
+          <div className="border-t border-gray-200 pt-3">
+            <button
+              onClick={async () => {
+                setLoading(true);
+                setError('');
+                const result = await signIn('demo@agentflow.ai', 'demo123');
+                if (!result.success) {
+                  setError(result.error);
+                }
+                setLoading(false);
+              }}
+              disabled={loading}
+              className="w-full bg-gray-100 text-gray-700 py-2 px-4 rounded-md hover:bg-gray-200 text-sm font-medium transition-colors disabled:opacity-50"
+            >
+              {loading ? 'Connecting...' : '🚀 Try Demo (demo@agentflow.ai)'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -4,12 +4,14 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
-import { Send, Brain, CheckCircle, ArrowRight, Sparkles } from 'lucide-react';
+import { Send, Brain, CheckCircle, ArrowRight, Sparkles, User, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import apiService from '../services/api';
+import { useAuth } from './AuthProvider';
 
 const ChatOnboarding = () => {
+  const { user, signOut } = useAuth();
   const [messages, setMessages] = useState([
     {
       role: 'assistant',
@@ -50,7 +52,7 @@ const ChatOnboarding = () => {
       if (!sessionId) {
         // Start new session - PRD Section 3.1.1
         data = await apiService.startEnhancedSession({
-          user_id: 'user_' + Date.now(), // Temporary user ID
+          user_id: user?.id || 'user_' + Date.now(),
           message: input
         });
         setSessionId(data.session_id);
@@ -102,15 +104,31 @@ const ChatOnboarding = () => {
 
     setLoading(true);
     try {
-      // PRD Section 3.1.6 - Approved plan is saved and indexed
-      const data = await apiService.approveAndExecute(sessionId);
+      // Extract vision from messages
+      const visionText = messages
+        .filter(m => m.role === 'user')
+        .map(m => m.content)
+        .join(' ');
       
-      // Navigate to workflow monitoring - PRD Section 3.4
+      // Execute real workflow
+      const response = await fetch('http://localhost:8000/api/workflow/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          vision: visionText,
+          user_id: user?.id || 'demo_user'
+        })
+      });
+      
+      const data = await response.json();
+      
+      // Navigate to workflow monitoring with real execution data
       navigate('/enhanced-workflow', { 
         state: { 
           sessionId: sessionId,
           projectPlan: projectPlan,
-          executionStarted: true
+          executionStarted: true,
+          workflowData: data
         } 
       });
     } catch (error) {
@@ -132,11 +150,33 @@ const ChatOnboarding = () => {
       <div className="w-full max-w-4xl bg-white rounded-xl shadow-xl overflow-hidden">
         {/* Header */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white p-6">
-          <div className="flex items-center gap-3">
-            <Brain className="h-8 w-8" />
-            <div>
-              <h1 className="text-2xl font-bold">AgentFlow - AI Cofounder</h1>
-              <p className="text-blue-100">Chat-based Project Planning & Execution</p>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Brain className="h-8 w-8" />
+              <div>
+                <h1 className="text-2xl font-bold">AgentFlow - AI Cofounder</h1>
+                <p className="text-blue-100">Chat-based Project Planning & Execution</p>
+              </div>
+            </div>
+            
+            {/* User Profile */}
+            <div className="flex items-center gap-3">
+              {user?.avatar ? (
+                <img src={user.avatar} alt={user.name} className="h-8 w-8 rounded-full" />
+              ) : (
+                <User className="h-8 w-8 p-1 bg-blue-500 rounded-full" />
+              )}
+              <div className="text-right">
+                <p className="text-sm font-medium">{user?.name || 'User'}</p>
+                <p className="text-xs text-blue-100">{user?.email}</p>
+              </div>
+              <button
+                onClick={signOut}
+                className="p-1 hover:bg-blue-500 rounded transition-colors"
+                title="Sign out"
+              >
+                <LogOut className="h-4 w-4" />
+              </button>
             </div>
           </div>
         </div>

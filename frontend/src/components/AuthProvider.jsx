@@ -20,12 +20,12 @@ export const AuthProvider = ({ children }) => {
       try {
         const token = localStorage.getItem('auth_token');
         if (token) {
-          const response = await fetch('/api/auth/user', {
+          const response = await fetch('http://localhost:8000/api/auth/user', {
             headers: { 'Authorization': `Bearer ${token}` }
           });
           if (response.ok) {
-            const userData = await response.json();
-            setUser(userData);
+            const data = await response.json();
+            setUser(data.user);
           } else {
             localStorage.removeItem('auth_token');
           }
@@ -42,7 +42,7 @@ export const AuthProvider = ({ children }) => {
 
   const signIn = async (email, password) => {
     try {
-      const response = await fetch('/api/auth/signin', {
+      const response = await fetch('http://localhost:8000/api/auth/signin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -64,7 +64,7 @@ export const AuthProvider = ({ children }) => {
 
   const signUp = async (email, password, name) => {
     try {
-      const response = await fetch('/api/auth/signup', {
+      const response = await fetch('http://localhost:8000/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password, name })
@@ -84,9 +84,18 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const signOut = () => {
-    setUser(null);
-    localStorage.removeItem('auth_token');
+  const signOut = async () => {
+    try {
+      await fetch('http://localhost:8000/api/auth/signout', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('auth_token')}` }
+      });
+    } catch (error) {
+      console.error('Signout error:', error);
+    } finally {
+      setUser(null);
+      localStorage.removeItem('auth_token');
+    }
   };
 
   // Helper function to make authenticated API calls

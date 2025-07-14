@@ -11,25 +11,32 @@ import json
 class SupabaseAuth:
     def __init__(self):
         self.supabase_url = os.getenv("SUPABASE_URL")
-        self.supabase_key = os.getenv("SUPABASE_ANON_KEY")
+        self.supabase_key = os.getenv("SUPABASE_KEY")
+        self.demo_mode = os.getenv("DEMO_MODE", "true").lower() == "true"
         
-        if not all([self.supabase_url, self.supabase_key]):
-            # Use demo mode if not configured
+        if not all([self.supabase_url, self.supabase_key]) or self.demo_mode:
+            # Use demo mode if not configured or explicitly enabled
             self.demo_mode = True
             self.supabase_url = "https://demo.supabase.co"
             self.supabase_key = "demo_key"
-        else:
-            self.demo_mode = False
         
         self.security = HTTPBearer(auto_error=False)
     
     async def sign_up(self, email: str, password: str, metadata: Dict[str, Any] = None) -> Dict[str, Any]:
         """Sign up new user"""
         if self.demo_mode:
+            # Simple validation for demo mode
+            if not email or len(password) < 6:
+                return {"success": False, "error": "Email required and password must be at least 6 characters"}
+            
             return {
                 "success": True,
-                "user": {"id": "demo_user", "email": email},
-                "access_token": "demo_token"
+                "user": {
+                    "id": f"demo_{hash(email) % 10000}",
+                    "email": email,
+                    "name": metadata.get("name", email.split('@')[0]) if metadata else email.split('@')[0]
+                },
+                "access_token": f"demo_token_{hash(email) % 10000}"
             }
         
         try:
@@ -63,10 +70,18 @@ class SupabaseAuth:
     async def sign_in(self, email: str, password: str) -> Dict[str, Any]:
         """Sign in user"""
         if self.demo_mode:
+            # Simple validation for demo mode
+            if not email or len(password) < 6:
+                return {"success": False, "error": "Invalid email or password"}
+            
             return {
                 "success": True,
-                "user": {"id": "demo_user", "email": email},
-                "access_token": "demo_token"
+                "user": {
+                    "id": f"demo_{hash(email) % 10000}",
+                    "email": email,
+                    "name": email.split('@')[0]
+                },
+                "access_token": f"demo_token_{hash(email) % 10000}"
             }
         
         try:
@@ -98,8 +113,16 @@ class SupabaseAuth:
     
     async def get_user_from_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Get user from JWT token"""
-        if self.demo_mode or token == "demo_token":
-            return {"id": "demo_user", "email": "demo@example.com"}
+        if self.demo_mode or token.startswith("demo_token"):
+            # Extract user info from demo token
+            if token.startswith("demo_token_"):
+                user_id = token.split("_")[-1]
+                return {
+                    "id": f"demo_{user_id}",
+                    "email": "demo@agentflow.ai",
+                    "name": "Demo User"
+                }
+            return {"id": "demo_user", "email": "demo@agentflow.ai", "name": "Demo User"}
         
         try:
             async with httpx.AsyncClient() as client:
@@ -120,8 +143,10 @@ class SupabaseAuth:
     async def verify_token(self, credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer(auto_error=False))) -> Dict[str, Any]:
         """Verify JWT token dependency"""
         if not credentials:
-            # Allow demo access
-            return {"id": "demo_user", "email": "demo@example.com"}
+            if self.demo_mode:
+                # Allow demo access without token
+                return {"id": "demo_user", "email": "demo@agentflow.ai", "name": "Demo User"}
+            raise HTTPException(status_code=401, detail="Authentication required")
         
         token = credentials.credentials
         user = await self.get_user_from_token(token)

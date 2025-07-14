@@ -1,7 +1,7 @@
 import React from 'react';
 import { AuthProvider, useAuth } from './components/AuthProvider';
 import AuthScreen from './components/AuthScreen';
-import EnhancedDashboard from './components/EnhancedDashboard';
+import ChatOnboarding from './components/ChatOnboarding';
 
 const AppContent = () => {
   const { user, loading } = useAuth();
@@ -17,7 +17,7 @@ const AppContent = () => {
     );
   }
 
-  return user ? <EnhancedDashboard /> : <AuthScreen />;
+  return user ? <ChatOnboarding /> : <AuthScreen />;
 };
 
 const App = () => {

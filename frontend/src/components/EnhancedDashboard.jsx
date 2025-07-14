@@ -160,8 +160,10 @@ const StatsCard = ({ title, value, icon: Icon, color = "blue", trend = null }) =
 );
 
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from './AuthProvider';
 
 const EnhancedDashboard = () => {
+  const { user, signOut } = useAuth();
   const [agents, setAgents] = useState({});
   const [agentsStatus, setAgentsStatus] = useState({});
   const [selectedCategory, setSelectedCategory] = useState('all');
@@ -272,39 +274,25 @@ const [activeSession, setActiveSession] = useState(null);
 
   const handleStartEnhancedSession = async () => {
     try {
-      const message = "I want to start a new business. Can you help me develop a comprehensive business plan?";
-      const response = await apiService.startEnhancedSession({
-        user_id: 'default_user',
-        message: message
-      });
-      
-      setActiveSession(response.session_id);
-      
-      // Navigate to enhanced workflow page with initial AI response
-      navigate('/enhanced-workflow', { 
-        state: { 
-          sessionId: response.session_id,
-          conversationId: response.conversation_id,
-          initialAssistantMessage: response.response,
-          initialUserMessage: message
-        } 
-      });
+      // Navigate directly to chat onboarding
+      navigate('/');
     } catch (err) {
-      console.error('Failed to start enhanced session:', err);
-      setError(`Failed to start enhanced session: ${err.message}`);
+      console.error('Navigation failed:', err);
     }
   };
 
   const handleAutoExecute = async () => {
     try {
-      const vision = "AI-powered productivity platform for remote teams with advanced task management and collaboration features";
-      await apiService.autoExecuteProject({ vision });
-      
-      // Start monitoring auto-execution
+      const vision = "AI-powered productivity platform for remote teams";
+      const response = await fetch('http://localhost:8000/api/workflow/execute', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vision, user_id: 'demo_user' })
+      });
+      const data = await response.json();
       setAutoRefresh(true);
     } catch (err) {
-      console.error('Failed to auto-execute:', err);
-      setError(`Failed to auto-execute: ${err.message}`);
+      setError(`Auto-execute failed: ${err.message}`);
     }
   };
 
@@ -360,6 +348,26 @@ const [activeSession, setActiveSession] = useState(null);
                 <RefreshCw className="h-4 w-4 mr-1 inline" />
                 Refresh
               </button>
+              
+              {/* User Profile */}
+              <div className="flex items-center gap-3 ml-4 pl-4 border-l border-gray-200">
+                <img
+                  src={user?.avatar}
+                  alt={user?.name}
+                  className="h-8 w-8 rounded-full"
+                />
+                <div className="hidden sm:block">
+                  <p className="text-sm font-medium text-gray-900">{user?.name}</p>
+                  <p className="text-xs text-gray-500">{user?.email}</p>
+                </div>
+                <button
+                  onClick={signOut}
+                  className="text-gray-400 hover:text-gray-600 text-sm"
+                  title="Sign out"
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
