@@ -64,39 +64,53 @@ class EnhancedOrchestrator:
         self.live_logs: List[Dict] = []
         
     async def initialize(self):
-        """Initialize the orchestrator and queue system"""
-        await queue_manager.connect()
-        
-        # Create queues for different types of work
-        await queue_manager.create_queue("agent_tasks", {
-            "max_concurrency": 3,
-            "retry_delay": 2000,
-            "max_retries": 2
-        })
-        
-        await queue_manager.create_queue("coordination", {
-            "max_concurrency": 1,
-            "retry_delay": 1000,
-            "max_retries": 1
-        })
-        
-        await queue_manager.create_queue("notifications", {
-            "max_concurrency": 10,
-            "retry_delay": 500,
-            "max_retries": 1
-        })
-        
-        # Start queue processors
-        await queue_manager.process_queue("agent_tasks", self._process_agent_task)
-        await queue_manager.process_queue("coordination", self._process_coordination_task)
-        await queue_manager.process_queue("notifications", self._process_notification)
-        
-        # Subscribe to queue events for monitoring
-        queue_manager.subscribe("task_processing", self._on_task_processing)
-        queue_manager.subscribe("task_completed", self._on_task_completed)
-        queue_manager.subscribe("task_failed", self._on_task_failed)
-        
-        logger.info("🚀 Enhanced Orchestrator initialized")
+        """Initialize the orchestrator and queue system with error handling"""
+        try:
+            # Connect to Redis with timeout protection
+            try:
+                await asyncio.wait_for(
+                    queue_manager.connect(),
+                    timeout=10.0  # 10 second timeout for connection
+                )
+            except asyncio.TimeoutError:
+                logger.error("Redis connection timeout - system will operate with limited functionality")
+            except Exception as e:
+                logger.error(f"Redis connection error: {e} - system will operate with limited functionality")
+            
+            # Create queues for different types of work
+            await queue_manager.create_queue("agent_tasks", {
+                "max_concurrency": 2,  # Reduced concurrency
+                "retry_delay": 3000,    # Increased retry delay
+                "max_retries": 3       # Increased retries
+            })
+            
+            await queue_manager.create_queue("coordination", {
+                "max_concurrency": 1,
+                "retry_delay": 2000,    # Increased retry delay
+                "max_retries": 2        # Increased retries
+            })
+            
+            await queue_manager.create_queue("notifications", {
+                "max_concurrency": 5,   # Reduced concurrency
+                "retry_delay": 1000,
+                "max_retries": 2
+            })
+            
+            # Start queue processors
+            await queue_manager.process_queue("agent_tasks", self._process_agent_task)
+            await queue_manager.process_queue("coordination", self._process_coordination_task)
+            await queue_manager.process_queue("notifications", self._process_notification)
+            
+            # Subscribe to queue events for monitoring
+            queue_manager.subscribe("task_processing", self._on_task_processing)
+            queue_manager.subscribe("task_completed", self._on_task_completed)
+            queue_manager.subscribe("task_failed", self._on_task_failed)
+            
+            logger.info("🚀 Enhanced Orchestrator initialized")
+            
+        except Exception as e:
+            logger.error(f"Failed to initialize orchestrator: {e}")
+            # Continue with limited functionality
     
     async def start_chat_session(self, user_id: str, initial_message: str) -> Dict[str, Any]:
         """Start new chat session with cofounder agent and return initial AI response"""
@@ -474,9 +488,10 @@ class EnhancedOrchestrator:
         return {"success": True, "type": notification_type}
     
     async def _wait_for_task_completion(self, task_id: str, timeout: int = 300):
-        """Wait for a specific task to complete with caching"""
+        """Wait for a specific task to complete with caching and improved error handling"""
         start_time = datetime.now()
         cache_key = f"task_status:{task_id}"
+        redis_errors = 0  # Track consecutive Redis errors
         
         while (datetime.now() - start_time).seconds < timeout:
             # Check cache first
@@ -487,16 +502,41 @@ class EnhancedOrchestrator:
                 elif cached_status == "failed":
                     raise Exception(f"Task {task_id} failed")
             
-            # If not in cache, check Redis
-            task_data = await queue_manager.redis.hget(f"task:{task_id}", "status")
-            if task_data:
-                # Update cache
-                queue_manager._cache_set(cache_key, task_data)
-                
-                if task_data == "completed":
-                    return True
-                elif task_data == "failed":
-                    raise Exception(f"Task {task_id} failed")
+            # If not in cache, check Redis with timeout protection
+            try:
+                if hasattr(queue_manager, 'redis') and queue_manager.redis:
+                    task_data = await asyncio.wait_for(
+                        queue_manager.redis.hget(f"task:{task_id}", "status"),
+                        timeout=5.0  # 5 second timeout
+                    )
+                    
+                    # Reset error counter on success
+                    redis_errors = 0
+                    
+                    if task_data:
+                        # Update cache
+                        queue_manager._cache_set(cache_key, task_data)
+                        
+                        if task_data == "completed":
+                            return True
+                        elif task_data == "failed":
+                            raise Exception(f"Task {task_id} failed")
+                else:
+                    # Redis not available, increment error counter
+                    redis_errors += 1
+                    logger.warning(f"Redis not available for task status check (attempt {redis_errors})")
+                    
+            except asyncio.TimeoutError:
+                redis_errors += 1
+                logger.warning(f"Redis timeout when checking task status (attempt {redis_errors})")
+            except Exception as e:
+                redis_errors += 1
+                logger.warning(f"Error checking task status: {e} (attempt {redis_errors})")
+            
+            # If too many Redis errors, assume task is still running
+            if redis_errors >= 5:
+                logger.warning(f"Too many Redis errors, continuing to wait for task {task_id}")
+                redis_errors = 0  # Reset counter to avoid log spam
             
             # Progressive backoff for polling
             elapsed_seconds = (datetime.now() - start_time).seconds
@@ -575,17 +615,37 @@ class EnhancedOrchestrator:
     
     # API methods for frontend
     async def get_session_status(self, session_id: str) -> Dict[str, Any]:
-        """Get current status of a workflow session"""
+        """Get current status of a workflow session with Redis error handling"""
         if session_id not in self.active_sessions:
             return {"error": "Session not found"}
         
         session = self.active_sessions[session_id]
         
-        # Get queue statistics for session tasks
+        # Get queue statistics for session tasks with error handling
         task_stats = {}
         for agent_name, task_id in session.agent_tasks.items():
-            task_data = await queue_manager.redis.hget(f"task:{task_id}", "status")
-            task_stats[agent_name] = task_data or "pending"
+            try:
+                if hasattr(queue_manager, 'redis') and queue_manager.redis:
+                    # Try to get task status with timeout protection
+                    try:
+                        task_data = await asyncio.wait_for(
+                            queue_manager.redis.hget(f"task:{task_id}", "status"),
+                            timeout=3.0  # 3 second timeout
+                        )
+                        task_stats[agent_name] = task_data or "pending"
+                    except (asyncio.TimeoutError, Exception) as e:
+                        # Use cached status if available, otherwise mark as unknown
+                        cached_status = queue_manager._cache_get(f"task_status:{task_id}")
+                        task_stats[agent_name] = cached_status or "unknown"
+                        logger.warning(f"Error getting task status for {agent_name}: {e}")
+                else:
+                    # Redis not available, use cached status or mark as unknown
+                    cached_status = queue_manager._cache_get(f"task_status:{task_id}")
+                    task_stats[agent_name] = cached_status or "unknown"
+            except Exception as e:
+                # Fallback for any other errors
+                task_stats[agent_name] = "unknown"
+                logger.error(f"Failed to get task status for {agent_name}: {e}")
         
         return {
             "session_id": session_id,

@@ -208,10 +208,18 @@ class LangGraphAgentBase:
             return {"error": str(e), "fallback": True}
     
     async def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:
-        """Execute agent's internal workflow"""
+        """Execute agent's internal workflow with resilience"""
         try:
-            # Get context
-            context = await self.memory_manager.get_shared_context()
+            # Get context with timeout protection
+            try:
+                context = await asyncio.wait_for(
+                    self.memory_manager.get_shared_context(),
+                    timeout=10.0  # 10 second timeout
+                )
+            except (asyncio.TimeoutError, Exception) as e:
+                # Use empty context if shared context retrieval fails
+                context = {}
+                logger.warning(f"[{self.name}] Failed to get shared context: {e}, using empty context")
             
             # Initialize state
             initial_state = AgentState(
@@ -226,50 +234,84 @@ class LangGraphAgentBase:
             )
             
             # Execute internal workflow
-            final_state = await self.workflow.ainvoke(initial_state)
+            try:
+                final_state = await asyncio.wait_for(
+                    self.workflow.ainvoke(initial_state),
+                    timeout=60.0  # 60 second timeout for workflow execution
+                )
+            except asyncio.TimeoutError:
+                logger.error(f"[{self.name}] Workflow execution timed out")
+                # Create fallback state with basic analysis
+                final_state = {
+                    "analysis": {"fallback": True, "message": "Workflow execution timed out"},
+                    "recommendations": ["Consider retrying the operation"],
+                    "confidence": 0.3,
+                    "iteration": 1
+                }
+            except Exception as workflow_error:
+                logger.error(f"[{self.name}] Workflow execution failed: {workflow_error}")
+                # Create fallback state with error information
+                final_state = {
+                    "analysis": {"fallback": True, "error": str(workflow_error)},
+                    "recommendations": ["Review error and retry"],
+                    "confidence": 0.2,
+                    "iteration": 1
+                }
             
-            # Store results in memory
-            await self._store_results(task, final_state)
+            # Store results in memory with error handling
+            try:
+                await self._store_results(task, final_state)
+            except Exception as store_error:
+                logger.error(f"[{self.name}] Failed to store results: {store_error}")
             
             return {
                 "status": "completed",
                 "output": {
                     "analysis": final_state["analysis"],
-                    "recommendations": final_state["recommendations"],
+                    "recommendations": final_state.get("recommendations", []),
                     "agent": self.name,
-                    "iterations": final_state["iteration"]
+                    "iterations": final_state.get("iteration", 1)
                 },
-                "confidence": final_state["confidence"],
+                "confidence": final_state.get("confidence", 0.5),
                 "agent": self.name,
                 "timestamp": datetime.now().isoformat()
             }
             
         except Exception as e:
+            logger.error(f"[{self.name}] Execution failed: {e}")
             return {
                 "status": "error",
                 "error": str(e),
-                "agent": self.name
+                "agent": self.name,
+                "fallback": True,
+                "confidence": 0.1
             }
     
-    async def _store_results(self, task: Dict[str, Any], final_state: AgentState):
-        """Store results in memory systems"""
-        # Private memory
-        await self.memory_manager.store_agent_private_memory(
-            agent_name=self.name,
-            memory_type="thinking_process",
-            content={
-                "task": task,
-                "analysis": final_state["analysis"],
-                "iterations": final_state["iteration"],
-                "confidence": final_state["confidence"]
-            }
-        )
+    async def _store_results(self, task: Dict[str, Any], final_state: Dict[str, Any]):
+        """Store results in memory systems with error handling"""
+        try:
+            # Private memory
+            await self.memory_manager.store_agent_private_memory(
+                agent_name=self.name,
+                memory_type="thinking_process",
+                content={
+                    "task": task,
+                    "analysis": final_state.get("analysis", {}),
+                    "iterations": final_state.get("iteration", 1),
+                    "confidence": final_state.get("confidence", 0.5)
+                }
+            )
+        except Exception as e:
+            logger.warning(f"[{self.name}] Failed to store private memory: {e}")
         
-        # Shared memory
-        await self.memory_manager.store_agent_memory(
-            agent_name=self.name,
-            memory_type=f"{self.name.lower()}_insights",
-            content=final_state["analysis"],
-            is_shared=True,
-            confidence=final_state["confidence"]
-        )
+        try:
+            # Shared memory
+            await self.memory_manager.store_agent_memory(
+                agent_name=self.name,
+                memory_type=f"{self.name.lower()}_insights",
+                content=final_state.get("analysis", {}),
+                is_shared=True,
+                confidence=final_state.get("confidence", 0.5)
+            )
+        except Exception as e:
+            logger.warning(f"[{self.name}] Failed to store shared memory: {e}")

@@ -5,11 +5,10 @@ from typing import Dict, Any, Optional
 from flows.orchestrator import AgentOrchestrator
 from datetime import datetime
 import uuid
+from database.session_store import session_store
+from loguru import logger
 
 router = APIRouter(prefix="/api/enhanced", tags=["enhanced"])
-
-# In-memory session storage (in production, use Redis/database)
-sessions = {}
 
 class StartSessionRequest(BaseModel):
     user_id: str
@@ -43,24 +42,31 @@ async def start_enhanced_session(request: StartSessionRequest) -> Dict[str, Any]
         # Execute Cofounder agent
         result = await cofounder.execute(task)
         
-        # Store session
-        sessions[session_id] = {
+        # Create session data
+        response_text = result.get("output", {}).get("response", "Hello! Let's discuss your project.")
+        conversation_id = f"conv_{session_id}"
+        
+        session_data = {
             "user_id": request.user_id,
             "messages": [
                 {"role": "user", "content": request.message, "timestamp": datetime.now().isoformat()},
-                {"role": "assistant", "content": result.get("output", {}).get("response", "Hello! Let's discuss your project."), "timestamp": datetime.now().isoformat()}
+                {"role": "assistant", "content": response_text, "timestamp": datetime.now().isoformat()}
             ],
-            "conversation_id": f"conv_{session_id}",
+            "conversation_id": conversation_id,
             "created_at": datetime.now().isoformat(),
             "message_count": 1
         }
         
+        # Store session in SQLite
+        session_store.save_session(session_id, session_data)
+        logger.info(f"Created new session {session_id} for user {request.user_id}")
+        
         return {
             "session_id": session_id,
-            "conversation_id": sessions[session_id]["conversation_id"],
-            "response": result.get("output", {}).get("response", "Hello! Let's discuss your project."),
-            "ready_for_approval": sessions[session_id]["message_count"] >= 3,
-            "project_plan": result.get("output", {}).get("project_plan") if sessions[session_id]["message_count"] >= 3 else None
+            "conversation_id": conversation_id,
+            "response": response_text,
+            "ready_for_approval": session_data["message_count"] >= 3,
+            "project_plan": result.get("output", {}).get("project_plan") if session_data["message_count"] >= 3 else None
         }
         
     except Exception as e:
@@ -73,10 +79,12 @@ async def continue_enhanced_session(
 ) -> Dict[str, Any]:
     """Continue enhanced session"""
     try:
-        if session_id not in sessions:
+        # Get session from SQLite store
+        session = session_store.get_session(session_id)
+        if not session:
             raise HTTPException(status_code=404, detail="Session not found")
         
-        session = sessions[session_id]
+        logger.info(f"Continuing session {session_id} with message: {request.message[:50]}...")
         
         # Initialize orchestrator
         orchestrator = AgentOrchestrator()
@@ -97,17 +105,21 @@ async def continue_enhanced_session(
         
         # Execute Cofounder agent
         result = await cofounder.execute(task)
+        response_text = result.get("output", {}).get("response", "I understand. Please continue.")
         
         # Update session
         session["messages"].extend([
             {"role": "user", "content": request.message, "timestamp": datetime.now().isoformat()},
-            {"role": "assistant", "content": result.get("output", {}).get("response", "I understand. Please continue."), "timestamp": datetime.now().isoformat()}
+            {"role": "assistant", "content": response_text, "timestamp": datetime.now().isoformat()}
         ])
         session["message_count"] += 1
         
+        # Save updated session
+        session_store.save_session(session_id, session)
+        
         return {
             "session_id": session_id,
-            "response": result.get("output", {}).get("response", "I understand. Please continue."),
+            "response": response_text,
             "ready_for_approval": session["message_count"] >= 3,
             "project_plan": result.get("output", {}).get("project_plan") if session["message_count"] >= 3 else None
         }
@@ -119,10 +131,12 @@ async def continue_enhanced_session(
 async def approve_and_execute(session_id: str = Query(...)) -> Dict[str, Any]:
     """Approve session and execute workflow"""
     try:
-        if session_id not in sessions:
+        # Get session from SQLite store
+        session = session_store.get_session(session_id)
+        if not session:
             raise HTTPException(status_code=404, detail="Session not found")
         
-        session = sessions[session_id]
+        logger.info(f"Approving and executing session {session_id}")
         
         # Extract vision from conversation
         user_messages = [msg["content"] for msg in session["messages"] if msg["role"] == "user"]
@@ -143,6 +157,9 @@ async def approve_and_execute(session_id: str = Query(...)) -> Dict[str, Any]:
         session["workflow_result"] = result
         session["approved_at"] = datetime.now().isoformat()
         
+        # Save updated session
+        session_store.save_session(session_id, session)
+        
         return {
             "status": "approved_and_executing",
             "session_id": session_id,
@@ -156,10 +173,10 @@ async def approve_and_execute(session_id: str = Query(...)) -> Dict[str, Any]:
 async def get_session_status(session_id: str = Query(...)) -> Dict[str, Any]:
     """Get session status"""
     try:
-        if session_id not in sessions:
+        # Get session from SQLite store
+        session = session_store.get_session(session_id)
+        if not session:
             raise HTTPException(status_code=404, detail="Session not found")
-        
-        session = sessions[session_id]
         
         return {
             "session_id": session_id,
@@ -176,10 +193,10 @@ async def get_session_status(session_id: str = Query(...)) -> Dict[str, Any]:
 async def get_session_results(session_id: str = Query(...)) -> Dict[str, Any]:
     """Get session execution results"""
     try:
-        if session_id not in sessions:
+        # Get session from SQLite store
+        session = session_store.get_session(session_id)
+        if not session:
             raise HTTPException(status_code=404, detail="Session not found")
-        
-        session = sessions[session_id]
         
         if not session.get("execution_started"):
             raise HTTPException(status_code=400, detail="Session not executed yet")
@@ -192,4 +209,17 @@ async def get_session_results(session_id: str = Query(...)) -> Dict[str, Any]:
         }
         
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/list-sessions")
+async def list_sessions() -> Dict[str, Any]:
+    """List all sessions"""
+    try:
+        sessions = session_store.list_sessions()
+        return {
+            "sessions": sessions,
+            "count": len(sessions)
+        }
+    except Exception as e:
+        logger.error(f"Error listing sessions: {e}")
         raise HTTPException(status_code=500, detail=str(e))

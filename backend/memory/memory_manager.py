@@ -4,6 +4,7 @@ Unified Memory Manager - Coordinates graph and vector memory systems
 
 import asyncio
 import json
+import time
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from pathlib import Path
@@ -15,7 +16,7 @@ from task_queue.enhanced_queue_manager import queue_manager
 
 
 class OptimizedMemoryManager:
-    """Optimized memory manager with caching and lazy loading"""
+    """Optimized memory manager with multi-level caching and lazy loading"""
     
     def __init__(self):
         self._graph_memory = None
@@ -23,6 +24,19 @@ class OptimizedMemoryManager:
         self._ttl_seconds = 300  # 5 minutes
         self.output_dir = Path("./data")
         self.output_dir.mkdir(exist_ok=True)
+        
+        # Enhanced multi-level caching system
+        self._local_cache = {}
+        self._local_cache_ttl = 60  # 1 minute TTL for local cache
+        self._local_cache_hits = 0
+        self._local_cache_misses = 0
+        self._last_cache_cleanup = time.time()
+        
+        # Frequently accessed data cache (permanent until invalidated)
+        self._hot_cache = {}
+        
+        # Start background cache cleanup task
+        asyncio.create_task(self._periodic_cache_cleanup())
     
     @property
     def graph_memory(self):
@@ -39,51 +53,142 @@ class OptimizedMemoryManager:
         return self._vector_memory
     
     async def get_with_cache(self, key: str, fetch_func):
-        """Get data with Redis caching"""
+        """Get data with multi-level caching and optimized Redis access"""
+        # First check hot cache for critical data
+        hot_cache_key = f"hot:{key}"
+        if hot_cache_key in self._hot_cache:
+            self._local_cache_hits += 1
+            return self._hot_cache[hot_cache_key]
+        
+        # Then check local cache for ultra-fast access
+        local_cache_key = f"local:{key}"
+        if local_cache_key in self._local_cache:
+            cache_entry = self._local_cache[local_cache_key]
+            if time.time() - cache_entry["timestamp"] <= self._local_cache_ttl:
+                self._local_cache_hits += 1
+                return cache_entry["data"]
+            else:
+                # Expired local cache entry
+                del self._local_cache[local_cache_key]
+                self._local_cache_misses += 1
+        else:
+            self._local_cache_misses += 1
+        
+        # Determine if this is a frequent key that should be in hot cache
+        is_frequent_key = key.startswith("shared_context") or key.startswith("global_")
+        
         try:
             # Check if queue manager has Redis connection
             if hasattr(queue_manager, 'redis') and queue_manager.redis:
-                # Try to get from Redis cache
-                cached_data = await queue_manager.redis.get(f"memory_cache:{key}")
-                if cached_data:
-                    return json.loads(cached_data)
-                
-                # Cache miss - fetch and store
-                result = await fetch_func()
-                await queue_manager.redis.setex(
-                    f"memory_cache:{key}", 
-                    self._ttl_seconds, 
-                    json.dumps(result, default=str)
-                )
-                return result
-            else:
-                # Fallback to direct fetch if Redis not available
-                return await fetch_func()
+                try:
+                    # Try to get from Redis cache with timeout
+                    cached_data = await asyncio.wait_for(
+                        queue_manager.redis.get(f"memory_cache:{key}"),
+                        timeout=3.0  # Reduced timeout
+                    )
+                    if cached_data:
+                        # Parse data
+                        parsed_data = json.loads(cached_data)
+                        
+                        # Store in appropriate cache level
+                        if is_frequent_key:
+                            # Store in hot cache for frequent access
+                            self._hot_cache[hot_cache_key] = parsed_data
+                        else:
+                            # Store in local cache
+                            self._local_cache[local_cache_key] = {
+                                "data": parsed_data,
+                                "timestamp": time.time()
+                            }
+                        return parsed_data
+                except asyncio.TimeoutError:
+                    logger.warning(f"Redis cache read timeout for key {key}, using fallback")
+                except Exception as redis_error:
+                    logger.warning(f"Redis cache error: {redis_error}, using fallback")
+            
+            # Cache miss or Redis unavailable - fetch data
+            result = await fetch_func()
+            
+            # Store in appropriate cache level
+            if is_frequent_key:
+                # Store in hot cache for frequent access
+                self._hot_cache[hot_cache_key] = result
+            
+            # Always store in local cache
+            self._local_cache[local_cache_key] = {
+                "data": result,
+                "timestamp": time.time()
+            }
+            
+            # Try to store in Redis cache if available, using pipeline for efficiency
+            if hasattr(queue_manager, 'redis') and queue_manager.redis:
+                try:
+                    # Use pipeline to batch Redis operations
+                    pipeline = queue_manager.redis.pipeline()
+                    pipeline.setex(
+                        f"memory_cache:{key}", 
+                        self._ttl_seconds, 
+                        json.dumps(result, default=str)
+                    )
+                    
+                    # Execute pipeline with timeout
+                    await asyncio.wait_for(pipeline.execute(), timeout=2.0)
+                except (asyncio.TimeoutError, Exception) as cache_error:
+                    # Just log the error but continue with the result
+                    logger.warning(f"Failed to update Redis cache: {cache_error}")
+            
+            return result
+            
         except Exception as e:
             logger.warning(f"Cache error, falling back to direct fetch: {e}")
-            return await fetch_func()
+            result = await fetch_func()
+            
+            # Still store in local cache even on error
+            self._local_cache[local_cache_key] = {
+                "data": result,
+                "timestamp": time.time()
+            }
+            
+            return result
     
     async def invalidate_cache(self, pattern: str = None):
-        """Invalidate Redis cache entries"""
+        """Invalidate Redis cache entries with timeout protection"""
         try:
             if hasattr(queue_manager, 'redis') and queue_manager.redis:
-                if pattern:
-                    # Get all cache keys matching pattern
-                    keys = await queue_manager.redis.keys(f"memory_cache:*{pattern}*")
-                    if keys:
-                        await queue_manager.redis.delete(*keys)
-                else:
-                    # Clear all memory cache keys
-                    keys = await queue_manager.redis.keys("memory_cache:*")
-                    if keys:
-                        await queue_manager.redis.delete(*keys)
+                try:
+                    if pattern:
+                        # Get all cache keys matching pattern with timeout
+                        keys = await asyncio.wait_for(
+                            queue_manager.redis.keys(f"memory_cache:*{pattern}*"),
+                            timeout=3.0
+                        )
+                        if keys:
+                            await asyncio.wait_for(
+                                queue_manager.redis.delete(*keys),
+                                timeout=3.0
+                            )
+                    else:
+                        # Clear all memory cache keys with timeout
+                        keys = await asyncio.wait_for(
+                            queue_manager.redis.keys("memory_cache:*"),
+                            timeout=3.0
+                        )
+                        if keys:
+                            await asyncio.wait_for(
+                                queue_manager.redis.delete(*keys),
+                                timeout=3.0
+                            )
+                except asyncio.TimeoutError:
+                    logger.warning(f"Cache invalidation timeout - operation skipped")
+                except Exception as redis_error:
+                    logger.warning(f"Cache invalidation Redis error: {redis_error}")
         except Exception as e:
             logger.warning(f"Cache invalidation error: {e}")
     
     async def store_agent_memory(self, agent_name: str, memory_type: str, content: Dict[str, Any], 
                                metadata: Optional[Dict[str, Any]] = None, is_shared: bool = False,
                                confidence: float = 1.0) -> str:
-        """Store memory in both graph and vector systems with cache invalidation"""
+        """Store memory in both graph and vector systems with optimized processing"""
         
         # Store in graph memory
         if is_shared:
@@ -100,6 +205,9 @@ class OptimizedMemoryManager:
                 content=content
             )
         
+        # For vector memory, use asynchronous processing for non-critical operations
+        doc_id = f"{agent_name}_{memory_type}_{timestamp}"
+        
         # Store in vector memory for semantic search
         if isinstance(content, dict) and any(isinstance(v, str) and len(v) > 50 for v in content.values()):
             # Only store in vector memory if there's substantial text content
@@ -114,17 +222,35 @@ class OptimizedMemoryManager:
                     **(metadata or {})
                 }
                 
-                await self.vector_memory.add_document(
-                    text=text_content,
+                # Use fire-and-forget for vector storage to avoid blocking
+                asyncio.create_task(self._async_vector_store(
+                    text_content=text_content,
                     metadata=doc_metadata,
-                    doc_id=f"{agent_name}_{memory_type}_{timestamp}"
-                )
+                    doc_id=doc_id
+                ))
         
-        # Invalidate relevant cache entries
-        await self.invalidate_cache("shared_context")
-        await self.invalidate_cache("search_")
+        # Selective cache invalidation - only invalidate what's necessary
+        if is_shared:
+            # Only invalidate shared context for shared memories
+            asyncio.create_task(self.invalidate_cache("shared_context"))
+            
+            # Update hot cache directly for faster access
+            if memory_type in ["vision", "plan", "execution_result"]:
+                hot_key = f"hot:shared_context_{memory_type}"
+                self._hot_cache[hot_key] = content
         
         return str(timestamp)
+        
+    async def _async_vector_store(self, text_content: str, metadata: Dict[str, Any], doc_id: str):
+        """Asynchronous vector storage to avoid blocking main operations"""
+        try:
+            await self.vector_memory.add_document(
+                text=text_content,
+                metadata=metadata,
+                doc_id=doc_id
+            )
+        except Exception as e:
+            logger.warning(f"Async vector storage failed for {doc_id}: {e}")
     
     async def query_agent_memory(self, agent_name: str, memory_type: Optional[str] = None,
                                include_shared: bool = True) -> List[Dict[str, Any]]:
@@ -156,8 +282,16 @@ class OptimizedMemoryManager:
     
     async def semantic_search(self, query: str, agent_name: Optional[str] = None,
                             memory_type: Optional[str] = None, limit: int = 5) -> List[Dict[str, Any]]:
-        """Perform semantic search across memories with caching"""
-        cache_key = f"search_{hash(query)}_{agent_name}_{memory_type}_{limit}"
+        """Perform semantic search across memories with optimized caching"""
+        # Generate a stable hash for the query parameters
+        query_hash = hash(f"{query}_{agent_name}_{memory_type}_{limit}")
+        cache_key = f"search_{query_hash}"
+        
+        # Check hot cache first for common queries
+        hot_cache_key = f"hot:{cache_key}"
+        if hot_cache_key in self._hot_cache:
+            self._local_cache_hits += 1
+            return self._hot_cache[hot_cache_key]
         
         async def perform_search():
             # Build filter conditions
@@ -167,46 +301,88 @@ class OptimizedMemoryManager:
             if memory_type:
                 filter_conditions["type"] = memory_type
             
-            # Search vector memory
-            search_results = await self.vector_memory.search(
-                query=query,
-                limit=limit,
-                filter_conditions=filter_conditions if filter_conditions else None
-            )
-            
-            return search_results
+            # Search vector memory with timeout protection
+            try:
+                search_results = await asyncio.wait_for(
+                    self.vector_memory.search(
+                        query=query,
+                        limit=limit,
+                        filter_conditions=filter_conditions if filter_conditions else None
+                    ),
+                    timeout=10.0  # 10 second timeout for vector search
+                )
+                
+                # Store frequent queries in hot cache
+                if memory_type in ["vision", "plan", "execution_result"] or query in [
+                    "project overview", "marketing plan", "sales strategy", "current status"
+                ]:
+                    self._hot_cache[hot_cache_key] = search_results
+                
+                return search_results
+                
+            except asyncio.TimeoutError:
+                logger.warning(f"Vector search timeout for query: {query}")
+                return []  # Return empty results on timeout
+            except Exception as e:
+                logger.error(f"Vector search error: {e}")
+                return []
         
         return await self.get_with_cache(cache_key, perform_search)
     
     async def get_shared_context(self, min_confidence: float = 0.7) -> Dict[str, Any]:
-        """Get current shared context for agents with caching"""
+        """Get current shared context for agents with optimized caching"""
         cache_key = f"shared_context_{min_confidence}"
         
+        # This is a critical operation, so we'll use the hot cache
+        hot_cache_key = f"hot:{cache_key}"
+        if hot_cache_key in self._hot_cache:
+            self._local_cache_hits += 1
+            return self._hot_cache[hot_cache_key]
+        
         async def fetch_shared_context():
-            shared_memories = await self.graph_memory.query_shared_memory(min_confidence=min_confidence)
-            
-            # Organize by memory type
-            context = {}
-            for memory in shared_memories:
-                mem_type = memory.get("type", "general")
-                if mem_type not in context:
-                    context[mem_type] = []
+            try:
+                # Use timeout protection for graph memory query
+                shared_memories = await asyncio.wait_for(
+                    self.graph_memory.query_shared_memory(min_confidence=min_confidence),
+                    timeout=8.0  # 8 second timeout
+                )
                 
-                context[mem_type].append({
-                    "content": memory["content"],
-                    "author": memory["author"],
-                    "confidence": memory["confidence"],
-                    "timestamp": memory["timestamp"]
-                })
-            
-            # Get the most recent/highest confidence entry for each type
-            consolidated_context = {}
-            for mem_type, memories in context.items():
-                # Sort by confidence first, then by timestamp
-                memories.sort(key=lambda x: (x["confidence"], x["timestamp"]), reverse=True)
-                consolidated_context[mem_type] = memories[0]["content"]
-            
-            return consolidated_context
+                # Organize by memory type
+                context = {}
+                for memory in shared_memories:
+                    mem_type = memory.get("type", "general")
+                    if mem_type not in context:
+                        context[mem_type] = []
+                    
+                    context[mem_type].append({
+                        "content": memory["content"],
+                        "author": memory["author"],
+                        "confidence": memory["confidence"],
+                        "timestamp": memory["timestamp"]
+                    })
+                
+                # Get the most recent/highest confidence entry for each type
+                consolidated_context = {}
+                for mem_type, memories in context.items():
+                    # Sort by confidence first, then by timestamp
+                    memories.sort(key=lambda x: (x["confidence"], x["timestamp"]), reverse=True)
+                    consolidated_context[mem_type] = memories[0]["content"]
+                
+                # Store in hot cache for future access
+                self._hot_cache[hot_cache_key] = consolidated_context
+                
+                return consolidated_context
+                
+            except asyncio.TimeoutError:
+                logger.warning("Shared context retrieval timeout, using cached data if available")
+                # Return empty dict or cached data if available
+                local_cache_entry = self._local_cache.get(f"local:{cache_key}")
+                if local_cache_entry:
+                    return local_cache_entry["data"]
+                return {}
+            except Exception as e:
+                logger.error(f"Error retrieving shared context: {e}")
+                return {}
         
         return await self.get_with_cache(cache_key, fetch_shared_context)
     
@@ -396,10 +572,47 @@ class OptimizedMemoryManager:
             "agent_focus": agent_name
         }
     
+    async def _periodic_cache_cleanup(self):
+        """Periodically clean up expired entries in local cache"""
+        while True:
+            try:
+                await asyncio.sleep(30)  # Run every 30 seconds
+                await self._cleanup_local_cache()
+            except Exception as e:
+                logger.error(f"Error in periodic cache cleanup: {e}")
+                await asyncio.sleep(60)  # Wait longer on error
+    
+    async def _cleanup_local_cache(self):
+        """Clean up expired entries in local cache"""
+        now = time.time()
+        expired_keys = []
+        
+        # Only run cleanup if enough time has passed
+        if now - self._last_cache_cleanup < 30:
+            return
+            
+        self._last_cache_cleanup = now
+        
+        for key, entry in self._local_cache.items():
+            if now - entry["timestamp"] > self._local_cache_ttl:
+                expired_keys.append(key)
+        
+        for key in expired_keys:
+            del self._local_cache[key]
+        
+        # Log cache efficiency metrics
+        total_ops = self._local_cache_hits + self._local_cache_misses
+        hit_ratio = self._local_cache_hits / total_ops if total_ops > 0 else 0
+        
+        if expired_keys or total_ops > 100:
+            logger.debug(f"Cache stats: {len(self._local_cache)} entries, {hit_ratio:.2%} hit ratio, cleaned {len(expired_keys)} expired entries")
+    
     def close(self):
         """Close all memory system connections"""
         if self._graph_memory:
             self._graph_memory.close()
+        # Clear local cache
+        self._local_cache.clear()
         # Vector memory client will be closed automatically
         # Redis cache is managed by queue_manager
 

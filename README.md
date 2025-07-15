@@ -12,6 +12,9 @@ A modular, efficient multi-agent orchestration system using LangGraph for agent 
 
 ## Recent Optimizations
 
+- **Session Persistence**: Added SQLite-based session storage for persistence across server restarts
+- **Redis Connection Resilience**: Improved error handling and fallback mechanisms for Redis operations
+- **Multi-level Caching**: Implemented hot cache and local memory cache for better performance
 - **Lazy Queue Initialization**: Queue system now initializes only when needed, not at startup
 - **Cached Context**: Global context is cached with TTL to reduce database queries
 - **Efficient LLM Calls**: Implemented caching for similar prompts to reduce token usage
@@ -44,13 +47,22 @@ A modular, efficient multi-agent orchestration system using LangGraph for agent 
 
 1. Install dependencies:
    ```
-   pip install -r requirements.txt
+   # Quick install of critical dependencies
+   chmod +x install_dependencies.sh
+   ./install_dependencies.sh
+   
+   # Or full install
+   pip install -r backend/requirements.txt
    ```
 
 2. Set up environment variables:
    ```
    cp .env.example .env
-   # Edit .env with your API keys
+   # Edit .env with your API keys for:
+   # - OPENROUTER_API_KEY (for LLM access)
+   # - QDRANT_URL and QDRANT_API_KEY (for vector storage)
+   # - NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD (for graph storage)
+   # - REDIS_URL and REDIS_TOKEN (for queue management)
    ```
 
 3. Run the backend:
@@ -65,6 +77,11 @@ A modular, efficient multi-agent orchestration system using LangGraph for agent 
    npm install
    npm run dev
    ```
+   
+5. Troubleshooting:
+   - If Redis connection fails, the system will operate with limited functionality using local caching
+   - If Neo4j connection fails, the system will use fallback memory storage
+   - If Qdrant connection fails, ensure your API key and URL are correct
 
 ## Architecture
 
