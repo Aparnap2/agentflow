@@ -90,21 +90,21 @@ class BatchUpdate:
 class EnhancedQueueManager:
     def __init__(self):
         # Handle Upstash Redis URL format
-        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-        redis_token = os.getenv("REDIS_TOKEN")
+        UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", "redis://localhost:6379")
+        UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN")
         
-        # For Upstash Redis, use token-based authentication
-        if redis_token and "upstash.io" in redis_url:
-            # Upstash format: use rediss:// for SSL and token auth
-            if redis_url.startswith("https://"):
-                redis_url = redis_url.replace("https://", "rediss://")
-            self.redis_url = redis_url
-            self.redis_token = redis_token
+        # Check for Upstash REST URL (implying Upstash Redis) or token and URL
+        upstash_rest_url = os.getenv("UPSTASH_REDIS_REST_URL")
+        if upstash_rest_url or (UPSTASH_REDIS_REST_TOKEN and "upstash.io" in UPSTASH_REDIS_REST_URL):
+            # Convert to rediss:// if necessary for SSL
+            self.UPSTASH_REDIS_REST_URL = UPSTASH_REDIS_REST_URL.replace("https://", "rediss://") if "upstash.io" in UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_URL.startswith("https://") else UPSTASH_REDIS_REST_URL
+            self.UPSTASH_REDIS_REST_TOKEN = UPSTASH_REDIS_REST_TOKEN
             self.is_upstash = True
             logger.info("Using Upstash Redis for queue management")
         else:
-            self.redis_url = redis_url
-            self.redis_token = None
+            self.UPSTASH_REDIS_REST_URL = UPSTASH_REDIS_REST_URL
+            # Clear token if not using Upstash
+            self.UPSTASH_REDIS_REST_TOKEN = None
             self.is_upstash = False
 
         self.redis: Optional[redis.Redis] = None
@@ -147,10 +147,10 @@ class EnhancedQueueManager:
             # Try to use Upstash Redis first
             if UPSTASH_AVAILABLE:
                 try:
-                    # Create Upstash Redis client
-                    if self.redis_url.startswith("https://") and self.redis_token:
+                    # Create Upstash Redis client, prioritizing REST URL if available
+                    if self.UPSTASH_REDIS_REST_URL.startswith("https://") and self.UPSTASH_REDIS_REST_TOKEN:
                         # Create from URL and token
-                        upstash_client = AsyncRedis(url=self.redis_url, token=self.redis_token)
+                        upstash_client = AsyncRedis(url=self.UPSTASH_REDIS_REST_URL, token=self.UPSTASH_REDIS_REST_TOKEN)
                     else:
                         # Create from environment variables
                         upstash_client = AsyncRedis.from_env()
@@ -166,12 +166,12 @@ class EnhancedQueueManager:
             # Use standard Redis if Upstash is not available or failed
             if not hasattr(self, 'redis') or self.redis is None:
                 if REDIS_AVAILABLE:
-                    if self.redis_token:
+                    if self.UPSTASH_REDIS_REST_TOKEN:
                         # Upstash Redis with token authentication but using standard client
                         self.redis = redis.Redis(
-                            host=self.redis_url.replace("rediss://", "").replace("redis://", ""),
+                            host=self.UPSTASH_REDIS_REST_URL.replace("rediss://", "").replace("redis://", ""),
                             port=6379,
-                            password=self.redis_token,
+                            password=self.UPSTASH_REDIS_REST_TOKEN,
                             ssl=True,
                             decode_responses=True,
                             socket_timeout=10.0,
@@ -184,7 +184,7 @@ class EnhancedQueueManager:
                     else:
                         # Standard Redis connection
                         self.redis = redis.from_url(
-                            self.redis_url, 
+                            self.UPSTASH_REDIS_REST_URL, 
                             decode_responses=True,
                             health_check_interval=30
                         )
@@ -207,7 +207,7 @@ class EnhancedQueueManager:
                 # Use in-memory fallback
                 self.redis = InMemoryFallback()
                 logger.warning("⚠️ No Redis client available, using in-memory fallback")
-                
+
                 # Start background tasks for consistency
                 asyncio.create_task(self._batch_processor())
                 asyncio.create_task(self._metrics_collector())
@@ -245,7 +245,11 @@ class EnhancedQueueManager:
                     pipeline.delete(f"queue:{queue_name}:processing")
                     pipeline.delete(f"queue:{queue_name}:completed")
                     pipeline.delete(f"queue:{queue_name}:failed")
-                    
+
+                    # Debugging: Log commands in the pipeline
+                    # if hasattr(pipeline, 'commands'):
+                    #     logger.debug(f"Pipeline commands: {pipeline.commands}")
+
                     # Execute with timeout
                     await asyncio.wait_for(pipeline.execute(), timeout=5.0)
                     logger.info(f"📦 Created queue: {queue_name} with Redis structures")

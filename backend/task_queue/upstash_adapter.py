@@ -48,14 +48,38 @@ class UpstashAdapter:
             return None
     
     async def delete(self, *keys):
-        """Delete keys (Upstash uses del_)"""
+        """Delete keys (Upstash uses delete)"""
         try:
             if not keys:
                 return 0
-            return await self.client.del_(*keys)
+            return await self.client.delete(*keys)
         except Exception as e:
             logger.error(f"Upstash delete error: {e}")
             return 0
+    
+    async def get(self, key: str):
+        """Get a value"""
+        try:
+            return await self.client.get(key)
+        except Exception as e:
+            logger.error(f"Upstash get error: {e}")
+            return None
+    
+    async def set(self, key: str, value: str):
+        """Set a value"""
+        try:
+            return await self.client.set(key, value)
+        except Exception as e:
+            logger.error(f"Upstash set error: {e}")
+            return False
+    
+    async def setex(self, key: str, seconds: int, value: str):
+        """Set with expiration"""
+        try:
+            return await self.client.setex(key, seconds, value)
+        except Exception as e:
+            logger.error(f"Upstash setex error: {e}")
+            return False
     
     async def zadd(self, key: str, mapping: Dict[str, float]):
         """Add to sorted set with mapping format"""
@@ -216,7 +240,12 @@ class UpstashPipeline:
     
     def delete(self, key: str):
         """Add delete command to pipeline"""
-        self.commands.append(("del", key))
+        self.commands.append(("delete", key))
+        return self
+    
+    def setex(self, key: str, seconds: int, value: str):
+        """Add setex command to pipeline"""
+        self.commands.append(("setex", key, seconds, value))
         return self
     
     def lpush(self, key: str, value: str):
@@ -236,8 +265,10 @@ class UpstashPipeline:
             try:
                 if cmd[0] == "hset":
                     results.append(await self.client.hset(cmd[1], cmd[2], cmd[3]))
-                elif cmd[0] == "del":
-                    results.append(await self.client.del_(cmd[1]))
+                elif cmd[0] == "delete":
+                    results.append(await self.client.delete(cmd[1]))
+                elif cmd[0] == "setex":
+                    results.append(await self.client.setex(cmd[1], cmd[2], cmd[3]))
                 elif cmd[0] == "lpush":
                     results.append(await self.client.lpush(cmd[1], cmd[2]))
                 elif cmd[0] == "expire":

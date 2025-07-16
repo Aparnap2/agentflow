@@ -15,19 +15,18 @@ class StateManager:
     def __init__(self):
         """Initialize Redis connection for state persistence"""
         # Handle Upstash Redis URL format
-        redis_url = os.getenv("REDIS_URL", "redis://localhost:6379")
-        redis_token = os.getenv("REDIS_TOKEN")
+        UPSTASH_REDIS_REST_URL = os.getenv("UPSTASH_REDIS_REST_URL", "redis://localhost:6379")
+        UPSTASH_REDIS_REST_TOKEN = os.getenv("UPSTASH_REDIS_REST_TOKEN")
         
-        # For Upstash Redis, use token-based authentication
-        if redis_token and "upstash.io" in redis_url:
-            # Upstash format: use rediss:// for SSL and token auth
-            if redis_url.startswith("https://"):
-                redis_url = redis_url.replace("https://", "rediss://")
-            self.redis_url = redis_url
-            self.redis_token = redis_token
+        # Check for Upstash REST URL (implying Upstash Redis) or token and URL
+        upstash_rest_url = os.getenv("UPSTASH_REDIS_REST_URL")
+        if upstash_rest_url or (UPSTASH_REDIS_REST_TOKEN and "upstash.io" in UPSTASH_REDIS_REST_URL):
+            self.UPSTASH_REDIS_REST_URL = UPSTASH_REDIS_REST_URL.replace("https://", "rediss://") if "upstash.io" in UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_URL.startswith("https://") else UPSTASH_REDIS_REST_URL
+            self.UPSTASH_REDIS_REST_TOKEN = UPSTASH_REDIS_REST_TOKEN
+            logger.info("Using Upstash Redis for state management")
         else:
-            self.redis_url = redis_url
-            self.redis_token = None
+            self.UPSTASH_REDIS_REST_URL = UPSTASH_REDIS_REST_URL
+            self.UPSTASH_REDIS_REST_TOKEN = None
             
         self.redis = None
         self._connect()
@@ -35,18 +34,18 @@ class StateManager:
     def _connect(self):
         """Connect to Redis database"""
         try:
-            if self.redis_token:
+            if self.UPSTASH_REDIS_REST_TOKEN and "upstash.io" in self.UPSTASH_REDIS_REST_URL:
                 # Upstash Redis with token authentication
                 self.redis = redis.Redis(
-                    host=self.redis_url.replace("rediss://", "").replace("redis://", ""),
+                    host=self.UPSTASH_REDIS_REST_URL.replace("rediss://", "").replace("redis://", ""),
                     port=6379,
-                    password=self.redis_token,
+                    password=self.UPSTASH_REDIS_REST_TOKEN,
                     ssl=True,
                     decode_responses=True
                 )
             else:
                 # Standard Redis connection
-                self.redis = redis.from_url(self.redis_url, decode_responses=True)
+                self.redis = redis.from_url(self.UPSTASH_REDIS_REST_URL, decode_responses=True)
             
             # Test the connection
             self.redis.ping()

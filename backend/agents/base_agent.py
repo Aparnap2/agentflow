@@ -84,26 +84,31 @@ class BaseAgent(ABC):
                 await asyncio.sleep(2 ** attempt)  # Exponential backoff
     
     async def _store_result(self, result: Dict[str, Any]):
-        """Store result in memory systems"""
+        """Store result with intelligent caching and minimal DB access"""
         # Store detailed result in private memory
         await self.memory_manager.store_agent_memory(
             agent_name=self.name,
             memory_type="task_result",
             content=result,
-            is_shared=False
+            is_shared=False,
+            metadata={
+                "task_id": self.current_task.get("id"),
+                "confidence": result.get("confidence", 1.0)
+            }
         )
         
-        # Store key outputs in shared memory
+        # Store key outputs - memory manager will decide if global context worthy
         if "output" in result:
             await self.memory_manager.store_agent_memory(
                 agent_name=self.name,
                 memory_type=f"{self.name.lower()}_output",
                 content=result["output"],
-                is_shared=True,
+                is_shared=True,  # Let memory manager decide based on importance
                 confidence=result.get("confidence", 1.0),
                 metadata={
                     "task_id": self.current_task.get("id"),
-                    "timestamp": datetime.now().isoformat()
+                    "timestamp": datetime.now().isoformat(),
+                    "critical": result.get("confidence", 0) > 0.8
                 }
             )
     
@@ -123,11 +128,13 @@ class BaseAgent(ABC):
         }
     
     async def _get_shared_context(self) -> Dict[str, Any]:
-        """Get current shared context for this agent"""
+        """Get current shared context with optimized caching"""
+        # Memory manager handles caching automatically
         return await self.memory_manager.get_shared_context()
     
     async def _search_knowledge(self, query: str, limit: int = 3) -> List[Dict[str, Any]]:
-        """Search semantic knowledge base"""
+        """Search semantic knowledge base with caching"""
+        # Memory manager handles caching and event-driven DB access
         return await self.memory_manager.semantic_search(
             query=query,
             agent_name=self.name,

@@ -54,6 +54,21 @@ class InMemoryFallback:
                     count += 1
         return count
     
+    async def get(self, key: str):
+        """Get a value"""
+        return self.key_values.get(key)
+    
+    async def set(self, key: str, value: str):
+        """Set a value"""
+        self.key_values[key] = value
+        return True
+    
+    async def setex(self, key: str, seconds: int, value: str):
+        """Set with expiration"""
+        self.key_values[key] = value
+        self.expiry[key] = time.time() + seconds
+        return True
+    
     async def zadd(self, key: str, mapping: Dict[str, float]):
         """Add to sorted set"""
         if key not in self.sorted_sets:
@@ -205,6 +220,11 @@ class InMemoryPipeline:
         self.commands.append(("expire", key, seconds))
         return self
     
+    def setex(self, key: str, seconds: int, value: str):
+        """Add setex command to pipeline"""
+        self.commands.append(("setex", key, seconds, value))
+        return self
+    
     async def execute(self):
         """Execute pipeline commands"""
         results = []
@@ -220,6 +240,8 @@ class InMemoryPipeline:
                     results.append(await self.fallback.lpush(cmd[1], cmd[2]))
                 elif cmd[0] == "expire":
                     results.append(await self.fallback.expire(cmd[1], cmd[2]))
+                elif cmd[0] == "setex":
+                    results.append(await self.fallback.setex(cmd[1], cmd[2], cmd[3]))
             except Exception as e:
                 logger.error(f"In-memory pipeline error executing {cmd[0]}: {e}")
                 results.append(None)
