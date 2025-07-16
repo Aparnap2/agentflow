@@ -1,5 +1,5 @@
-# Global Windsurf Rules File
-These rules govern how Cascade behaves across all workspaces, ensuring consistent, efficient, and production-ready development for my portfolio projects (healthcare mobile app, SaaS chatbot builder, AI virtual office, self-hosted NotebookLM alternative). The goal is to complete MVPs, avoid endless iterations, and produce demo-ready code for showcasing to clients via YouTube and LinkedIn.
+# Global amazon q Rules File
+These rules govern how amazon q behaves across all workspaces, ensuring consistent, efficient, and production-ready development for my portfolio projects (healthcare mobile app, SaaS chatbot builder, AI virtual office, self-hosted NotebookLM alternative). The goal is to complete MVPs, avoid endless iterations, and produce demo-ready code for showcasing to clients via YouTube and LinkedIn.
 
 ## Build and Testing Systems
 1. **Frontend Build System**: Use Next.js for web and React Native/Expo for mobile. Leverage Vercel for deployment.
@@ -64,7 +64,7 @@ These rules govern how Cascade behaves across all workspaces, ensuring consisten
 19. **Bolt.new (UI)**:
     - Use for rapid UI prototyping in React/Next.js/React Native.
     - Refactor output for modularity and responsiveness (e.g., with Dripsy/NativeWind).
-20. **Cursor/Windsurf (Logic)**:
+20. **Cursor/amazon q (Logic)**:
     - Generate modular, type-safe code (TypeScript for frontend, Pydantic for backend).
     - Reference PRDs in prompts for context.
     - e.g., “Generate a NestJS GraphQL API for [feature] using Prisma and MongoDB.”
@@ -100,7 +100,7 @@ These rules govern how Cascade behaves across all workspaces, ensuring consisten
 
 ## Restrictions
 31. **No Overwrites Without Approval**:
-    - Cascade must prompt before overwriting critical files or logic.
+    - amazon q must prompt before overwriting critical files or logic.
 32. **No Experimental Features**:
     - Avoid unstable APIs or libraries in alpha/beta stages.
 33. **No Untracked Changes**:

@@ -13,14 +13,38 @@ from dataclasses import dataclass, asdict
 from enum import Enum
 from loguru import logger
 
-# Import Upstash Redis instead of standard Redis
+# Import Redis clients
+try:
+    import redis.asyncio as redis
+    REDIS_AVAILABLE = True
+except ImportError:
+    REDIS_AVAILABLE = False
+
+# Import Upstash Redis
 try:
     from upstash_redis import Redis
     from upstash_redis.asyncio import Redis as AsyncRedis
-    USING_UPSTASH = True
+    UPSTASH_AVAILABLE = True
 except ImportError:
-    import redis.asyncio as redis
-    USING_UPSTASH = False
+    UPSTASH_AVAILABLE = False
+
+# Import local adapter for Upstash Redis
+from .upstash_adapter import UpstashAdapter
+
+# Import in-memory fallback
+try:
+    from .memory_fallback import InMemoryFallback
+except ImportError:
+    # Define a simple fallback if import fails
+    class InMemoryFallback:
+        def __init__(self):
+            self.is_upstash = False
+            
+        async def ping(self):
+            return True
+            
+        def pipeline(self):
+            return self
 
 class TaskStatus(Enum):
     PENDING = "pending"
@@ -120,54 +144,77 @@ class EnhancedQueueManager:
     async def connect(self):
         """Connect to Redis with optimized settings for Upstash"""
         try:
-            if USING_UPSTASH:
-                # Use Upstash Redis library directly
-                if self.redis_url.startswith("https://") and self.redis_token:
-                    # Create Upstash Redis client from URL and token
-                    self.redis = AsyncRedis(url=self.redis_url, token=self.redis_token)
+            # Try to use Upstash Redis first
+            if UPSTASH_AVAILABLE:
+                try:
+                    # Create Upstash Redis client
+                    if self.redis_url.startswith("https://") and self.redis_token:
+                        # Create from URL and token
+                        upstash_client = AsyncRedis(url=self.redis_url, token=self.redis_token)
+                    else:
+                        # Create from environment variables
+                        upstash_client = AsyncRedis.from_env()
+                    
+                    # Wrap with our adapter for compatibility
+                    self.redis = UpstashAdapter(upstash_client)
+                    self.is_upstash = True
+                    logger.info("Using Upstash Redis with compatibility adapter")
+                except Exception as upstash_error:
+                    logger.warning(f"Failed to initialize Upstash Redis: {upstash_error}, falling back to standard Redis")
+                    # Fall through to standard Redis
+            
+            # Use standard Redis if Upstash is not available or failed
+            if not hasattr(self, 'redis') or self.redis is None:
+                if REDIS_AVAILABLE:
+                    if self.redis_token:
+                        # Upstash Redis with token authentication but using standard client
+                        self.redis = redis.Redis(
+                            host=self.redis_url.replace("rediss://", "").replace("redis://", ""),
+                            port=6379,
+                            password=self.redis_token,
+                            ssl=True,
+                            decode_responses=True,
+                            socket_timeout=10.0,
+                            socket_connect_timeout=8.0,
+                            socket_keepalive=True,
+                            health_check_interval=120,
+                            retry_on_timeout=True,
+                            retry=3
+                        )
+                    else:
+                        # Standard Redis connection
+                        self.redis = redis.from_url(
+                            self.redis_url, 
+                            decode_responses=True,
+                            health_check_interval=30
+                        )
+                    self.is_upstash = False
+                    logger.info("Using standard Redis client")
                 else:
-                    # Create from environment variables if available
-                    self.redis = AsyncRedis.from_env()
+                    logger.warning("Neither Upstash nor standard Redis is available")
+                    self.redis = None
+            
+            # Test connection if we have a client
+            if self.redis:
+                await self.redis.ping()
+                logger.info("✅ Connected to Redis queue system")
                 
-                # Set flag for Upstash
-                self.is_upstash = True
-                logger.info("Using Upstash Redis native client")
+                # Start background tasks
+                asyncio.create_task(self._batch_processor())
+                asyncio.create_task(self._metrics_collector())
+                asyncio.create_task(self._cache_cleanup())
             else:
-                # Fallback to standard Redis
-                if self.redis_token:
-                    # Upstash Redis with token authentication
-                    self.redis = redis.Redis(
-                        host=self.redis_url.replace("rediss://", "").replace("redis://", ""),
-                        port=6379,
-                        password=self.redis_token,
-                        ssl=True,
-                        decode_responses=True,
-                        socket_timeout=10.0,
-                        socket_connect_timeout=8.0,
-                        socket_keepalive=True,
-                        health_check_interval=120,
-                        retry_on_timeout=True,
-                        retry=3
-                    )
-                else:
-                    # Standard Redis connection
-                    self.redis = redis.from_url(
-                        self.redis_url, 
-                        decode_responses=True,
-                        health_check_interval=30
-                    )
-            
-            # Test connection
-            await self.redis.ping()
-            logger.info("✅ Connected to Redis queue system")
-            
-            # Start background tasks
-            asyncio.create_task(self._batch_processor())
-            asyncio.create_task(self._metrics_collector())
-            asyncio.create_task(self._cache_cleanup())
+                # Use in-memory fallback
+                self.redis = InMemoryFallback()
+                logger.warning("⚠️ No Redis client available, using in-memory fallback")
+                
+                # Start background tasks for consistency
+                asyncio.create_task(self._batch_processor())
+                asyncio.create_task(self._metrics_collector())
+                asyncio.create_task(self._cache_cleanup())
             
         except ImportError as ie:
-            logger.error(f"❌ Redis import error: {ie}. Install with 'pip install upstash-redis'")
+            logger.error(f"❌ Redis import error: {ie}. Install with 'pip install upstash-redis redis'")
             self.redis = None  # Set to None to allow fallback to local cache
             
         except Exception as e:

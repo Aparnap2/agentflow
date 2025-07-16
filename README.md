@@ -1,94 +1,134 @@
-# AgentFlow
+# Agentflow: Multi-Agent Virtual Office
 
-A modular, efficient multi-agent orchestration system using LangGraph for agent coordination and communication.
+A sophisticated multi-agent system for business automation and decision support, powered by LangGraph and advanced AI agents.
 
-## Core Features
+## Key Features
 
-- **LangGraph Integration**: Efficient agent workflows with state management
-- **Lazy Initialization**: Resources are only initialized when needed
-- **Caching System**: Reduces redundant data fetching and LLM calls
-- **Modular Architecture**: Reusable components across the system
-- **Queue Management**: Optimized task processing with priority handling
-
-## Recent Optimizations
-
-- **Session Persistence**: Added SQLite-based session storage for persistence across server restarts
-- **Redis Connection Resilience**: Improved error handling and fallback mechanisms for Redis operations
-- **Multi-level Caching**: Implemented hot cache and local memory cache for better performance
-- **Lazy Queue Initialization**: Queue system now initializes only when needed, not at startup
-- **Cached Context**: Global context is cached with TTL to reduce database queries
-- **Efficient LLM Calls**: Implemented caching for similar prompts to reduce token usage
-- **Optimized React Components**: Fixed ReactMarkdown implementation for better frontend performance
-- **Streamlined Agent Communication**: Reduced data transfer between agents
-
-## TODO
-
-1. **Further Optimization**
-   - Implement batched LLM calls for similar agent tasks
-   - Add compression for large context objects
-   - Optimize memory usage in vector store queries
-
-2. **Code Reuse**
-   - Extract common agent patterns into shared utilities
-   - Create a unified prompt template system
-   - Standardize error handling across agents
-
-3. **Performance Monitoring**
-   - Add detailed performance metrics for each agent
-   - Implement token usage tracking
-   - Create dashboard for system performance
-
-4. **Architecture Improvements**
-   - Consolidate duplicate agent functionality
-   - Implement more efficient state transitions in LangGraph
-   - Optimize WebSocket communication for real-time updates
-
-## Getting Started
-
-1. Install dependencies:
-   ```
-   # Quick install of critical dependencies
-   chmod +x install_dependencies.sh
-   ./install_dependencies.sh
-   
-   # Or full install
-   pip install -r backend/requirements.txt
-   ```
-
-2. Set up environment variables:
-   ```
-   cp .env.example .env
-   # Edit .env with your API keys for:
-   # - OPENROUTER_API_KEY (for LLM access)
-   # - QDRANT_URL and QDRANT_API_KEY (for vector storage)
-   # - NEO4J_URI, NEO4J_USERNAME, NEO4J_PASSWORD (for graph storage)
-   # - REDIS_URL and REDIS_TOKEN (for queue management)
-   ```
-
-3. Run the backend:
-   ```
-   cd backend
-   uvicorn main:app --reload
-   ```
-
-4. Run the frontend:
-   ```
-   cd frontend
-   npm install
-   npm run dev
-   ```
-   
-5. Troubleshooting:
-   - If Redis connection fails, the system will operate with limited functionality using local caching
-   - If Neo4j connection fails, the system will use fallback memory storage
-   - If Qdrant connection fails, ensure your API key and URL are correct
+- **Specialized AI Agents**: Cofounder, Manager, Sales, Marketing, Finance, Legal, and more
+- **Structured Communication**: LangGraph-based state management for reliable agent coordination
+- **Advanced Memory Systems**: Neo4j for private memory, Qdrant for vector/global memory
+- **Tool Integration**: Built-in tools for web search, financial modeling, and legal compliance
+- **Self-Healing**: Automatic error detection and recovery mechanisms
+- **Personality Profiles**: Customizable agent behaviors and expertise areas
 
 ## Architecture
 
-The system uses a modular architecture with these key components:
+![AgentFlow Architecture](docs/architecture.png)
 
-- **LangGraph Core**: Efficient agent workflows with state management
-- **Memory Systems**: Vector and graph databases for context
-- **Queue Management**: Redis-based task processing
-- **Agent Factory**: Dynamic agent creation and configuration
-- **Event Bus**: Real-time communication between components
+### Core Components
+
+1. **LangGraph Orchestrator**
+   - Manages agent workflows and state transitions
+   - Implements error handling and quality control
+   - Ensures structured communication between agents
+
+2. **Agent Types**
+   - **Cofounder**: Vision and strategy
+   - **Manager**: Project coordination and task delegation
+   - **Sales**: Customer acquisition and forecasting
+   - **Marketing**: Content strategy and brand amplification
+   - **Finance**: Financial modeling and ROI analysis
+   - **Legal**: Compliance and document generation
+
+3. **Memory Systems**
+   - **Neo4j**: Private agent memory and knowledge graphs
+   - **Qdrant**: Vector embeddings and semantic search
+   - **Redis**: Caching and queue management
+
+4. **Tool Integration**
+   - Web search and content analysis
+   - Financial modeling and forecasting
+   - Legal document generation
+   - SEO and marketing analytics
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.9+
+- Docker and Docker Compose (for local development)
+- API keys for required services (OpenRouter, Qdrant, Neo4j, Redis)
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/aparnap2/agentflow.git
+   cd agentflow
+   ```
+
+2. Set up the environment:
+   ```bash
+   cp .env.example .env
+   # Edit .env with your API keys and configuration
+   ```
+
+3. Start the services:
+   ```bash
+   docker-compose up -d
+   ```
+
+4. Install Python dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+
+5. Initialize the database:
+   ```bash
+   python -m scripts.initialize_db
+   ```
+
+## Agent Personalities
+
+Each agent has a distinct personality and expertise area:
+
+| Agent | Personality | Key Focus | Temperature | Confidence Threshold |
+|-------|-------------|-----------|-------------|----------------------|
+| Cofounder | Visionary | Strategy | 0.7 | 0.75 |
+| Manager | Organized | Coordination | 0.5 | 0.8 |
+| Sales | Persuasive | Revenue | 0.6 | 0.7 |
+| Marketing | Creative | Branding | 0.7 | 0.6 |
+| Finance | Analytical | ROI | 0.3 | 0.8 |
+| Legal | Precise | Compliance | 0.3 | 0.85 |
+
+## Development
+
+### Running Tests
+
+```bash
+pytest tests/
+```
+
+### Code Structure
+
+```
+agentflow/
+├── backend/
+│   ├── agents/           # Agent implementations
+│   ├── tools/            # Custom tools
+│   ├── workflows/        # LangGraph workflows
+│   ├── memory/           # Memory management
+│   └── main.py           # FastAPI application
+├── frontend/             # Web interface
+└── docker-compose.yml    # Development environment
+```
+
+## Documentation
+
+For detailed documentation, see:
+
+- [Agent Development Guide](docs/agent_development.md)
+- [API Reference](docs/api.md)
+- [Deployment Guide](docs/deployment.md)
+
+## Contributing
+
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Contact
+
+For questions or support, please open an issue or contact [your-email@example.com](mailto:your-email@example.com)
