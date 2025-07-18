@@ -324,6 +324,15 @@ class LegalAgent(LangGraphAgent):
             RegulatoryValidatorTool()
         ]
         self.web_search = WebSearchTool()
+        
+        # Initialize role-specific action methods
+        self.role_actions = {
+            "document_drafting": self._draft_document,
+            "contract_review": self._review_contract,
+            "compliance_check": self._check_compliance,
+            "legal_information": self._provide_legal_information,
+            "risk_assessment": self._assess_legal_risk
+        }
     
     async def _execute_actions(self, state) -> Dict[str, Any]:
         """Execute legal-specific actions"""
@@ -626,3 +635,271 @@ class LegalAgent(LangGraphAgent):
             }
         except Exception as e:
             return {"error": str(e), "fallback": "Manual legal research required"}
+    
+    # === ROLE-SPECIFIC ACTION METHODS ===
+    async def _draft_document(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Draft legal document based on provided parameters"""
+        document_type = params.get("document_type", "terms_of_service")
+        company_info = params.get("company_info", {})
+        jurisdiction = params.get("jurisdiction", "US")
+        
+        if not company_info:
+            return {"error": "No company information provided for document drafting", "success": False}
+        
+        try:
+            # Use document generator tool
+            doc_generator = next(tool for tool in self.tools if tool.name == "document_generator")
+            document_result = await doc_generator._arun(
+                document_type=document_type,
+                company_info=company_info,
+                jurisdiction=jurisdiction
+            )
+            
+            # Store in memory
+            await self.memory_manager.store_agent_memory(
+                agent_name=self.name,
+                memory_type="legal_documents",
+                content=document_result,
+                is_shared=True,
+                confidence=0.9
+            )
+            
+            return {
+                "document": document_result,
+                "document_type": document_type,
+                "jurisdiction": jurisdiction,
+                "confidence": 0.9,
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            return {
+                "error": str(e),
+                "success": False,
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    async def _review_contract(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Review contract for compliance and issues"""
+        contract_text = params.get("contract_text", "")
+        contract_type = params.get("contract_type", "general")
+        
+        if not contract_text:
+            return {"error": "No contract text provided for review", "success": False}
+        
+        # Analyze contract for issues
+        issues = []
+        recommendations = []
+        
+        # Check for common contract issues
+        if "indemnification" in contract_text.lower() and "limitation of liability" not in contract_text.lower():
+            issues.append({
+                "type": "missing_clause",
+                "description": "Indemnification clause present without limitation of liability",
+                "severity": "High",
+                "location": "N/A"
+            })
+            recommendations.append("Add limitation of liability clause to balance indemnification requirements")
+        
+        if "governing law" not in contract_text.lower():
+            issues.append({
+                "type": "missing_clause",
+                "description": "No governing law clause specified",
+                "severity": "Medium",
+                "location": "N/A"
+            })
+            recommendations.append("Add governing law clause to specify jurisdiction for dispute resolution")
+        
+        if "termination" not in contract_text.lower():
+            issues.append({
+                "type": "missing_clause",
+                "description": "No termination clause specified",
+                "severity": "Medium",
+                "location": "N/A"
+            })
+            recommendations.append("Add termination clause to specify conditions for ending the agreement")
+        
+        # Generate review summary
+        review_summary = {
+            "contract_type": contract_type,
+            "issues_found": len(issues),
+            "risk_level": "High" if any(issue["severity"] == "High" for issue in issues) else "Medium" if issues else "Low",
+            "issues": issues,
+            "recommendations": recommendations,
+            "reviewed_at": datetime.now().isoformat()
+        }
+        
+        # Store in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="contract_reviews",
+            content=review_summary,
+            is_shared=True,
+            confidence=0.85
+        )
+        
+        return {
+            "review_summary": review_summary,
+            "confidence": 0.85,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    async def _check_compliance(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Check compliance with regulations"""
+        business_type = params.get("business_type", "technology")
+        jurisdictions = params.get("jurisdictions", ["US", "EU"])
+        data_handling = params.get("data_handling", "basic")
+        
+        try:
+            # Use compliance checker tool
+            compliance_tool = next(tool for tool in self.tools if tool.name == "compliance_checker")
+            compliance_results = await compliance_tool._arun(
+                business_type=business_type,
+                jurisdictions=jurisdictions,
+                data_handling=data_handling
+            )
+            
+            # Store in memory
+            await self.memory_manager.store_agent_memory(
+                agent_name=self.name,
+                memory_type="compliance_checks",
+                content=compliance_results,
+                is_shared=True,
+                confidence=0.9
+            )
+            
+            return {
+                "compliance_results": compliance_results,
+                "business_type": business_type,
+                "jurisdictions": jurisdictions,
+                "confidence": 0.9,
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            return {
+                "error": str(e),
+                "success": False,
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    async def _provide_legal_information(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Provide legal information on a specific topic"""
+        topic = params.get("topic", "")
+        jurisdiction = params.get("jurisdiction", "US")
+        
+        if not topic:
+            return {"error": "No topic provided for legal information", "success": False}
+        
+        try:
+            # Use web search for legal information
+            search_query = f"legal information {topic} {jurisdiction} law"
+            search_results = await self.web_search._arun(search_query)
+            
+            # Extract and organize information
+            legal_information = {
+                "topic": topic,
+                "jurisdiction": jurisdiction,
+                "summary": search_results.get("summary", "No information found"),
+                "key_points": [result.get("title", "") for result in search_results.get("results", [])[:5]],
+                "disclaimer": "This information is for general educational purposes only and does not constitute legal advice.",
+                "sources": len(search_results.get("results", [])),
+                "generated_at": datetime.now().isoformat()
+            }
+            
+            # Store in memory
+            await self.memory_manager.store_agent_memory(
+                agent_name=self.name,
+                memory_type="legal_information",
+                content=legal_information,
+                is_shared=True,
+                confidence=0.8
+            )
+            
+            return {
+                "legal_information": legal_information,
+                "confidence": 0.8,
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            return {
+                "error": str(e),
+                "success": False,
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    async def _assess_legal_risk(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Assess legal risks for a business model or activity"""
+        business_model = params.get("business_model", "")
+        activities = params.get("activities", [])
+        jurisdictions = params.get("jurisdictions", ["US"])
+        
+        if not business_model and not activities:
+            return {"error": "No business model or activities provided for risk assessment", "success": False}
+        
+        # Identify potential legal risks
+        legal_risks = []
+        
+        # Data-related risks
+        if "data" in business_model.lower() or any("data" in activity.lower() for activity in activities):
+            legal_risks.append({
+                "category": "Data Privacy",
+                "risk": "Personal data processing without proper consent",
+                "severity": "High",
+                "mitigation": "Implement comprehensive privacy policy and consent mechanisms",
+                "applicable_regulations": ["GDPR", "CCPA", "CPRA"]
+            })
+        
+        # Financial risks
+        if "payment" in business_model.lower() or "financial" in business_model.lower() or any(("payment" in activity.lower() or "financial" in activity.lower()) for activity in activities):
+            legal_risks.append({
+                "category": "Financial Regulation",
+                "risk": "Non-compliance with financial services regulations",
+                "severity": "High",
+                "mitigation": "Consult with financial services attorney and implement required compliance measures",
+                "applicable_regulations": ["PCI DSS", "BSA/AML", "Dodd-Frank"]
+            })
+        
+        # International risks
+        if "international" in business_model.lower() or len(jurisdictions) > 1:
+            legal_risks.append({
+                "category": "International Compliance",
+                "risk": "Varying legal requirements across jurisdictions",
+                "severity": "Medium",
+                "mitigation": "Research and implement jurisdiction-specific compliance measures",
+                "applicable_regulations": ["Local laws in each jurisdiction"]
+            })
+        
+        # Intellectual property risks
+        if "content" in business_model.lower() or "software" in business_model.lower() or any(("content" in activity.lower() or "software" in activity.lower()) for activity in activities):
+            legal_risks.append({
+                "category": "Intellectual Property",
+                "risk": "IP infringement or inadequate protection",
+                "severity": "Medium",
+                "mitigation": "Conduct IP audit, secure necessary rights, implement IP protection strategy",
+                "applicable_regulations": ["Copyright laws", "Patent laws", "Trademark laws"]
+            })
+        
+        # Generate risk assessment
+        risk_assessment = {
+            "business_model": business_model,
+            "activities": activities,
+            "jurisdictions": jurisdictions,
+            "identified_risks": legal_risks,
+            "overall_risk_level": "High" if any(risk["severity"] == "High" for risk in legal_risks) else "Medium" if legal_risks else "Low",
+            "priority_mitigations": [risk["mitigation"] for risk in legal_risks if risk["severity"] == "High"],
+            "assessed_at": datetime.now().isoformat()
+        }
+        
+        # Store in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="risk_assessments",
+            content=risk_assessment,
+            is_shared=True,
+            confidence=0.85
+        )
+        
+        return {
+            "risk_assessment": risk_assessment,
+            "confidence": 0.85,
+            "timestamp": datetime.now().isoformat()
+        }
