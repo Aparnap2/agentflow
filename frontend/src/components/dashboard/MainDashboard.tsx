@@ -14,13 +14,15 @@ import {
   Zap,
   Bell,
   Calendar,
-  TrendingUp
+  TrendingUp,
+  Search
 } from 'lucide-react';
 
 import { AgentStatusDashboard } from './AgentStatusDashboard';
 import { TaskFlowVisualization } from './TaskFlowVisualization';
 import { MorningBrief } from './MorningBrief';
 import { AgentInteractionPanel } from './AgentInteractionPanel';
+import { UnifiedUserExperience } from './UnifiedUserExperience';
 
 interface DashboardStats {
   totalAgents: number;
@@ -84,6 +86,13 @@ export const MainDashboard: React.FC = () => {
                 <Settings className="w-4 h-4 mr-2" />
                 Settings
               </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => window.location.href = '?view=classic'}
+              >
+                Switch to Classic View
+              </Button>
             </div>
           </div>
         </div>
@@ -92,7 +101,7 @@ export const MainDashboard: React.FC = () => {
       {/* Main Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview" className="flex items-center space-x-2">
               <BarChart3 className="w-4 h-4" />
               <span>Overview</span>
@@ -112,6 +121,10 @@ export const MainDashboard: React.FC = () => {
             <TabsTrigger value="interactions" className="flex items-center space-x-2">
               <MessageSquare className="w-4 h-4" />
               <span>Interactions</span>
+            </TabsTrigger>
+            <TabsTrigger value="unified" className="flex items-center space-x-2">
+              <Search className="w-4 h-4" />
+              <span>Unified Experience</span>
             </TabsTrigger>
           </TabsList>
 
@@ -272,6 +285,10 @@ export const MainDashboard: React.FC = () => {
 
           <TabsContent value="interactions">
             <AgentInteractionPanel />
+          </TabsContent>
+
+          <TabsContent value="unified">
+            <UnifiedUserExperience />
           </TabsContent>
         </Tabs>
       </div>
