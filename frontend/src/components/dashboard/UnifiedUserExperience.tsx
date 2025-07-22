@@ -4,7 +4,6 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Search, 
   Bell, 
@@ -17,6 +16,7 @@ import {
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { formatDistanceToNow } from 'date-fns';
 
+// Reusing interfaces from existing components
 interface Notification {
   id: string;
   type: 'info' | 'warning' | 'error' | 'success';
@@ -34,7 +34,6 @@ interface SearchResult {
   content: string;
   agent: string;
   created_at: string;
-  relevance: number;
 }
 
 interface AgentConversation {
@@ -58,135 +57,80 @@ export const UnifiedUserExperience: React.FC = () => {
   // WebSocket connection for real-time updates
   const { data: wsData } = useWebSocket('/api/notifications/ws');
 
-  // Fetch notifications
-  const fetchNotifications = async () => {
-    try {
-      setLoading(true);
-      // In a real implementation, this would fetch from an API
-      // For now, we'll use mock data
-      const mockNotifications: Notification[] = [
-        {
-          id: '1',
-          type: 'warning',
-          title: 'Priority Conflict',
-          message: 'Marketing and Finance agents have conflicting priorities for budget allocation',
-          source_agent: 'Manager',
-          created_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(), // 5 minutes ago
-          read: false
-        },
-        {
-          id: '2',
-          type: 'info',
-          title: 'Task Completed',
-          message: 'Content calendar for Q3 has been completed',
-          source_agent: 'Marketing',
-          created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(), // 15 minutes ago
-          read: true
-        },
-        {
-          id: '3',
-          type: 'success',
-          title: 'Decision Approved',
-          message: 'Budget allocation for Q3 marketing campaigns approved',
-          source_agent: 'Finance',
-          created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
-          read: false
-        }
-      ];
-      
-      setNotifications(mockNotifications);
-      setError(null);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unknown error');
-    } finally {
-      setLoading(false);
+  // Mock data for demonstration
+  const mockNotifications: Notification[] = [
+    {
+      id: '1',
+      type: 'warning',
+      title: 'Priority Conflict',
+      message: 'Marketing and Finance agents have conflicting priorities',
+      source_agent: 'Manager',
+      created_at: new Date(Date.now() - 1000 * 60 * 5).toISOString(),
+      read: false
+    },
+    {
+      id: '2',
+      type: 'info',
+      title: 'Task Completed',
+      message: 'Content calendar for Q3 has been completed',
+      source_agent: 'Marketing',
+      created_at: new Date(Date.now() - 1000 * 60 * 15).toISOString(),
+      read: true
     }
-  };
-
-  // Fetch agent conversations
-  const fetchConversations = async () => {
-    try {
-      // In a real implementation, this would fetch from an API
-      // For now, we'll use mock data
-      const mockConversations: AgentConversation[] = [
-        {
-          agent_name: 'Marketing',
-          last_message: 'I've completed the content calendar for Q3',
-          last_activity: new Date(Date.now() - 1000 * 60 * 10).toISOString(), // 10 minutes ago
-          unread_count: 0
-        },
-        {
-          agent_name: 'Finance',
-          last_message: 'Budget allocation for Q3 has been approved',
-          last_activity: new Date(Date.now() - 1000 * 60 * 30).toISOString(), // 30 minutes ago
-          unread_count: 2
-        },
-        {
-          agent_name: 'Legal',
-          last_message: 'I've reviewed the terms of service update',
-          last_activity: new Date(Date.now() - 1000 * 60 * 45).toISOString(), // 45 minutes ago
-          unread_count: 1
-        },
-        {
-          agent_name: 'Strategy',
-          last_message: 'Q4 planning is now complete',
-          last_activity: new Date(Date.now() - 1000 * 60 * 60).toISOString(), // 1 hour ago
-          unread_count: 0
-        }
-      ];
-      
-      setConversations(mockConversations);
-    } catch (err) {
-      console.error('Error fetching conversations:', err);
+  ];
+  
+  const mockConversations: AgentConversation[] = [
+    {
+      agent_name: 'Marketing',
+      last_message: 'I've completed the content calendar for Q3',
+      last_activity: new Date(Date.now() - 1000 * 60 * 10).toISOString(),
+      unread_count: 0
+    },
+    {
+      agent_name: 'Finance',
+      last_message: 'Budget allocation for Q3 has been approved',
+      last_activity: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+      unread_count: 2
     }
-  };
+  ];
 
-  // Search across agents
-  const handleSearch = async () => {
+  // Fetch data
+  useEffect(() => {
+    // Simulate API calls
+    setNotifications(mockNotifications);
+    setConversations(mockConversations);
+    setLoading(false);
+  }, []);
+
+  // Handle search
+  const handleSearch = () => {
     if (!searchQuery.trim()) return;
     
     setIsSearching(true);
-    try {
-      // In a real implementation, this would search via an API
-      // For now, we'll use mock results
-      setTimeout(() => {
-        const mockResults: SearchResult[] = [
-          {
-            id: '1',
-            type: 'conversation',
-            title: 'Marketing Campaign Discussion',
-            content: `...${searchQuery}...`,
-            agent: 'Marketing',
-            created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(), // 1 day ago
-            relevance: 0.95
-          },
-          {
-            id: '2',
-            type: 'task',
-            title: 'Budget Review',
-            content: `...${searchQuery}...`,
-            agent: 'Finance',
-            created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(), // 2 days ago
-            relevance: 0.85
-          },
-          {
-            id: '3',
-            type: 'document',
-            title: 'Q3 Strategy Document',
-            content: `...${searchQuery}...`,
-            agent: 'Strategy',
-            created_at: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(), // 3 days ago
-            relevance: 0.75
-          }
-        ];
-        
-        setSearchResults(mockResults);
-        setIsSearching(false);
-      }, 500);
-    } catch (err) {
-      console.error('Error searching:', err);
+    // Simulate search API call
+    setTimeout(() => {
+      const results = [
+        {
+          id: '1',
+          type: 'conversation',
+          title: 'Marketing Campaign Discussion',
+          content: `...${searchQuery}...`,
+          agent: 'Marketing',
+          created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString()
+        },
+        {
+          id: '2',
+          type: 'task',
+          title: 'Budget Review',
+          content: `...${searchQuery}...`,
+          agent: 'Finance',
+          created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString()
+        }
+      ];
+      
+      setSearchResults(results);
       setIsSearching(false);
-    }
+    }, 500);
   };
 
   // Mark notification as read
@@ -198,21 +142,16 @@ export const UnifiedUserExperience: React.FC = () => {
     );
   };
 
-  // Initial load
-  useEffect(() => {
-    fetchNotifications();
-    fetchConversations();
-  }, []);
-
-  // Handle WebSocket updates
-  useEffect(() => {
-    if (wsData && wsData.type === 'notification') {
-      // In a real implementation, this would handle new notifications
-      fetchNotifications();
-    }
-  }, [wsData]);
-
   const unreadCount = notifications.filter(n => !n.read).length;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <RefreshCw className="w-8 h-8 animate-spin" />
+        <span className="ml-2">Loading...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
