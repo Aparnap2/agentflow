@@ -22,6 +22,15 @@ class ManagerAgent(LangGraphAgent):
             "description": "Enhanced manager with product insights and workflow optimization capabilities"
         }
         super().__init__("Manager", "Project Management & Product Strategy", memory_manager, approval_manager, personality)
+        
+        # Initialize role-specific action methods
+        self.role_actions = {
+            "workflow_design": self._workflow_design,
+            "task_delegation": self._task_delegation,
+            "progress_monitoring": self._progress_monitoring,
+            "performance_tracking": self._performance_tracking,
+            "intervention": self._intervention
+        }
     
     def _get_system_prompt(self) -> str:
         return """You are the Enhanced Manager agent in a virtual AI startup team. Your role includes:
@@ -287,6 +296,322 @@ You are organized, tactical, and product-focused. Deliver comprehensive project 
             personas.append({"type": user_type, "details": persona})
         
         return personas
+    
+    # === ROLE-SPECIFIC ACTION METHODS ===
+    async def _workflow_design(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Design workflow based on vision data"""
+        vision_data = params.get("vision_data", {})
+        project_id = params.get("project_id", f"project_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        
+        if not vision_data:
+            return {"error": "No vision data provided for workflow design", "success": False}
+        
+        workflow_prompt = f"""
+        Design a comprehensive workflow for this project:
+        
+        Vision: {json.dumps(vision_data, indent=2)}
+        
+        Create a workflow that includes:
+        1. Sequential phases with clear deliverables
+        2. Task dependencies and relationships
+        3. Agent assignments with responsibilities
+        4. Timeline with milestones
+        5. Coordination points for cross-agent collaboration
+        
+        Make it specific, actionable, and optimized for parallel execution where possible.
+        """
+        
+        workflow_result = await self._think(workflow_prompt)
+        
+        # Store workflow in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="workflow_design",
+            content=workflow_result,
+            is_shared=True,
+            confidence=0.9,
+            metadata={"project_id": project_id}
+        )
+        
+        return {
+            "workflow": workflow_result,
+            "project_id": project_id,
+            "confidence": 0.9
+        }
+    
+    async def _task_delegation(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Delegate tasks to appropriate agents"""
+        workflow = params.get("workflow", {})
+        available_agents = params.get("available_agents", ["Finance", "Marketing", "Legal", "Sales"])
+        project_id = params.get("project_id", f"project_{datetime.now().strftime('%Y%m%d_%H%M%S')}")
+        
+        if not workflow:
+            return {"error": "No workflow provided for task delegation", "success": False}
+        
+        # Create task assignments for each agent
+        agent_assignments = {}
+        
+        for agent_name in available_agents:
+            # Determine appropriate tasks based on agent type
+            if agent_name == "Finance":
+                primary_tasks = [
+                    "Create financial model and projections",
+                    "Analyze pricing strategies",
+                    "Calculate ROI scenarios"
+                ]
+                dependencies = ["Product features", "Target market size"]
+                deliverables = ["finance.json", "pricing_model.json"]
+            elif agent_name == "Marketing":
+                primary_tasks = [
+                    "Develop content marketing strategy",
+                    "Plan SEO and social media approach",
+                    "Create launch campaign outline"
+                ]
+                dependencies = ["Product positioning", "Target personas"]
+                deliverables = ["marketing.json", "content_calendar.json"]
+            elif agent_name == "Legal":
+                primary_tasks = [
+                    "Draft Terms of Service",
+                    "Create Privacy Policy",
+                    "Review compliance requirements"
+                ]
+                dependencies = ["Business model", "Data handling approach"]
+                deliverables = ["legal.json", "tos.md", "privacy.md"]
+            elif agent_name == "Sales":
+                primary_tasks = [
+                    "Develop sales strategy",
+                    "Create outreach templates",
+                    "Design sales funnel"
+                ]
+                dependencies = ["Product features", "Target personas"]
+                deliverables = ["sales.json", "outreach_templates.json"]
+            else:
+                # Generic tasks for unknown agent types
+                primary_tasks = ["Analyze requirements", "Create implementation plan", "Deliver outputs"]
+                dependencies = ["Project vision"]
+                deliverables = [f"{agent_name.lower()}_output.json"]
+            
+            # Create assignment
+            agent_assignments[agent_name] = {
+                "type": f"{agent_name.lower()}_tasks",
+                "primary_tasks": primary_tasks,
+                "dependencies": dependencies,
+                "deliverables": deliverables
+            }
+        
+        # Create tasks in queue system
+        tasks = []
+        for agent_name, assignment in agent_assignments.items():
+            task_id = f"task_{agent_name.lower()}_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+            
+            # Create task object
+            task = {
+                "id": task_id,
+                "agent": agent_name,
+                "tasks": assignment["primary_tasks"],
+                "dependencies": assignment["dependencies"],
+                "deliverables": assignment["deliverables"],
+                "assigned_by": self.name,
+                "assigned_at": datetime.now().isoformat(),
+                "project_id": project_id,
+                "status": "pending"
+            }
+            
+            tasks.append(task)
+        
+        # Store task assignments in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="task_assignments",
+            content={"agent_assignments": agent_assignments, "tasks": tasks},
+            is_shared=True,
+            confidence=0.9,
+            metadata={"project_id": project_id}
+        )
+        
+        return {
+            "agent_assignments": agent_assignments,
+            "tasks": tasks,
+            "project_id": project_id,
+            "confidence": 0.9
+        }
+    
+    async def _progress_monitoring(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Monitor progress of assigned tasks"""
+        project_id = params.get("project_id")
+        task_ids = params.get("task_ids", [])
+        
+        if not project_id and not task_ids:
+            return {"error": "No project_id or task_ids provided for monitoring", "success": False}
+        
+        # Get task status from memory or queue system
+        task_statuses = {}
+        
+        for task_id in task_ids:
+            # In a real implementation, this would query the queue system
+            # For now, we'll simulate with random statuses
+            import random
+            statuses = ["pending", "in_progress", "completed", "blocked"]
+            task_statuses[task_id] = random.choice(statuses)
+        
+        # Calculate overall progress
+        completed = sum(1 for status in task_statuses.values() if status == "completed")
+        in_progress = sum(1 for status in task_statuses.values() if status == "in_progress")
+        blocked = sum(1 for status in task_statuses.values() if status == "blocked")
+        total = len(task_statuses)
+        
+        progress_percentage = (completed / total * 100) if total > 0 else 0
+        
+        # Identify bottlenecks
+        bottlenecks = [task_id for task_id, status in task_statuses.items() if status == "blocked"]
+        
+        # Store monitoring results in memory
+        monitoring_result = {
+            "project_id": project_id,
+            "task_statuses": task_statuses,
+            "progress_percentage": progress_percentage,
+            "completed_tasks": completed,
+            "in_progress_tasks": in_progress,
+            "blocked_tasks": blocked,
+            "bottlenecks": bottlenecks,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="progress_monitoring",
+            content=monitoring_result,
+            is_shared=True,
+            confidence=1.0,
+            metadata={"project_id": project_id}
+        )
+        
+        return monitoring_result
+    
+    async def _performance_tracking(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Track performance metrics for a project"""
+        project_id = params.get("project_id")
+        metrics = params.get("metrics", {})
+        
+        if not project_id:
+            return {"error": "No project_id provided for performance tracking", "success": False}
+        
+        # If no metrics provided, generate some default ones
+        if not metrics:
+            metrics = {
+                "time_efficiency": {
+                    "target": 100,
+                    "actual": 85,
+                    "unit": "percentage"
+                },
+                "resource_utilization": {
+                    "target": 90,
+                    "actual": 75,
+                    "unit": "percentage"
+                },
+                "output_quality": {
+                    "target": 95,
+                    "actual": 90,
+                    "unit": "percentage"
+                }
+            }
+        
+        # Calculate performance scores
+        performance_scores = {}
+        for metric_name, metric_data in metrics.items():
+            target = metric_data.get("target", 100)
+            actual = metric_data.get("actual", 0)
+            performance_scores[metric_name] = (actual / target * 100) if target > 0 else 0
+        
+        # Calculate overall performance score
+        overall_score = sum(performance_scores.values()) / len(performance_scores) if performance_scores else 0
+        
+        # Generate recommendations based on performance
+        recommendations = []
+        for metric_name, score in performance_scores.items():
+            if score < 70:
+                recommendations.append(f"Critical improvement needed for {metric_name}")
+            elif score < 90:
+                recommendations.append(f"Moderate improvement needed for {metric_name}")
+        
+        # Store performance tracking results in memory
+        performance_result = {
+            "project_id": project_id,
+            "metrics": metrics,
+            "performance_scores": performance_scores,
+            "overall_score": overall_score,
+            "recommendations": recommendations,
+            "timestamp": datetime.now().isoformat()
+        }
+        
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="performance_tracking",
+            content=performance_result,
+            is_shared=True,
+            confidence=1.0,
+            metadata={"project_id": project_id}
+        )
+        
+        return performance_result
+    
+    async def _intervention(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Handle intervention for problematic tasks"""
+        task_id = params.get("task_id")
+        issue = params.get("issue", "")
+        project_id = params.get("project_id")
+        
+        if not task_id:
+            return {"error": "No task_id provided for intervention", "success": False}
+        
+        # Determine intervention type based on issue
+        if "blocked" in issue.lower():
+            intervention_type = "unblock_task"
+        elif "quality" in issue.lower():
+            intervention_type = "improve_quality"
+        elif "deadline" in issue.lower():
+            intervention_type = "extend_deadline"
+        else:
+            intervention_type = "general_assistance"
+        
+        # Generate intervention plan
+        intervention_prompt = f"""
+        Create an intervention plan for this issue:
+        
+        Task ID: {task_id}
+        Issue: {issue}
+        Intervention Type: {intervention_type}
+        
+        Provide:
+        1. Root cause analysis
+        2. Immediate actions
+        3. Long-term solutions
+        4. Resource requirements
+        """
+        
+        intervention_plan = await self._think(intervention_prompt)
+        
+        # Store intervention in memory
+        intervention_result = {
+            "task_id": task_id,
+            "project_id": project_id,
+            "issue": issue,
+            "intervention_type": intervention_type,
+            "intervention_plan": intervention_plan,
+            "status": "pending_implementation",
+            "created_at": datetime.now().isoformat()
+        }
+        
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="interventions",
+            content=intervention_result,
+            is_shared=True,
+            confidence=0.9,
+            metadata={"project_id": project_id, "task_id": task_id}
+        )
+        
+        return intervention_result
     
     # === WORKFLOW CAPABILITIES (from Workflow Agent) ===
     async def create_process_documentation(self, process_data: Dict[str, Any]) -> Dict[str, Any]:

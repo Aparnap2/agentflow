@@ -19,6 +19,15 @@ class CofounderAgent(LangGraphAgent):
         super().__init__("Cofounder", "Vision & Strategy", memory_manager, approval_manager, personality)
         self.web_search = WebSearchTool()
         self.agent_logger = AgentLogger("Cofounder")
+        
+        # Initialize role-specific action methods
+        self.role_actions = {
+            "vision_setting": self._vision_setting,
+            "goal_definition": self._goal_definition,
+            "market_analysis": self._market_analysis,
+            "strategic_planning": self._strategic_planning,
+            "kpi_establishment": self._kpi_establishment
+        }
     
     def _get_system_prompt(self) -> str:
         return """You are the Cofounder agent in a virtual AI startup team. Your role is to:
@@ -326,6 +335,290 @@ Ask 1 final question to clarify their needs, then offer to provide specific reco
             "strategic_priorities": ["Product development", "Market validation", "User acquisition"],
             "competitive_advantage": "Unique value proposition to be defined"
         })
+    
+    async def _vision_setting(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Define project vision based on user input and market research"""
+        vision_input = params.get("vision_input", "")
+        if not vision_input:
+            return {"error": "No vision input provided", "success": False}
+        
+        # Get market insights to inform vision
+        market_insights = await self._get_market_insights(vision_input)
+        
+        vision_prompt = f"""
+        As a strategic co-founder, I need to craft a compelling vision statement for this idea:
+        
+        User input: {vision_input}
+        Market insights: {market_insights}
+        
+        Create a structured vision that includes:
+        1. A clear, compelling vision statement (1-2 sentences)
+        2. The core problem being solved
+        3. The target audience and their pain points
+        4. The unique value proposition
+        5. The long-term impact
+        
+        Make it specific, inspiring, and aligned with market realities.
+        """
+        
+        vision_result = await self._think(vision_prompt)
+        
+        # Store vision in memory for future reference
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="vision",
+            content=vision_result,
+            is_shared=True,
+            confidence=0.9
+        )
+        
+        return {
+            "vision_statement": vision_result.get("vision_statement", ""),
+            "core_problem": vision_result.get("core_problem", ""),
+            "target_audience": vision_result.get("target_audience", []),
+            "unique_value": vision_result.get("unique_value", ""),
+            "long_term_impact": vision_result.get("long_term_impact", ""),
+            "confidence": 0.9
+        }
+    
+    async def _goal_definition(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Define strategic goals for the project"""
+        vision = params.get("vision", {})
+        timeframe = params.get("timeframe", "12 months")
+        
+        if not vision:
+            # Try to get vision from memory
+            vision_memory = await self.memory_manager.get_agent_memory(
+                agent_name=self.name,
+                memory_type="vision",
+                limit=1
+            )
+            if vision_memory:
+                vision = vision_memory[0].get("content", {})
+        
+        if not vision:
+            return {"error": "No vision available for goal definition", "success": False}
+        
+        goals_prompt = f"""
+        Based on this vision:
+        {json.dumps(vision, indent=2)}
+        
+        Define strategic goals for the next {timeframe} that are:
+        1. Specific and measurable
+        2. Aligned with the vision
+        3. Realistic but ambitious
+        4. Time-bound
+        
+        Include both business metrics and product milestones.
+        Organize goals by timeframe (3 months, 6 months, 12 months).
+        """
+        
+        goals_result = await self._think(goals_prompt)
+        
+        # Store goals in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="strategic_goals",
+            content=goals_result,
+            is_shared=True,
+            confidence=0.85
+        )
+        
+        return {
+            "short_term_goals": goals_result.get("3_month_goals", []),
+            "mid_term_goals": goals_result.get("6_month_goals", []),
+            "long_term_goals": goals_result.get("12_month_goals", []),
+            "key_metrics": goals_result.get("key_metrics", []),
+            "confidence": 0.85
+        }
+    
+    async def _market_analysis(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze market opportunity and competitive landscape"""
+        industry = params.get("industry", "")
+        target_audience = params.get("target_audience", [])
+        
+        if not industry and not target_audience:
+            return {"error": "Insufficient information for market analysis", "success": False}
+        
+        # Use web search for market data
+        search_terms = industry or " ".join(target_audience[:2])
+        market_data = await self.web_search._arun(f"{search_terms} market size trends competition")
+        
+        analysis_prompt = f"""
+        Analyze this market data:
+        {market_data}
+        
+        Industry: {industry}
+        Target audience: {target_audience}
+        
+        Provide a comprehensive market analysis including:
+        1. Market size and growth rate
+        2. Key competitors and their strengths/weaknesses
+        3. Market trends and opportunities
+        4. Potential challenges and threats
+        5. Recommended positioning strategy
+        
+        Be specific and data-driven where possible.
+        """
+        
+        analysis_result = await self._think(analysis_prompt)
+        
+        # Store analysis in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="market_analysis",
+            content=analysis_result,
+            is_shared=True,
+            confidence=0.8
+        )
+        
+        return {
+            "market_size": analysis_result.get("market_size", ""),
+            "growth_rate": analysis_result.get("growth_rate", ""),
+            "competitors": analysis_result.get("competitors", []),
+            "trends": analysis_result.get("trends", []),
+            "challenges": analysis_result.get("challenges", []),
+            "positioning": analysis_result.get("positioning", ""),
+            "confidence": 0.8
+        }
+    
+    async def _strategic_planning(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Create strategic plan based on vision and market analysis"""
+        vision = params.get("vision", {})
+        market_analysis = params.get("market_analysis", {})
+        goals = params.get("goals", {})
+        
+        # Try to get missing data from memory
+        if not vision:
+            vision_memory = await self.memory_manager.get_agent_memory(
+                agent_name=self.name,
+                memory_type="vision",
+                limit=1
+            )
+            if vision_memory:
+                vision = vision_memory[0].get("content", {})
+                
+        if not market_analysis:
+            market_memory = await self.memory_manager.get_agent_memory(
+                agent_name=self.name,
+                memory_type="market_analysis",
+                limit=1
+            )
+            if market_memory:
+                market_analysis = market_memory[0].get("content", {})
+                
+        if not goals:
+            goals_memory = await self.memory_manager.get_agent_memory(
+                agent_name=self.name,
+                memory_type="strategic_goals",
+                limit=1
+            )
+            if goals_memory:
+                goals = goals_memory[0].get("content", {})
+        
+        if not vision or not market_analysis:
+            return {"error": "Insufficient information for strategic planning", "success": False}
+        
+        planning_prompt = f"""
+        Create a comprehensive strategic plan based on:
+        
+        Vision: {json.dumps(vision, indent=2)}
+        Market Analysis: {json.dumps(market_analysis, indent=2)}
+        Goals: {json.dumps(goals, indent=2)}
+        
+        Include:
+        1. Strategic priorities (top 3-5)
+        2. Key initiatives for each priority
+        3. Resource requirements
+        4. Critical success factors
+        5. Risk mitigation strategies
+        
+        Make it actionable and specific.
+        """
+        
+        plan_result = await self._think(planning_prompt)
+        
+        # Store plan in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="strategic_plan",
+            content=plan_result,
+            is_shared=True,
+            confidence=0.85
+        )
+        
+        return {
+            "strategic_priorities": plan_result.get("strategic_priorities", []),
+            "key_initiatives": plan_result.get("key_initiatives", {}),
+            "resource_requirements": plan_result.get("resource_requirements", {}),
+            "success_factors": plan_result.get("success_factors", []),
+            "risk_mitigation": plan_result.get("risk_mitigation", {}),
+            "confidence": 0.85
+        }
+    
+    async def _kpi_establishment(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Establish key performance indicators for the project"""
+        vision = params.get("vision", {})
+        goals = params.get("goals", {})
+        
+        # Try to get missing data from memory
+        if not vision:
+            vision_memory = await self.memory_manager.get_agent_memory(
+                agent_name=self.name,
+                memory_type="vision",
+                limit=1
+            )
+            if vision_memory:
+                vision = vision_memory[0].get("content", {})
+                
+        if not goals:
+            goals_memory = await self.memory_manager.get_agent_memory(
+                agent_name=self.name,
+                memory_type="strategic_goals",
+                limit=1
+            )
+            if goals_memory:
+                goals = goals_memory[0].get("content", {})
+        
+        if not vision:
+            return {"error": "Insufficient information for KPI establishment", "success": False}
+        
+        kpi_prompt = f"""
+        Based on this vision and goals:
+        
+        Vision: {json.dumps(vision, indent=2)}
+        Goals: {json.dumps(goals, indent=2)}
+        
+        Establish key performance indicators (KPIs) that:
+        1. Align with strategic objectives
+        2. Are specific and measurable
+        3. Cover different aspects of the business
+        4. Include leading and lagging indicators
+        
+        Organize KPIs by category (e.g., user growth, revenue, product, marketing).
+        For each KPI, include a definition, measurement method, and target.
+        """
+        
+        kpi_result = await self._think(kpi_prompt)
+        
+        # Store KPIs in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="kpis",
+            content=kpi_result,
+            is_shared=True,
+            confidence=0.9
+        )
+        
+        return {
+            "user_kpis": kpi_result.get("user_kpis", []),
+            "revenue_kpis": kpi_result.get("revenue_kpis", []),
+            "product_kpis": kpi_result.get("product_kpis", []),
+            "marketing_kpis": kpi_result.get("marketing_kpis", []),
+            "definitions": kpi_result.get("definitions", {}),
+            "targets": kpi_result.get("targets", {}),
+            "confidence": 0.9
+        }
     
     async def extract_vision(self, messages: list) -> Dict[str, Any]:
         """Extract structured vision from conversation"""

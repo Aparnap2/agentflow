@@ -21,6 +21,15 @@ class FinanceAgent(LangGraphAgent):
         super().__init__("Finance", "Financial Planning", memory_manager, approval_manager, personality)
         self.web_search = WebSearchTool()
         self.financial_modeling = FinancialModelingTool()
+        
+        # Initialize role-specific action methods
+        self.role_actions = {
+            "expense_processing": self._process_expenses,
+            "financial_summary": self._generate_financial_summary,
+            "transaction_categorization": self._categorize_transactions,
+            "financial_modeling": self._create_financial_model,
+            "pricing_analysis": self._analyze_pricing
+        }
     
     def get_system_prompt(self) -> str:
         return """You are David Park, the Finance Agent. Create ACTIONABLE financial strategy.
@@ -353,4 +362,267 @@ Be specific with numbers and realistic assumptions. Focus on actionable financia
                 "elasticity_modeling": "Demand curve analyzed"
             }
         except Exception as e:
-            return {"error": str(e)}
+            return {"error": str(e)}  
+  # === ROLE-SPECIFIC ACTION METHODS ===
+    async def _process_expenses(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Process expense reports"""
+        expenses = params.get("expenses", [])
+        report_type = params.get("report_type", "monthly")
+        
+        if not expenses:
+            return {"error": "No expenses provided for processing", "success": False}
+        
+        # Process expenses
+        total_amount = sum(expense.get("amount", 0) for expense in expenses)
+        categorized_expenses = {}
+        
+        for expense in expenses:
+            category = expense.get("category", "Uncategorized")
+            if category not in categorized_expenses:
+                categorized_expenses[category] = 0
+            categorized_expenses[category] += expense.get("amount", 0)
+        
+        # Calculate percentages
+        category_percentages = {}
+        for category, amount in categorized_expenses.items():
+            category_percentages[category] = round((amount / total_amount) * 100, 2) if total_amount > 0 else 0
+        
+        # Generate expense report
+        expense_report = {
+            "total_amount": total_amount,
+            "report_type": report_type,
+            "categorized_expenses": categorized_expenses,
+            "category_percentages": category_percentages,
+            "expense_count": len(expenses),
+            "generated_at": datetime.now().isoformat()
+        }
+        
+        # Store in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="expense_reports",
+            content=expense_report,
+            is_shared=True,
+            confidence=0.95
+        )
+        
+        return {
+            "expense_report": expense_report,
+            "confidence": 0.95,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    async def _generate_financial_summary(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate financial summary"""
+        financial_data = params.get("financial_data", {})
+        period = params.get("period", "monthly")
+        
+        if not financial_data:
+            return {"error": "No financial data provided for summary", "success": False}
+        
+        # Generate financial summary
+        revenue = financial_data.get("revenue", 0)
+        expenses = financial_data.get("expenses", 0)
+        net_income = revenue - expenses
+        profit_margin = (net_income / revenue) * 100 if revenue > 0 else 0
+        
+        financial_summary = {
+            "period": period,
+            "revenue": revenue,
+            "expenses": expenses,
+            "net_income": net_income,
+            "profit_margin": round(profit_margin, 2),
+            "key_metrics": {
+                "burn_rate": expenses / 30 if period == "monthly" else expenses / 365,  # Daily burn rate
+                "runway_days": (financial_data.get("cash_on_hand", 0) / (expenses / 30)) if expenses > 0 else 0,
+                "revenue_growth": financial_data.get("revenue_growth", 0),
+                "customer_acquisition_cost": financial_data.get("customer_acquisition_cost", 0)
+            },
+            "generated_at": datetime.now().isoformat()
+        }
+        
+        # Store in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="financial_summaries",
+            content=financial_summary,
+            is_shared=True,
+            confidence=0.9
+        )
+        
+        return {
+            "financial_summary": financial_summary,
+            "confidence": 0.9,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    async def _categorize_transactions(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Categorize financial transactions"""
+        transactions = params.get("transactions", [])
+        
+        if not transactions:
+            return {"error": "No transactions provided for categorization", "success": False}
+        
+        # Categorize transactions
+        categorized_transactions = []
+        categories = {
+            "salary": ["salary", "payroll", "wage", "income"],
+            "rent": ["rent", "lease", "housing"],
+            "utilities": ["electric", "water", "gas", "internet", "phone", "utility"],
+            "food": ["restaurant", "grocery", "food", "meal"],
+            "transportation": ["uber", "lyft", "taxi", "transit", "gas", "fuel"],
+            "entertainment": ["movie", "game", "subscription", "netflix", "spotify"],
+            "shopping": ["amazon", "walmart", "target", "purchase", "buy"],
+            "travel": ["hotel", "flight", "airbnb", "airline"],
+            "healthcare": ["doctor", "medical", "pharmacy", "health"],
+            "education": ["tuition", "course", "book", "school"],
+            "business": ["office", "software", "service", "consulting"]
+        }
+        
+        for transaction in transactions:
+            description = transaction.get("description", "").lower()
+            amount = transaction.get("amount", 0)
+            
+            # Determine category based on description
+            assigned_category = "other"
+            for category, keywords in categories.items():
+                if any(keyword in description for keyword in keywords):
+                    assigned_category = category
+                    break
+            
+            # Add categorized transaction
+            categorized_transactions.append({
+                "transaction_id": transaction.get("id", ""),
+                "description": description,
+                "amount": amount,
+                "date": transaction.get("date", ""),
+                "category": assigned_category,
+                "confidence": 0.85
+            })
+        
+        # Generate summary
+        category_totals = {}
+        for transaction in categorized_transactions:
+            category = transaction["category"]
+            if category not in category_totals:
+                category_totals[category] = 0
+            category_totals[category] += transaction["amount"]
+        
+        # Store in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="categorized_transactions",
+            content={
+                "categorized_transactions": categorized_transactions,
+                "category_totals": category_totals
+            },
+            is_shared=True,
+            confidence=0.85
+        )
+        
+        return {
+            "categorized_transactions": categorized_transactions,
+            "category_totals": category_totals,
+            "confidence": 0.85,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    async def _create_financial_model(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Create financial model"""
+        business_model = params.get("business_model", {})
+        timeframe = params.get("timeframe", "3 years")
+        
+        if not business_model:
+            return {"error": "No business model provided for financial modeling", "success": False}
+        
+        # Use financial modeling tool
+        financial_model = await self.financial_modeling._arun(business_model)
+        
+        # Extract vision info for dynamic pricing if available
+        vision_statement = params.get("vision_statement", "")
+        target_users = params.get("target_users", [])
+        
+        # Create financial model
+        enhanced_model = {
+            "revenue_model": {
+                "primary_model": self._determine_revenue_model(vision_statement),
+                "pricing_tiers": self._generate_pricing_tiers(vision_statement, target_users),
+                "revenue_streams": self._generate_revenue_streams(vision_statement)
+            },
+            "financial_projections": financial_model.get("projections", {
+                "year_1": {
+                    "revenue": business_model.get("expected_revenue", 0),
+                    "costs": business_model.get("expected_costs", 0),
+                    "net_income": business_model.get("expected_revenue", 0) - business_model.get("expected_costs", 0),
+                    "customers": business_model.get("expected_customers", 100)
+                }
+            }),
+            "roi_analysis": financial_model.get("roi_analysis", {
+                "break_even_point": "Month 18",
+                "customer_acquisition_cost": 150,
+                "customer_lifetime_value": 2400,
+                "ltv_cac_ratio": 16
+            })
+        }
+        
+        # Store in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="financial_models",
+            content=enhanced_model,
+            is_shared=True,
+            confidence=0.9
+        )
+        
+        return {
+            "financial_model": enhanced_model,
+            "confidence": 0.9,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    async def _analyze_pricing(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze pricing strategy"""
+        product_data = params.get("product_data", {})
+        competitors = params.get("competitors", [])
+        
+        if not product_data:
+            return {"error": "No product data provided for pricing analysis", "success": False}
+        
+        # Analyze pricing strategy
+        pricing_analysis = await self._analyze_pricing_strategy(product_data)
+        
+        # Generate pricing recommendations
+        pricing_recommendations = {
+            "recommended_pricing_model": self._determine_revenue_model(product_data.get("description", "")),
+            "pricing_tiers": self._generate_pricing_tiers(product_data.get("description", ""), product_data.get("target_users", [])),
+            "competitive_analysis": {
+                "market_position": "premium" if product_data.get("premium_features", False) else "standard",
+                "price_comparison": "competitive",
+                "value_proposition": "strong"
+            },
+            "optimization_strategies": [
+                "Value-based pricing for premium features",
+                "Tiered pricing to capture different market segments",
+                "Usage-based components for scalability",
+                "Annual discount to improve cash flow"
+            ]
+        }
+        
+        # Store in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="pricing_analysis",
+            content={
+                "pricing_analysis": pricing_analysis,
+                "pricing_recommendations": pricing_recommendations
+            },
+            is_shared=True,
+            confidence=0.85
+        )
+        
+        return {
+            "pricing_analysis": pricing_analysis,
+            "pricing_recommendations": pricing_recommendations,
+            "confidence": 0.85,
+            "timestamp": datetime.now().isoformat()
+        }

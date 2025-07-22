@@ -32,6 +32,9 @@ from communication.event_bus import event_bus
 from workflows.langgraph_orchestrator import LangGraphOrchestrator
 from api.agent_logs import router as logs_router
 from api.analytics_api import router as analytics_router
+from api.memory_monitoring import router as memory_router
+from api.document_api import router as document_router
+from api.document_api import router as document_router
 from auth.supabase_auth import supabase_auth
 from database.supabase_db import supabase_db
 from services.llm_service import llm_service
@@ -118,6 +121,8 @@ app.add_middleware(
 # Include routers
 app.include_router(logs_router)
 app.include_router(analytics_router)
+app.include_router(memory_router)
+app.include_router(document_router)
 
 # Request models
 class AuthRequest(BaseModel):

@@ -19,6 +19,19 @@ class AgentPersonality:
     avatar_emoji: str = "🤖"
     background: str = ""
     working_style: str = ""
+    # Role-specific capabilities
+    role_tools: List[str] = None
+    role_interfaces: List[str] = None
+    role_capabilities: List[str] = None
+    
+    def __post_init__(self):
+        # Initialize empty lists for role-specific capabilities if not provided
+        if self.role_tools is None:
+            self.role_tools = []
+        if self.role_interfaces is None:
+            self.role_interfaces = []
+        if self.role_capabilities is None:
+            self.role_capabilities = []
 
 # Agent Personality Profiles
 AGENT_PERSONALITIES = {
@@ -32,7 +45,11 @@ AGENT_PERSONALITIES = {
         confidence_threshold=0.7,
         avatar_emoji="🧠",
         background="Serial entrepreneur with 3 successful exits, Stanford MBA",
-        working_style="Thinks big picture, asks probing questions, synthesizes complex ideas"
+        working_style="Thinks big picture, asks probing questions, synthesizes complex ideas",
+        # Role-specific capabilities
+        role_tools=["market_research", "trend_analysis", "competitive_landscape", "strategic_planning"],
+        role_interfaces=["project_planning_dashboard", "vision_setting_interface", "kpi_management"],
+        role_capabilities=["vision_setting", "goal_definition", "market_analysis", "strategic_planning", "kpi_establishment"]
     ),
     
     "Manager": AgentPersonality(
@@ -45,7 +62,11 @@ AGENT_PERSONALITIES = {
         confidence_threshold=0.8,
         avatar_emoji="🧭",
         background="Former McKinsey consultant, PMP certified, 8 years in tech",
-        working_style="Creates detailed plans, manages dependencies, ensures alignment"
+        working_style="Creates detailed plans, manages dependencies, ensures alignment",
+        # Role-specific capabilities
+        role_tools=["workflow_engine", "task_management", "performance_tracking", "intervention_tools"],
+        role_interfaces=["workflow_visualization", "task_dashboard", "performance_metrics", "intervention_panel"],
+        role_capabilities=["workflow_design", "task_delegation", "progress_monitoring", "performance_tracking", "intervention"]
     ),
     
     "Product": AgentPersonality(
@@ -71,7 +92,11 @@ AGENT_PERSONALITIES = {
         confidence_threshold=0.9,
         avatar_emoji="💰",
         background="Former Goldman Sachs analyst, CFA, built 50+ financial models",
-        working_style="Numbers-first approach, stress-tests assumptions, identifies risks"
+        working_style="Numbers-first approach, stress-tests assumptions, identifies risks",
+        # Role-specific capabilities
+        role_tools=["financial_calculator", "expense_processor", "transaction_categorizer"],
+        role_interfaces=["financial_dashboard", "expense_report_interface", "transaction_analysis"],
+        role_capabilities=["expense_processing", "financial_summary", "transaction_categorization", "financial_modeling", "pricing_analysis"]
     ),
     
     "Marketing": AgentPersonality(
@@ -84,7 +109,11 @@ AGENT_PERSONALITIES = {
         confidence_threshold=0.6,
         avatar_emoji="📈",
         background="Former HubSpot growth lead, built $10M+ marketing funnels",
-        working_style="Creative campaigns backed by data, focuses on growth metrics"
+        working_style="Creative campaigns backed by data, focuses on growth metrics",
+        # Role-specific capabilities
+        role_tools=["content_generator", "seo_analyzer", "ad_copy_creator"],
+        role_interfaces=["content_dashboard", "seo_analysis_interface", "campaign_planner"],
+        role_capabilities=["content_generation", "seo_analysis", "ad_copy_creation", "marketing_strategy", "campaign_planning"]
     ),
     
     "Legal": AgentPersonality(
@@ -97,7 +126,11 @@ AGENT_PERSONALITIES = {
         confidence_threshold=0.95,
         avatar_emoji="⚖️",
         background="Corporate lawyer at top firm, 12 years startup legal experience",
-        working_style="Identifies all risks, ensures compliance, protects company interests"
+        working_style="Identifies all risks, ensures compliance, protects company interests",
+        # Role-specific capabilities
+        role_tools=["document_drafter", "compliance_checker", "contract_reviewer"],
+        role_interfaces=["legal_document_dashboard", "compliance_review_interface", "contract_analysis"],
+        role_capabilities=["document_drafting", "contract_review", "compliance_check", "legal_information", "risk_assessment"]
     ),
     
     "Sales": AgentPersonality(
@@ -110,7 +143,11 @@ AGENT_PERSONALITIES = {
         confidence_threshold=0.7,
         avatar_emoji="💼",
         background="Former Salesforce enterprise sales, $50M+ in closed deals",
-        working_style="Builds relationships, understands customer pain, drives revenue"
+        working_style="Builds relationships, understands customer pain, drives revenue",
+        # Role-specific capabilities
+        role_tools=["lead_qualifier", "outreach_composer", "meeting_scheduler"],
+        role_interfaces=["sales_dashboard", "lead_management_interface", "outreach_planner"],
+        role_capabilities=["lead_qualification", "outreach_preparation", "meeting_scheduling", "sales_strategy", "pipeline_management"]
     ),
     
     "Operations": AgentPersonality(
@@ -156,7 +193,7 @@ BEHAVIORAL GUIDELINES:
 Always respond as {personality.name} would, bringing your unique perspective and expertise to every interaction."""
 
 def get_agent_config(agent_name: str) -> Dict[str, Any]:
-    """Get agent configuration with personality settings"""
+    """Get agent configuration with personality settings and role-specific capabilities"""
     personality = AGENT_PERSONALITIES.get(agent_name)
     if not personality:
         return {"temperature": 0.7, "confidence_threshold": 0.7}
@@ -169,7 +206,11 @@ def get_agent_config(agent_name: str) -> Dict[str, Any]:
         "avatar_emoji": personality.avatar_emoji,
         "traits": personality.traits,
         "communication_style": personality.communication_style,
-        "expertise_areas": personality.expertise_areas
+        "expertise_areas": personality.expertise_areas,
+        # Include role-specific capabilities
+        "role_tools": personality.role_tools,
+        "role_interfaces": personality.role_interfaces,
+        "role_capabilities": personality.role_capabilities
     }
 
 def get_all_personalities() -> Dict[str, AgentPersonality]:

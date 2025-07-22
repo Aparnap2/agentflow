@@ -6,7 +6,7 @@ import asyncio
 import json
 import time
 from typing import Dict, List, Any, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from loguru import logger
 
@@ -14,6 +14,9 @@ from .graph_memory import GraphMemory
 from .vector_memory import VectorMemory
 from .cache_events import cache_events
 from task_queue.enhanced_queue_manager import queue_manager
+from .event_cache_manager import EventCacheManager
+
+event_cache_manager = EventCacheManager()
 
 
 class OptimizedMemoryManager:
@@ -36,8 +39,9 @@ class OptimizedMemoryManager:
         # Frequently accessed data cache (permanent until invalidated)
         self._hot_cache = {}
         
-        # Start background cache cleanup task
+        # Start background cache cleanup tasks
         asyncio.create_task(self._periodic_cache_cleanup())
+        asyncio.create_task(self._periodic_redis_cleanup())
     
     @property
     def graph_memory(self):
@@ -187,20 +191,71 @@ class OptimizedMemoryManager:
                                confidence: float = 1.0) -> str:
         """Store memory with intelligent decision-making and minimal DB access"""
         
-        # Simple decision logic using existing patterns
+        # Estimate content size before optimization
+        content_size_estimate = len(json.dumps(content, default=str))
+        
+        # More selective decision logic based on content size and importance
         should_store_global = (
-            is_shared or 
-            confidence > 0.8 or 
-            memory_type in ["vision", "plan", "strategy", "result"] or
-            agent_name in ["cofounder", "manager", "finance"]
+            (is_shared and content_size_estimate < 5_000_000) or  # Only store reasonably sized shared content
+            (confidence > 0.9 and content_size_estimate < 10_000_000) or  # Higher confidence threshold for large content
+            (memory_type in ["vision", "plan", "strategy", "result"] and content_size_estimate < 8_000_000) or
+            (agent_name in ["cofounder", "manager", "finance"] and content_size_estimate < 5_000_000)
         )
+        
+        # For extremely large content, create a summary instead of storing the full content
+        if content_size_estimate > 10_000_000:
+            logger.warning(f"Content for {agent_name}/{memory_type} is extremely large ({content_size_estimate/1_000_000:.2f}MB), creating summary")
+            
+            # Create a summary of the content
+            summary_content = {
+                "original_size_bytes": content_size_estimate,
+                "summary": f"Large content ({content_size_estimate/1_000_000:.2f}MB) - summary only",
+                "keys_available": list(content.keys())[:20],
+                "timestamp": datetime.now().isoformat()
+            }
+            
+            # Add some key fields if available
+            for key in ["id", "name", "type", "summary", "result", "confidence"]:
+                if key in content:
+                    # Truncate if needed
+                    value = content[key]
+                    if isinstance(value, str) and len(value) > 500:
+                        value = value[:500] + "..."
+                    summary_content[key] = value
+            
+            # Replace content with summary for storage
+            content = summary_content
+            
+            # Log this event
+            logger.warning(f"Replaced large content with summary for {agent_name}/{memory_type}")
         
         # Optimize content for Redis storage (keep only essential data)
         optimized_content = self._optimize_for_redis(content, memory_type)
         
-        # Always cache first for immediate access
+        # Cache selectively based on size and importance
         cache_key = f"agent_memory:{agent_name}:{memory_type}"
-        await self._store_in_redis_cache(cache_key, optimized_content, confidence)
+        
+        # Only cache if the optimized content is reasonably sized or important
+        optimized_size = len(json.dumps(optimized_content, default=str))
+        should_cache = (
+            optimized_size < 5_000_000 or  # Cache if under 5MB
+            memory_type in ["vision", "plan", "strategy", "result"] or  # Always cache important types
+            agent_name in ["cofounder", "manager", "finance"]  # Always cache important agents
+        )
+        
+        if should_cache:
+            try:
+                # Store in Redis cache with compression/chunking handled by adapter
+                if hasattr(queue_manager, 'redis') and queue_manager.redis:
+                    await queue_manager.redis.setex(
+                        f"memory_cache:{cache_key}",
+                        self._ttl_seconds,
+                        json.dumps(optimized_content, default=str)
+                    )
+            except Exception as e:
+                logger.warning(f"Failed to cache {agent_name}/{memory_type}: {e}")
+        else:
+            logger.info(f"Skipped caching large content for {agent_name}/{memory_type} ({optimized_size/1_000_000:.2f}MB)")
         
         timestamp = None
         
@@ -217,8 +272,11 @@ class OptimizedMemoryManager:
             await self.invalidate_cache("shared_context")
             
             # Store in vector memory only for important content with substantial text
+            # Be more selective about what goes into vector DB
             text_content = self._extract_text_content(content)
-            if len(text_content) > 100 and confidence > 0.7:
+            text_length = len(text_content)
+            
+            if text_length > 100 and text_length < 100000 and confidence > 0.8:  # More strict criteria
                 doc_metadata = {
                     "agent": agent_name,
                     "type": memory_type,
@@ -231,7 +289,7 @@ class OptimizedMemoryManager:
                 doc_id = f"{agent_name}_{memory_type}_{timestamp}"
                 # Fire-and-forget vector storage
                 asyncio.create_task(self._async_vector_store(
-                    text_content=text_content,
+                    text_content=text_content[:100000],  # Limit text size for vector DB
                     metadata=doc_metadata,
                     doc_id=doc_id
                 ))
@@ -241,7 +299,7 @@ class OptimizedMemoryManager:
                 
                 logger.info(f"Stored {agent_name}/{memory_type} in global context + vector DB")
             else:
-                logger.debug(f"Skipped vector DB for {agent_name}/{memory_type}: text too short or low confidence")
+                logger.debug(f"Skipped vector DB for {agent_name}/{memory_type}: text too short/long or low confidence")
             
             # Trigger cache update event
             await cache_events.trigger_update_event(agent_name, memory_type, is_shared=True)
@@ -522,6 +580,9 @@ class OptimizedMemoryManager:
         graph_state = await self.graph_memory.get_graph_state()
         vector_stats = await self.vector_memory.get_collection_info()
         
+        # Get Redis memory stats if available
+        redis_stats = await self.get_redis_memory_usage()
+        
         return {
             "graph_memory": {
                 "agents": len(graph_state["agents"]),
@@ -533,11 +594,60 @@ class OptimizedMemoryManager:
                 "total_documents": vector_stats.get("vectors_count", 0),
                 "collection_status": vector_stats.get("status", "unknown")
             },
+            "redis_memory": redis_stats,
             "exports": {
                 "output_directory": str(self.output_dir),
                 "available_files": [f.name for f in self.output_dir.glob("*") if f.is_file()]
             }
         }
+    
+    async def get_redis_memory_usage(self) -> Dict[str, Any]:
+        """Get Redis memory usage statistics"""
+        if not hasattr(queue_manager, 'redis') or not queue_manager.redis:
+            return {"status": "unavailable"}
+           
+        try:
+            # Get memory info
+            info = await queue_manager.redis.info("memory")
+            return {
+                "used_memory_human": info.get("used_memory_human", "unknown"),
+                "used_memory_peak_human": info.get("used_memory_peak_human", "unknown"),
+                "total_system_memory_human": info.get("total_system_memory_human", "unknown"),
+                "mem_fragmentation_ratio": info.get("mem_fragmentation_ratio", "unknown")
+            }
+        except Exception as e:
+            logger.error(f"Failed to get Redis memory usage: {e}")
+            return {"status": "error", "message": str(e)}
+    
+    async def cleanup_old_memories(self, days_old: int = 30):
+        """Clean up memories older than specified days"""
+        cutoff_date = (datetime.now() - timedelta(days=days_old)).isoformat()
+        
+        # Clean up graph memory
+        if self._graph_memory:
+            with self._graph_memory.driver.session() as session:
+                session.run("""
+                    MATCH (o:Output)
+                    WHERE o.created_at < $cutoff
+                    DETACH DELETE o
+                """, cutoff=cutoff_date)
+        
+        # Clean up Redis cache
+        if hasattr(queue_manager, 'redis') and queue_manager.redis:
+            # Get all memory cache keys
+            keys = await queue_manager.redis.keys("memory_cache:*")
+            for key in keys:
+                try:
+                    value = await queue_manager.redis.get(key)
+                    if value:
+                        data = json.loads(value)
+                        if isinstance(data, dict) and "timestamp" in data:
+                            if data["timestamp"] < cutoff_date:
+                                await queue_manager.redis.delete(key)
+                except Exception:
+                    pass
+        
+        logger.info(f"Cleaned up memories older than {days_old} days")
     
     async def clear_all_memory(self):
         """Clear all memory systems - USE WITH CAUTION"""
@@ -594,6 +704,24 @@ class OptimizedMemoryManager:
             except Exception as e:
                 logger.error(f"Error in periodic cache cleanup: {e}")
                 await asyncio.sleep(60)  # Wait longer on error
+                
+    async def _periodic_redis_cleanup(self):
+        """Periodically clean up old Redis keys"""
+        while True:
+            try:
+                await asyncio.sleep(3600)  # Run every hour
+                if hasattr(queue_manager, 'redis') and queue_manager.redis:
+                    # Get all memory cache keys
+                    keys = await queue_manager.redis.keys("memory_cache:*")
+                    # Set TTL for keys without one
+                    for key in keys:
+                        ttl = await queue_manager.redis.ttl(key)
+                        if ttl == -1:  # No TTL set
+                            await queue_manager.redis.expire(key, 86400)  # 24 hours
+                    logger.info(f"Redis cleanup: set TTL for {len(keys)} keys")
+            except Exception as e:
+                logger.error(f"Redis cleanup error: {e}")
+                await asyncio.sleep(3600)  # Wait an hour on error
     
     async def _cleanup_local_cache(self):
         """Clean up expired entries in local cache"""
@@ -633,20 +761,140 @@ class OptimizedMemoryManager:
     
     def _optimize_for_redis(self, content: Any, memory_type: str) -> Any:
         """Optimize content for Redis storage (keep only essential data)"""
+        # Extremely aggressive size limits for Upstash Redis
+        MAX_STRING_LENGTH = 250  # Drastically reduced from 500
+        MAX_LIST_ITEMS = 5       # Reduced from 10
+        MAX_DICT_ITEMS = 8       # Reduced from 15
+        MAX_TOTAL_SIZE = 1_000_000  # 1MB max total size
+        
+        # Estimate initial size
+        initial_size = len(json.dumps(content, default=str))
+        
+        # For extremely large content, create a summary instead
+        if initial_size > 5_000_000:  # 5MB
+            if isinstance(content, dict):
+                keys_summary = ", ".join(list(content.keys())[:10])
+                if len(content.keys()) > 10:
+                    keys_summary += f"... ({len(content.keys()) - 10} more keys)"
+                
+                return {
+                    "_extreme_size_summary": True,
+                    "_original_size_bytes": initial_size,
+                    "_content_type": memory_type,
+                    "_keys_available": keys_summary,
+                    "summary": f"Content too large for Redis storage ({initial_size/1_000_000:.2f}MB)",
+                    "timestamp": datetime.now().isoformat()
+                }
+        
+        def truncate_recursive(obj, depth=0, size_so_far=0):
+            """Recursively truncate nested objects to reduce size"""
+            # Emergency exit if we're already too big
+            if size_so_far > MAX_TOTAL_SIZE:
+                return "[content truncated: too large]"
+                
+            # Limit recursion depth
+            if depth > 2:  # Reduced from 3
+                return "[nested content truncated]"
+                
+            if isinstance(obj, str):
+                # More aggressive string truncation
+                if len(obj) > MAX_STRING_LENGTH:
+                    # For very long strings, be even more aggressive
+                    if len(obj) > 10000:
+                        return f"[long text: {len(obj)} chars]"
+                    return obj[:MAX_STRING_LENGTH] + "..."
+                return obj
+                
+            elif isinstance(obj, dict):
+                # For large dictionaries, be very selective
+                if len(obj) > MAX_DICT_ITEMS:
+                    # Prioritize known important keys
+                    important_keys = ["id", "name", "type", "content", "summary", "result", "confidence"]
+                    result = {}
+                    
+                    # First add important keys
+                    for key in important_keys:
+                        if key in obj:
+                            result[key] = truncate_recursive(obj[key], depth + 1, size_so_far)
+                            size_so_far += len(str(result[key]))
+                    
+                    # Then add other keys up to the limit
+                    remaining_slots = MAX_DICT_ITEMS - len(result)
+                    for key, value in list(obj.items())[:remaining_slots]:
+                        if key not in result:
+                            result[key] = truncate_recursive(value, depth + 1, size_so_far)
+                            size_so_far += len(str(result[key]))
+                            
+                            # Emergency exit if getting too large
+                            if size_so_far > MAX_TOTAL_SIZE:
+                                result["_size_limit_reached"] = True
+                                break
+                    
+                    result["_truncated"] = True
+                    result["_original_size"] = len(obj)
+                    return result
+                
+                # Process normal sized dict
+                result = {}
+                for k, v in obj.items():
+                    result[k] = truncate_recursive(v, depth + 1, size_so_far)
+                    size_so_far += len(str(result[k]))
+                    
+                    # Emergency exit if getting too large
+                    if size_so_far > MAX_TOTAL_SIZE:
+                        result["_size_limit_reached"] = True
+                        break
+                
+                return result
+                
+            elif isinstance(obj, list):
+                # More aggressive list truncation
+                if len(obj) > MAX_LIST_ITEMS:
+                    truncated = []
+                    for i, item in enumerate(obj[:MAX_LIST_ITEMS]):
+                        if size_so_far > MAX_TOTAL_SIZE:
+                            break
+                        truncated_item = truncate_recursive(item, depth + 1, size_so_far)
+                        truncated.append(truncated_item)
+                        size_so_far += len(str(truncated_item))
+                    
+                    truncated.append(f"... ({len(obj) - len(truncated)} more items)")
+                    return truncated
+                
+                result = []
+                for item in obj:
+                    if size_so_far > MAX_TOTAL_SIZE:
+                        result.append("[remaining items truncated: too large]")
+                        break
+                    truncated_item = truncate_recursive(item, depth + 1, size_so_far)
+                    result.append(truncated_item)
+                    size_so_far += len(str(truncated_item))
+                
+                return result
+            
+            # For other types (int, float, bool, None)
+            return obj
+            
         if isinstance(content, dict):
             # Keep only essential fields for Redis
             essential_fields = ["content", "output", "result", "summary", "confidence", "type"]
             optimized = {}
             
+            # First pass: extract only essential fields
             for field in essential_fields:
                 if field in content:
-                    value = content[field]
-                    # Truncate long strings for Redis efficiency
-                    if isinstance(value, str) and len(value) > 1000:
-                        optimized[field] = value[:1000] + "..."
-                        optimized[f"{field}_truncated"] = True
-                    else:
-                        optimized[field] = value
+                    optimized[field] = content[field]
+            
+            # If we have very few essential fields, include some others
+            if len(optimized) < 3:
+                # Add a few more fields but limit total
+                additional_fields = list(content.keys())[:5]
+                for field in additional_fields:
+                    if field not in optimized:
+                        optimized[field] = content[field]
+            
+            # Second pass: truncate all values recursively
+            optimized = truncate_recursive(optimized)
             
             # Add metadata
             optimized["memory_type"] = memory_type
@@ -654,16 +902,17 @@ class OptimizedMemoryManager:
             return optimized
         
         elif isinstance(content, str):
-            # Truncate long strings
-            if len(content) > 1000:
+            # Truncate long strings more aggressively
+            if len(content) > MAX_STRING_LENGTH:
                 return {
-                    "content": content[:1000] + "...",
+                    "content": content[:MAX_STRING_LENGTH] + "...",
                     "truncated": True,
                     "original_length": len(content)
                 }
             return content
         
-        return content
+        # For other types, apply recursive truncation
+        return truncate_recursive(content)
     
     async def _store_in_redis_cache(self, key: str, content: Any, confidence: float):
         """Store content in Redis cache with metadata"""

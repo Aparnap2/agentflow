@@ -1,8 +1,12 @@
 """
 Adapter for Upstash Redis to make it compatible with standard Redis client
+With added compression and chunking for large payloads to stay under Upstash limits
 """
 import asyncio
 import json
+import zlib
+import base64
+import time
 from typing import Dict, List, Any, Optional, Union, Tuple
 from loguru import logger
 
@@ -58,12 +62,77 @@ class UpstashAdapter:
             return 0
     
     async def get(self, key: str):
-        """Get a value"""
+        """Get a value with automatic decompression and chunk reassembly if needed"""
         try:
-            return await self.client.get(key)
+            value = await self.client.get(key)
+            
+            # If no value, return None
+            if not value:
+                return None
+                
+            # Check if value is chunked
+            if isinstance(value, str) and value.startswith("__chunked__:"):
+                try:
+                    # Extract number of chunks
+                    num_chunks = int(value.split(":", 1)[1])
+                    
+                    # Get metadata
+                    metadata_key = f"{key}:chunked_metadata"
+                    metadata_json = await self.client.get(metadata_key)
+                    
+                    if not metadata_json:
+                        logger.error(f"Missing chunk metadata for key {key}")
+                        return None
+                        
+                    metadata = json.loads(metadata_json)
+                    
+                    # Retrieve all chunks
+                    chunks = []
+                    for i in range(num_chunks):
+                        chunk_key = f"{key}:chunk:{i}"
+                        chunk = await self.client.get(chunk_key)
+                        if not chunk:
+                            logger.error(f"Missing chunk {i} for key {key}")
+                            return None
+                        chunks.append(chunk)
+                    
+                    # Reassemble the chunks
+                    encoded_data = "".join(chunks)
+                    
+                    # Decode and decompress
+                    compressed = base64.b64decode(encoded_data)
+                    decompressed = zlib.decompress(compressed)
+                    return decompressed.decode('utf-8')
+                    
+                except Exception as chunk_error:
+                    logger.error(f"Error reassembling chunks for key {key}: {chunk_error}")
+                    return None
+            
+            # Check if value is compressed and decompress if needed
+            elif isinstance(value, str) and value.startswith("__compressed__:"):
+                return self._decompress_value(value)
+                
+            return value
         except Exception as e:
             logger.error(f"Upstash get error: {e}")
             return None
+            
+    def _decompress_value(self, value: str) -> str:
+        """Decompress a value that was previously compressed"""
+        try:
+            # Remove the prefix
+            if not value.startswith("__compressed__:"):
+                return value
+                
+            encoded = value[len("__compressed__:"):]
+            
+            # Decode base64, decompress, and convert back to string
+            compressed = base64.b64decode(encoded)
+            decompressed = zlib.decompress(compressed)
+            return decompressed.decode('utf-8')
+        except Exception as e:
+            logger.error(f"Decompression error: {e}")
+            return value  # Return original value if decompression fails
     
     async def set(self, key: str, value: str):
         """Set a value"""
@@ -74,12 +143,116 @@ class UpstashAdapter:
             return False
     
     async def setex(self, key: str, seconds: int, value: str):
-        """Set with expiration"""
+        """Set with expiration and automatic compression/chunking for large values"""
         try:
-            return await self.client.setex(key, seconds, value)
+            # Get the size of the value
+            value_size = len(value) if isinstance(value, str) else len(json.dumps(value, default=str))
+            
+            # Upstash limit is 10MB
+            UPSTASH_LIMIT = 10_000_000
+            
+            # If value is extremely large (over 8MB), use chunking
+            if value_size > 8_000_000:
+                logger.warning(f"Value for key {key} is extremely large: {value_size/1_000_000:.2f}MB - using chunking")
+                return await self._store_chunked(key, seconds, value)
+            
+            # For medium-large values (over 500KB), use compression
+            elif value_size > 500_000:
+                # Compress the value
+                compressed = self._compress_value(value)
+                compressed_size = len(compressed)
+                
+                # Log compression ratio
+                logger.info(f"Compressed value for key {key}: {value_size/1_000_000:.2f}MB → {compressed_size/1_000_000:.2f}MB (ratio: {value_size/compressed_size:.1f}x)")
+                
+                # If still too large after compression, use chunking
+                if compressed_size > UPSTASH_LIMIT:
+                    logger.warning(f"Compressed value still too large ({compressed_size/1_000_000:.2f}MB) - using chunking")
+                    return await self._store_chunked(key, seconds, value)
+                
+                return await self.client.setex(key, seconds, compressed)
+            else:
+                # For smaller values, store directly
+                return await self.client.setex(key, seconds, value)
         except Exception as e:
             logger.error(f"Upstash setex error: {e}")
             return False
+    
+    async def _store_chunked(self, key: str, seconds: int, value: str):
+        """Store large values by splitting into chunks"""
+        try:
+            # Convert to string if not already
+            if not isinstance(value, str):
+                value = json.dumps(value, default=str)
+            
+            # Compress the value first
+            compressed = self._compress_value(value)
+            
+            # Calculate optimal chunk size (max 5MB per chunk)
+            MAX_CHUNK_SIZE = 5_000_000
+            
+            # Convert to bytes for chunking
+            if compressed.startswith("__compressed__:"):
+                # Already compressed, extract the base64 part
+                encoded_data = compressed[len("__compressed__:"):]
+                # No need to decode and re-encode
+            else:
+                # Compress if not already compressed
+                value_bytes = value.encode('utf-8')
+                compressed_bytes = zlib.compress(value_bytes, level=9)
+                encoded_data = base64.b64encode(compressed_bytes).decode('ascii')
+            
+            # Split into chunks
+            total_length = len(encoded_data)
+            num_chunks = (total_length + MAX_CHUNK_SIZE - 1) // MAX_CHUNK_SIZE  # Ceiling division
+            
+            # Store metadata
+            metadata = {
+                "total_chunks": num_chunks,
+                "total_size": total_length,
+                "is_chunked": True,
+                "created_at": time.time()
+            }
+            
+            # Store metadata
+            await self.client.setex(f"{key}:chunked_metadata", seconds, json.dumps(metadata))
+            
+            # Store each chunk
+            for i in range(num_chunks):
+                start_idx = i * MAX_CHUNK_SIZE
+                end_idx = min((i + 1) * MAX_CHUNK_SIZE, total_length)
+                chunk = encoded_data[start_idx:end_idx]
+                
+                # Store chunk with same expiration
+                chunk_key = f"{key}:chunk:{i}"
+                await self.client.setex(chunk_key, seconds, chunk)
+            
+            logger.info(f"Stored large value for key {key} in {num_chunks} chunks")
+            
+            # Store a marker in the original key
+            return await self.client.setex(key, seconds, f"__chunked__:{num_chunks}")
+            
+        except Exception as e:
+            logger.error(f"Chunking error for key {key}: {e}")
+            return False
+            
+    def _compress_value(self, value: str) -> str:
+        """Compress a string value and encode it for storage"""
+        try:
+            # Convert to string if not already
+            if not isinstance(value, str):
+                value = json.dumps(value, default=str)
+                
+            # Convert string to bytes, compress it, and encode as base64
+            value_bytes = value.encode('utf-8')
+            compressed = zlib.compress(value_bytes, level=9)  # Maximum compression
+            encoded = base64.b64encode(compressed).decode('ascii')
+            
+            # Add a prefix to identify compressed values
+            return f"__compressed__:{encoded}"
+        except Exception as e:
+            logger.error(f"Compression error: {e}")
+            return value  # Return original value if compression fails
     
     async def zadd(self, key: str, mapping: Dict[str, float]):
         """Add to sorted set with mapping format"""

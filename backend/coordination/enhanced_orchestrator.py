@@ -212,6 +212,64 @@ class EnhancedOrchestrator:
             logger.error(f"Failed to continue chat session: {e}")
             raise
     
+    async def execute_role_action(self, agent_name: str, action: str, params: Dict[str, Any], 
+                             session_id: Optional[str] = None) -> Dict[str, Any]:
+        """Execute a role-specific action for an agent"""
+        # Initialize queue system if not already initialized
+        if not hasattr(queue_manager, 'redis') or queue_manager.redis is None:
+            logger.info("Initializing queue system for role action execution")
+            await self.initialize()
+            
+        if agent_name not in self.agents:
+            raise ValueError(f"Unknown agent: {agent_name}")
+            
+        # Create a correlation ID for tracking
+        correlation_id = f"role_action_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+        
+        logger.info(f"🎯 Executing role action {action} for agent {agent_name}")
+        
+        try:
+            # Queue the role-specific action
+            task_id = await queue_manager.add_task(
+                queue_name="agent_tasks",
+                task_type=f"{agent_name.lower()}_{action}",
+                payload={
+                    "agent_name": agent_name,
+                    "session_id": session_id,
+                    "action": action,
+                    "params": params
+                },
+                priority=TaskPriority.HIGH,
+                agent_id=agent_name,
+                correlation_id=correlation_id
+            )
+            
+            # Wait for task completion
+            await self._wait_for_task_completion(task_id)
+            
+            # Get task result
+            task_result = await queue_manager.get_task_result(task_id)
+            
+            # Log completion
+            if session_id:
+                await self._log_interaction(
+                    session_id=session_id,
+                    role="system",
+                    content=f"{agent_name} completed role action {action}"
+                )
+            
+            return task_result
+            
+        except Exception as e:
+            logger.error(f"Failed to execute role action {action} for {agent_name}: {e}")
+            if session_id:
+                await self._log_interaction(
+                    session_id=session_id,
+                    role="system",
+                    content=f"❌ Failed to execute role action {action} for {agent_name}: {str(e)}"
+                )
+            raise
+    
     async def approve_and_execute(self, session_id: str) -> Dict[str, Any]:
         """Approve vision and start automatic agent execution"""
         # Initialize queue system if not already initialized
@@ -235,31 +293,54 @@ class EnhancedOrchestrator:
         logger.info(f"🎯 Starting automatic execution for project {project_id}")
         
         try:
-            # Step 1: Queue Cofounder task for final vision processing
-            cofounder_task_id = await queue_manager.add_task(
-                queue_name="agent_tasks",
-                task_type="vision_processing",
-                payload={
-                    "agent_name": "Cofounder",
-                    "session_id": session_id,
-                    "vision": session.vision,
-                    "mode": "final_processing"
+            # Step 1: Execute Cofounder vision_setting role action
+            cofounder_result = await self.execute_role_action(
+                agent_name="Cofounder",
+                action="vision_setting",
+                params={
+                    "vision_input": session.vision,
+                    "project_id": project_id
                 },
-                priority=TaskPriority.HIGH,
-                agent_id="Cofounder",
-                correlation_id=project_id
+                session_id=session_id
             )
             
-            session.agent_tasks["Cofounder"] = cofounder_task_id
+            # Store result in session
+            session.results["Cofounder"] = cofounder_result
             
-            # Step 2: Queue coordination task to orchestrate the workflow
+            # Step 2: Execute Manager workflow_design role action
+            manager_result = await self.execute_role_action(
+                agent_name="Manager",
+                action="workflow_design",
+                params={
+                    "vision_data": cofounder_result,
+                    "project_id": project_id
+                },
+                session_id=session_id
+            )
+            
+            # Store result in session
+            session.results["Manager"] = manager_result
+            
+            # Step 3: Execute Manager task_delegation role action
+            delegation_result = await self.execute_role_action(
+                agent_name="Manager",
+                action="task_delegation",
+                params={
+                    "workflow": manager_result.get("workflow", {}),
+                    "project_id": project_id,
+                    "available_agents": ["Finance", "Marketing", "Legal", "Sales"]
+                },
+                session_id=session_id
+            )
+            
+            # Step 4: Queue coordination task to orchestrate specialist agents
             coordination_task_id = await queue_manager.add_task(
                 queue_name="coordination",
                 task_type="orchestrate_execution",
                 payload={
                     "session_id": session_id,
                     "project_id": project_id,
-                    "depends_on": [cofounder_task_id]
+                    "agent_assignments": delegation_result.get("agent_assignments", {})
                 },
                 priority=TaskPriority.CRITICAL,
                 correlation_id=project_id
@@ -271,8 +352,9 @@ class EnhancedOrchestrator:
                 "data": {
                     "session_id": session_id,
                     "project_id": project_id,
-                    "cofounder_task": cofounder_task_id,
-                    "coordination_task": coordination_task_id
+                    "cofounder_result": cofounder_result,
+                    "manager_result": manager_result,
+                    "delegation_result": delegation_result
                 }
             })
             
@@ -280,7 +362,7 @@ class EnhancedOrchestrator:
                 "status": "execution_started",
                 "session_id": session_id,
                 "project_id": project_id,
-                "message": "Agents are now working automatically. Monitor progress in real-time."
+                "message": "Agents are now working automatically using role-based capabilities. Monitor progress in real-time."
             }
             
         except Exception as e:
@@ -296,6 +378,44 @@ class EnhancedOrchestrator:
         
         logger.info(f"🤖 Processing {agent_name} task for session {session_id}")
         
+        # Check if this is a role-specific action
+        role_action = payload.get("action")
+        if role_action:
+            logger.info(f"🔄 Processing role-specific action: {role_action} for {agent_name}")
+            
+            if agent_name not in self.agents:
+                raise ValueError(f"Unknown agent: {agent_name}")
+            
+            agent = self.agents[agent_name]
+            
+            # Execute role-specific action
+            try:
+                result = await agent.execute({
+                    "id": task.id,
+                    "action": role_action,
+                    "params": payload.get("params", {})
+                })
+                
+                # Log completion
+                if session_id:
+                    await self._log_interaction(session_id, "system", 
+                        f"{agent_name} completed role action {role_action} with confidence {result.get('confidence', 0.8):.2f}")
+                
+                return {
+                    "success": True,
+                    "agent": agent_name,
+                    "action": role_action,
+                    "result": result,
+                    "confidence": result.get("confidence", 0.8)
+                }
+            except Exception as e:
+                logger.error(f"Agent {agent_name} role action {role_action} failed: {e}")
+                if session_id:
+                    await self._log_interaction(session_id, "system", 
+                        f"{agent_name} role action {role_action} failed: {str(e)}")
+                raise
+        
+        # Standard task processing
         # ─────────────── STRICT GATING PROTECTION ─────────────────
         session = self.active_sessions.get(session_id)
         if not session:

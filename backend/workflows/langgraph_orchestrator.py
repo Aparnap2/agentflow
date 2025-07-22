@@ -486,21 +486,16 @@ class LangGraphOrchestrator:
         
         logger.info(f"Error handler processing error in {agent_name}: {error_msg}")
         
-        # Categorize error
-        if "timeout" in error_msg.lower():
-            error_type = "timeout"
-        elif "value" in error_msg.lower():
-            error_type = "value_error"
-        elif "key" in error_msg.lower():
-            error_type = "key_error"
-        else:
-            error_type = "general_error"
+        # Enhanced error categorization with role-specific handling
+        error_type = self._categorize_error(error_msg)
+        role_specific_handling = self._get_role_specific_error_handling(agent_name, error_msg)
             
-        # Add error diagnosis to state
+        # Add enhanced error diagnosis to state
         latest_error["diagnosis"] = {
             "error_type": error_type,
-            "severity": "high" if error_type == "timeout" else "medium",
-            "recoverable": True
+            "severity": self._determine_error_severity(error_type, agent_name),
+            "recoverable": self._is_error_recoverable(error_type, error_msg),
+            "role_specific": role_specific_handling
         }
         
         # Track correction attempts
@@ -560,21 +555,47 @@ class LangGraphOrchestrator:
             
             return state
         
-        # Apply correction strategy based on error type
-        if error_type == "timeout":
-            # For timeouts, simplify the task
-            logger.info(f"Applying timeout correction for {agent_name}")
+        # Get role-specific error handling strategy
+        role_specific = latest_error.get("diagnosis", {}).get("role_specific", {})
+        strategy = role_specific.get("strategy", "general")
+        
+        # Apply correction strategy based on role-specific handling
+        logger.info(f"Applying {strategy} correction for {agent_name}")
+        
+        # Apply simplification if needed
+        if role_specific.get("simplification", False):
             state["shared_context"][f"{agent_name}_simplified"] = True
+            state["shared_context"][f"{agent_name}_simplification_strategy"] = strategy
             
-        elif error_type == "key_error" or error_type == "value_error":
-            # For data errors, provide more context
-            logger.info(f"Applying data correction for {agent_name}")
+        # Apply context enrichment if needed
+        if role_specific.get("context_enrichment", False):
             # Add more context from other agents
             for other_agent, output in state.get("agent_outputs", {}).items():
                 if other_agent != agent_name:
                     # Extract key information to help with context
                     if isinstance(output, dict) and "output" in output:
                         state["shared_context"][f"{other_agent}_context_for_{agent_name}"] = output["output"]
+        
+        # Apply different approach if needed
+        if role_specific.get("retry_with_different_approach", False):
+            state["shared_context"][f"{agent_name}_retry_approach"] = f"alternative_{attempt}"
+            
+        # Fallback to error type-based correction if no role-specific strategy
+        if strategy == "general":
+            if error_type == "timeout":
+                # For timeouts, simplify the task
+                logger.info(f"Applying timeout correction for {agent_name}")
+                state["shared_context"][f"{agent_name}_simplified"] = True
+                
+            elif error_type == "key_error" or error_type == "value_error" or error_type == "json_error":
+                # For data errors, provide more context
+                logger.info(f"Applying data correction for {agent_name}")
+                # Add more context from other agents
+                for other_agent, output in state.get("agent_outputs", {}).items():
+                    if other_agent != agent_name:
+                        # Extract key information to help with context
+                        if isinstance(output, dict) and "output" in output:
+                            state["shared_context"][f"{other_agent}_context_for_{agent_name}"] = output["output"]
         
         # Remove this specific error so we can retry
         state["errors"] = [e for e in state["errors"] if e.get("agent") != agent_name]
@@ -599,3 +620,143 @@ class LangGraphOrchestrator:
         })
         
         return state
+        
+    def _categorize_error(self, error_msg: str) -> str:
+        """Categorize error based on error message with enhanced detection"""
+        error_msg_lower = error_msg.lower()
+        
+        # Timeout errors
+        if any(term in error_msg_lower for term in ["timeout", "timed out", "deadline exceeded"]):
+            return "timeout"
+        
+        # Data structure errors
+        if "key error" in error_msg_lower or "keyerror" in error_msg_lower:
+            return "key_error"
+        if "value error" in error_msg_lower or "valueerror" in error_msg_lower:
+            return "value_error"
+        if "type error" in error_msg_lower or "typeerror" in error_msg_lower:
+            return "type_error"
+        if "index" in error_msg_lower and "out of range" in error_msg_lower:
+            return "index_error"
+        
+        # API and connection errors
+        if any(term in error_msg_lower for term in ["api", "connection", "network", "http", "request"]):
+            return "api_error"
+        
+        # Memory errors
+        if "memory" in error_msg_lower:
+            return "memory_error"
+        
+        # JSON parsing errors
+        if "json" in error_msg_lower and any(term in error_msg_lower for term in ["parse", "decode", "invalid"]):
+            return "json_error"
+        
+        # LLM-specific errors
+        if any(term in error_msg_lower for term in ["token", "completion", "prompt", "llm"]):
+            return "llm_error"
+        
+        # Default case
+        return "general_error"
+    
+    def _determine_error_severity(self, error_type: str, agent_name: str) -> str:
+        """Determine error severity based on error type and agent"""
+        # Critical errors that block workflow
+        if error_type in ["timeout", "api_error", "memory_error"]:
+            return "high"
+        
+        # Errors that might be recoverable with context
+        if error_type in ["key_error", "value_error", "json_error"]:
+            return "medium"
+        
+        # Agent-specific severity adjustments
+        if agent_name == "Cofounder" and error_type in ["llm_error"]:
+            # Cofounder is critical for vision setting
+            return "high"
+        elif agent_name == "Manager" and error_type in ["type_error", "index_error"]:
+            # Manager coordinates other agents, so structural errors are high severity
+            return "high"
+        
+        # Default case
+        return "medium"
+    
+    def _is_error_recoverable(self, error_type: str, error_msg: str) -> bool:
+        """Determine if an error is potentially recoverable"""
+        # Generally unrecoverable errors
+        if "not implemented" in error_msg.lower():
+            return False
+        if "permission denied" in error_msg.lower():
+            return False
+        if "authentication failed" in error_msg.lower():
+            return False
+        
+        # Potentially recoverable errors
+        if error_type in ["timeout", "key_error", "value_error", "type_error", "index_error", "json_error"]:
+            return True
+        
+        # Default to optimistic recovery attempt
+        return True
+    
+    def _get_role_specific_error_handling(self, agent_name: str, error_msg: str) -> Dict[str, Any]:
+        """Get role-specific error handling strategies"""
+        error_handling = {
+            "strategy": "general",
+            "context_enrichment": False,
+            "simplification": False,
+            "retry_with_different_approach": False
+        }
+        
+        # Cofounder agent error handling
+        if agent_name == "Cofounder":
+            if "vision" in error_msg.lower():
+                error_handling["strategy"] = "vision_clarification"
+                error_handling["context_enrichment"] = True
+            elif "market" in error_msg.lower():
+                error_handling["strategy"] = "market_research_fallback"
+                error_handling["simplification"] = True
+        
+        # Manager agent error handling
+        elif agent_name == "Manager":
+            if "workflow" in error_msg.lower():
+                error_handling["strategy"] = "workflow_simplification"
+                error_handling["simplification"] = True
+            elif "task" in error_msg.lower():
+                error_handling["strategy"] = "task_restructuring"
+                error_handling["retry_with_different_approach"] = True
+        
+        # Marketing agent error handling
+        elif agent_name == "Marketing":
+            if "content" in error_msg.lower():
+                error_handling["strategy"] = "content_simplification"
+                error_handling["simplification"] = True
+            elif "seo" in error_msg.lower():
+                error_handling["strategy"] = "seo_analysis_skip"
+                error_handling["retry_with_different_approach"] = True
+        
+        # Finance agent error handling
+        elif agent_name == "Finance":
+            if "model" in error_msg.lower():
+                error_handling["strategy"] = "financial_model_simplification"
+                error_handling["simplification"] = True
+            elif "calculation" in error_msg.lower():
+                error_handling["strategy"] = "calculation_retry"
+                error_handling["retry_with_different_approach"] = True
+        
+        # Legal agent error handling
+        elif agent_name == "Legal":
+            if "compliance" in error_msg.lower():
+                error_handling["strategy"] = "compliance_check_simplification"
+                error_handling["simplification"] = True
+            elif "document" in error_msg.lower():
+                error_handling["strategy"] = "document_generation_fallback"
+                error_handling["retry_with_different_approach"] = True
+        
+        # Sales agent error handling
+        elif agent_name == "Sales":
+            if "forecast" in error_msg.lower():
+                error_handling["strategy"] = "forecast_simplification"
+                error_handling["simplification"] = True
+            elif "pipeline" in error_msg.lower():
+                error_handling["strategy"] = "pipeline_analysis_fallback"
+                error_handling["retry_with_different_approach"] = True
+        
+        return error_handling

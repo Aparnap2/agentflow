@@ -146,6 +146,15 @@ class MarketingAgent(LangGraphAgent):
         ]
         self.web_search = WebSearchTool()
         self.content_strategy = ContentStrategyTool()
+        
+        # Initialize role-specific action methods
+        self.role_actions = {
+            "content_generation": self._generate_content,
+            "seo_analysis": self._analyze_seo,
+            "ad_copy_creation": self._create_ad_copy,
+            "marketing_strategy": self._create_marketing_strategy,
+            "campaign_planning": self._plan_campaign
+        }
     
     async def _execute_actions(self, state) -> Dict[str, Any]:
         """Execute marketing-specific actions"""
@@ -770,4 +779,241 @@ class MarketingAgent(LangGraphAgent):
             }
         }
         
-        return optimization_recommendations
+        return optimization_recommendations  
+  # === ROLE-SPECIFIC ACTION METHODS ===
+    async def _generate_content(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate content based on provided parameters"""
+        content_type = params.get("content_type", "blog_post")
+        topic = params.get("topic", "product features")
+        tone = params.get("tone", "professional")
+        
+        try:
+            # Use content generator tool
+            content_tool = next(tool for tool in self.tools if tool.name == "content_generator")
+            content_result = await content_tool._arun(content_type, topic, tone)
+            
+            # Store in memory
+            await self.memory_manager.store_agent_memory(
+                agent_name=self.name,
+                memory_type="generated_content",
+                content=content_result,
+                is_shared=True,
+                confidence=0.85
+            )
+            
+            return {
+                "content": content_result,
+                "content_type": content_type,
+                "topic": topic,
+                "tone": tone,
+                "confidence": 0.85,
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            return {
+                "error": str(e),
+                "success": False,
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    async def _analyze_seo(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Analyze SEO for provided content"""
+        content = params.get("content", "")
+        target_audience = params.get("target_audience", "")
+        
+        if not content:
+            return {"error": "No content provided for SEO analysis", "success": False}
+        
+        try:
+            # Use SEO analyzer tool
+            seo_tool = next(tool for tool in self.tools if tool.name == "seo_analyzer")
+            seo_analysis = await seo_tool._arun(content, target_audience)
+            
+            # Store in memory
+            await self.memory_manager.store_agent_memory(
+                agent_name=self.name,
+                memory_type="seo_analysis",
+                content=seo_analysis,
+                is_shared=True,
+                confidence=0.9
+            )
+            
+            return {
+                "seo_analysis": seo_analysis,
+                "content_length": len(content),
+                "target_audience": target_audience,
+                "confidence": 0.9,
+                "timestamp": datetime.now().isoformat()
+            }
+        except Exception as e:
+            return {
+                "error": str(e),
+                "success": False,
+                "timestamp": datetime.now().isoformat()
+            }
+    
+    async def _create_ad_copy(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Create advertising copy based on product information"""
+        product_info = params.get("product_info", {})
+        platform = params.get("platform", "general")
+        
+        if not product_info:
+            return {"error": "No product information provided for ad copy creation", "success": False}
+        
+        # Create ad copy based on platform
+        ad_copy = {}
+        
+        if platform == "facebook" or platform == "general":
+            ad_copy["facebook"] = {
+                "headline": f"Introducing {product_info.get('name', 'Our Product')}",
+                "primary_text": f"Discover how {product_info.get('name', 'our product')} can {product_info.get('value_proposition', 'help you')}.",
+                "description": f"Join thousands of satisfied customers. Try {product_info.get('name', 'it')} today!",
+                "call_to_action": "Learn More"
+            }
+        
+        if platform == "google" or platform == "general":
+            ad_copy["google"] = {
+                "headline_1": f"{product_info.get('name', 'Our Product')}",
+                "headline_2": f"{product_info.get('key_benefit', 'Save Time & Money')}",
+                "headline_3": "Try It Today",
+                "description_1": f"Discover how {product_info.get('name', 'our product')} can {product_info.get('value_proposition', 'help you')}.",
+                "description_2": "Join thousands of satisfied customers."
+            }
+        
+        if platform == "linkedin" or platform == "general":
+            ad_copy["linkedin"] = {
+                "headline": f"Introducing {product_info.get('name', 'Our Product')} for Professionals",
+                "body_text": f"Discover how {product_info.get('name', 'our product')} can {product_info.get('value_proposition', 'help you')}. Used by leading companies to improve productivity and results.",
+                "call_to_action": "Learn More"
+            }
+        
+        # Store in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="ad_copy",
+            content=ad_copy,
+            is_shared=True,
+            confidence=0.85
+        )
+        
+        return {
+            "ad_copy": ad_copy,
+            "platform": platform,
+            "product_info": product_info,
+            "confidence": 0.85,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    async def _create_marketing_strategy(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Create comprehensive marketing strategy"""
+        vision = params.get("vision", {})
+        target_audience = params.get("target_audience", "general audience")
+        
+        if not vision:
+            return {"error": "No vision provided for marketing strategy", "success": False}
+        
+        # Create marketing strategy
+        strategy = await self._create_content_strategy({"type": "content_strategy"}, {"vision": vision})
+        
+        return {
+            "marketing_strategy": strategy,
+            "target_audience": target_audience,
+            "confidence": 0.9,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    async def _plan_campaign(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """Plan marketing campaign"""
+        campaign_type = params.get("campaign_type", "awareness")
+        budget = params.get("budget", 10000)
+        duration = params.get("duration", "1 month")
+        
+        # Create campaign plan
+        campaign_plan = {
+            "campaign_name": f"{campaign_type.capitalize()} Campaign",
+            "campaign_type": campaign_type,
+            "budget": budget,
+            "duration": duration,
+            "channels": self._select_channels_for_campaign(campaign_type),
+            "timeline": self._create_campaign_timeline(duration),
+            "success_metrics": self._define_campaign_metrics(campaign_type)
+        }
+        
+        # Store in memory
+        await self.memory_manager.store_agent_memory(
+            agent_name=self.name,
+            memory_type="campaign_plan",
+            content=campaign_plan,
+            is_shared=True,
+            confidence=0.85
+        )
+        
+        return {
+            "campaign_plan": campaign_plan,
+            "confidence": 0.85,
+            "timestamp": datetime.now().isoformat()
+        }
+    
+    def _select_channels_for_campaign(self, campaign_type: str) -> List[Dict[str, Any]]:
+        """Select appropriate channels for campaign type"""
+        if campaign_type == "awareness":
+            return [
+                {"channel": "Social Media", "budget_allocation": "40%", "focus": "Reach and impressions"},
+                {"channel": "Content Marketing", "budget_allocation": "30%", "focus": "Brand storytelling"},
+                {"channel": "Influencer Marketing", "budget_allocation": "20%", "focus": "Audience expansion"},
+                {"channel": "PR", "budget_allocation": "10%", "focus": "Brand credibility"}
+            ]
+        elif campaign_type == "conversion":
+            return [
+                {"channel": "Search Ads", "budget_allocation": "35%", "focus": "High-intent keywords"},
+                {"channel": "Email Marketing", "budget_allocation": "25%", "focus": "Nurturing sequences"},
+                {"channel": "Retargeting", "budget_allocation": "25%", "focus": "Website visitors"},
+                {"channel": "Landing Pages", "budget_allocation": "15%", "focus": "Conversion optimization"}
+            ]
+        else:
+            return [
+                {"channel": "Social Media", "budget_allocation": "30%", "focus": "Engagement"},
+                {"channel": "Content Marketing", "budget_allocation": "30%", "focus": "Education"},
+                {"channel": "Email Marketing", "budget_allocation": "20%", "focus": "Nurturing"},
+                {"channel": "Paid Search", "budget_allocation": "20%", "focus": "Targeted traffic"}
+            ]
+    
+    def _create_campaign_timeline(self, duration: str) -> Dict[str, str]:
+        """Create timeline for campaign based on duration"""
+        if "week" in duration.lower():
+            return {
+                "day_1_2": "Campaign setup and creative production",
+                "day_3_5": "Launch and initial optimization",
+                "day_6_7": "Performance analysis and adjustments"
+            }
+        else:  # Default to month
+            return {
+                "week_1": "Campaign setup and creative production",
+                "week_2": "Launch and initial data collection",
+                "week_3": "Optimization based on early results",
+                "week_4": "Performance analysis and reporting"
+            }
+    
+    def _define_campaign_metrics(self, campaign_type: str) -> List[Dict[str, str]]:
+        """Define appropriate metrics based on campaign type"""
+        if campaign_type == "awareness":
+            return [
+                {"metric": "Impressions", "target": "500,000+", "importance": "High"},
+                {"metric": "Reach", "target": "250,000+", "importance": "High"},
+                {"metric": "Engagement Rate", "target": "2-3%", "importance": "Medium"},
+                {"metric": "Brand Recall", "target": "15% increase", "importance": "High"}
+            ]
+        elif campaign_type == "conversion":
+            return [
+                {"metric": "Conversion Rate", "target": "3-5%", "importance": "High"},
+                {"metric": "Cost Per Acquisition", "target": "Under $50", "importance": "High"},
+                {"metric": "Click-Through Rate", "target": "2-4%", "importance": "Medium"},
+                {"metric": "Return on Ad Spend", "target": "3x+", "importance": "High"}
+            ]
+        else:
+            return [
+                {"metric": "Engagement Rate", "target": "3-5%", "importance": "High"},
+                {"metric": "Click-Through Rate", "target": "1-3%", "importance": "Medium"},
+                {"metric": "Conversion Rate", "target": "1-2%", "importance": "Medium"},
+                {"metric": "Cost Per Result", "target": "Industry benchmark -20%", "importance": "High"}
+            ]

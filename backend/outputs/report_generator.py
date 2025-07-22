@@ -1,335 +1,475 @@
 """
-Advanced report generation with comprehensive output formats
+Report Generator - Creates comprehensive reports from agent outputs
 """
 
-from typing import Dict, List, Any
-from datetime import datetime
 import os
 import json
+import asyncio
+from typing import Dict, List, Any, Optional
+from datetime import datetime
 from pathlib import Path
+from loguru import logger
+import weasyprint
+import markdown
+
+from services.template_manager import template_manager
+from .enhanced_output_manager import output_manager
 
 class ReportGenerator:
-    """Generate comprehensive business reports from agent outputs"""
+    """Creates comprehensive reports from agent outputs"""
     
     def __init__(self):
+        self.report_dir = Path("data/reports")
+        self.report_dir.mkdir(exist_ok=True, parents=True)
+        
+        # Report templates
         self.report_templates = {
-            "executive_dashboard": self._generate_executive_dashboard,
-            "marketing_intelligence": self._generate_marketing_report,
-            "financial_projections": self._generate_financial_report,
-            "legal_compliance": self._generate_legal_report,
-            "sales_forecast": self._generate_sales_report
+            "executive": self._generate_executive_report,
+            "marketing": self._generate_marketing_report,
+            "financial": self._generate_financial_report,
+            "research": self._generate_research_report,
+            "comprehensive": self._generate_comprehensive_report
         }
-        
-        # Ensure output directories exist
-        os.makedirs("outputs/reports", exist_ok=True)
-        os.makedirs("outputs/pdfs", exist_ok=True)
     
-    async def generate_comprehensive_report(self, agent_outputs: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate comprehensive business report"""
+    async def generate_report(self, report_type: str, outputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate a report based on type"""
+        if report_type not in self.report_templates:
+            raise ValueError(f"Unknown report type: {report_type}")
+            
+        generator_func = self.report_templates[report_type]
+        report = await generator_func(outputs)
         
+        # Save report
+        report_id = f"{report_type}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        report_path = self.report_dir / f"{report_id}.json"
+        
+        with open(report_path, "w") as f:
+            json.dump(report, f, indent=2)
+            
+        logger.info(f"Generated {report_type} report: {report_path}")
+        
+        return {
+            "id": report_id,
+            "type": report_type,
+            "path": str(report_path),
+            "data": report
+        }
+    
+    async def generate_pdf_report(self, report_data: Dict[str, Any], report_type: str) -> Path:
+        """Generate PDF report from data"""
+        # Determine template
+        template_name = f"reports/{report_type}.j2"
+        
+        # Render template
+        try:
+            rendered = template_manager.render_file_template(template_name, report_data)
+        except Exception as e:
+            logger.error(f"Failed to render template: {e}")
+            # Fallback to basic HTML
+            rendered = self._generate_fallback_html(report_data, report_type)
+        
+        # Generate PDF
+        report_id = f"{report_type}_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+        pdf_path = self.report_dir / f"{report_id}.pdf"
+        
+        try:
+            # Convert HTML to PDF
+            weasyprint.HTML(string=rendered).write_pdf(pdf_path)
+            
+            logger.info(f"Generated PDF report: {pdf_path}")
+            
+            return pdf_path
+        except Exception as e:
+            logger.error(f"Failed to generate PDF report: {e}")
+            raise
+    
+    def _generate_fallback_html(self, report_data: Dict[str, Any], report_type: str) -> str:
+        """Generate fallback HTML for a report"""
+        # Convert report data to HTML
+        html_parts = ["<html><head>"]
+        html_parts.append(f"<title>{report_type.title()} Report</title>")
+        html_parts.append("""
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; }
+            h1, h2, h3 { color: #333; }
+            table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f2f2f2; }
+            .section { margin-bottom: 30px; }
+        </style>
+        """)
+        html_parts.append("</head><body>")
+        
+        # Add title
+        html_parts.append(f"<h1>{report_type.title()} Report</h1>")
+        html_parts.append(f"<p>Generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}</p>")
+        
+        # Add sections
+        for key, value in report_data.items():
+            if key in ["id", "type", "generated_at"]:
+                continue
+                
+            html_parts.append(f"<div class='section'>")
+            html_parts.append(f"<h2>{key.replace('_', ' ').title()}</h2>")
+            
+            if isinstance(value, dict):
+                for subkey, subvalue in value.items():
+                    html_parts.append(f"<h3>{subkey.replace('_', ' ').title()}</h3>")
+                    html_parts.append(self._value_to_html(subvalue))
+            else:
+                html_parts.append(self._value_to_html(value))
+                
+            html_parts.append("</div>")
+        
+        html_parts.append("</body></html>")
+        return "".join(html_parts)
+    
+    def _value_to_html(self, value: Any) -> str:
+        """Convert a value to HTML"""
+        if isinstance(value, str):
+            # Try to convert markdown to HTML
+            try:
+                return markdown.markdown(value)
+            except:
+                return f"<p>{value}</p>"
+        elif isinstance(value, list):
+            if not value:
+                return "<p>No items</p>"
+                
+            if isinstance(value[0], dict):
+                # Table
+                html = "<table>"
+                
+                # Headers
+                html += "<tr>"
+                for key in value[0].keys():
+                    html += f"<th>{key.replace('_', ' ').title()}</th>"
+                html += "</tr>"
+                
+                # Rows
+                for item in value:
+                    html += "<tr>"
+                    for key, val in item.items():
+                        html += f"<td>{val}</td>"
+                    html += "</tr>"
+                
+                html += "</table>"
+                return html
+            else:
+                # List
+                html = "<ul>"
+                for item in value:
+                    html += f"<li>{item}</li>"
+                html += "</ul>"
+                return html
+        elif isinstance(value, dict):
+            # Definition list
+            html = "<dl>"
+            for key, val in value.items():
+                html += f"<dt>{key.replace('_', ' ').title()}</dt>"
+                html += f"<dd>{val}</dd>"
+            html += "</dl>"
+            return html
+        else:
+            return f"<p>{value}</p>"
+    
+    async def _generate_executive_report(self, outputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate executive summary report"""
         report = {
-            "report_metadata": {
-                "generated_at": datetime.now().isoformat(),
-                "report_version": "1.0",
-                "data_sources": list(agent_outputs.keys())
-            },
-            "executive_summary": self._create_executive_summary(agent_outputs),
-            "sections": {}
+            "title": "Executive Summary Report",
+            "generated_at": datetime.now().isoformat(),
+            "summary": "This report provides a high-level overview of key business insights and recommendations.",
+            "key_metrics": {},
+            "strategic_insights": [],
+            "recommendations": [],
+            "next_steps": []
         }
         
-        # Generate each report section
-        for report_type, generator_func in self.report_templates.items():
-            try:
-                section_data = await generator_func(agent_outputs)
-                if section_data:
-                    report["sections"][report_type] = section_data
-            except Exception as e:
-                report["sections"][report_type] = {"error": str(e)}
+        # Extract data from outputs
+        for output_id, output_data in outputs.items():
+            if isinstance(output_data, dict):
+                # Extract key metrics
+                if "metrics" in output_data:
+                    report["key_metrics"].update(output_data["metrics"])
+                
+                # Extract insights
+                if "insights" in output_data:
+                    if isinstance(output_data["insights"], list):
+                        report["strategic_insights"].extend(output_data["insights"])
+                    elif isinstance(output_data["insights"], str):
+                        report["strategic_insights"].append(output_data["insights"])
+                
+                # Extract recommendations
+                if "recommendations" in output_data:
+                    if isinstance(output_data["recommendations"], list):
+                        report["recommendations"].extend(output_data["recommendations"])
+                    elif isinstance(output_data["recommendations"], str):
+                        report["recommendations"].append(output_data["recommendations"])
+                
+                # Extract next steps
+                if "next_steps" in output_data:
+                    if isinstance(output_data["next_steps"], list):
+                        report["next_steps"].extend(output_data["next_steps"])
+                    elif isinstance(output_data["next_steps"], str):
+                        report["next_steps"].append(output_data["next_steps"])
+        
+        # Deduplicate lists
+        report["strategic_insights"] = list(set(report["strategic_insights"]))
+        report["recommendations"] = list(set(report["recommendations"]))
+        report["next_steps"] = list(set(report["next_steps"]))
         
         return report
     
-    def _create_executive_summary(self, agent_outputs: Dict[str, Any]) -> Dict[str, Any]:
-        """Create executive summary from all agent outputs"""
-        
-        return {
-            "project_health": {
-                "overall_score": self._calculate_project_health(agent_outputs),
-                "risk_level": self._assess_overall_risk(agent_outputs),
-                "confidence": self._calculate_overall_confidence(agent_outputs),
-                "next_milestone": "MVP Development"
-            },
-            "key_metrics": {
-                "market_opportunity": self._extract_market_size(agent_outputs.get("cofounder", {})),
-                "funding_runway": "18 months",
-                "revenue_projection": "$500K ARR target",
-                "product_readiness": "25% MVP Complete"
-            }
+    async def _generate_marketing_report(self, outputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate marketing report"""
+        report = {
+            "title": "Marketing Strategy Report",
+            "generated_at": datetime.now().isoformat(),
+            "summary": "This report provides a comprehensive marketing strategy and content plan.",
+            "target_audience": {},
+            "content_strategy": {},
+            "channel_recommendations": [],
+            "content_calendar": [],
+            "performance_metrics": {}
         }
+        
+        # Extract data from outputs
+        for output_id, output_data in outputs.items():
+            if isinstance(output_data, dict):
+                # Extract target audience
+                if "target_audience" in output_data:
+                    report["target_audience"] = output_data["target_audience"]
+                
+                # Extract content strategy
+                if "content_strategy" in output_data:
+                    report["content_strategy"] = output_data["content_strategy"]
+                
+                # Extract channel recommendations
+                if "channel_recommendations" in output_data:
+                    if isinstance(output_data["channel_recommendations"], list):
+                        report["channel_recommendations"].extend(output_data["channel_recommendations"])
+                    elif isinstance(output_data["channel_recommendations"], dict):
+                        for channel, recommendation in output_data["channel_recommendations"].items():
+                            report["channel_recommendations"].append({
+                                "channel": channel,
+                                "recommendation": recommendation
+                            })
+                
+                # Extract content calendar
+                if "content_calendar" in output_data:
+                    if isinstance(output_data["content_calendar"], list):
+                        report["content_calendar"].extend(output_data["content_calendar"])
+                
+                # Extract performance metrics
+                if "performance_metrics" in output_data:
+                    report["performance_metrics"].update(output_data["performance_metrics"])
+        
+        return report
+    
+    async def _generate_financial_report(self, outputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate financial report"""
+        report = {
+            "title": "Financial Analysis Report",
+            "generated_at": datetime.now().isoformat(),
+            "summary": "This report provides a comprehensive financial analysis and projections.",
+            "financial_summary": {},
+            "revenue_projections": {},
+            "expense_analysis": {},
+            "roi_analysis": {},
+            "recommendations": []
+        }
+        
+        # Extract data from outputs
+        for output_id, output_data in outputs.items():
+            if isinstance(output_data, dict):
+                # Extract financial summary
+                if "financial_summary" in output_data:
+                    report["financial_summary"] = output_data["financial_summary"]
+                
+                # Extract revenue projections
+                if "revenue_projections" in output_data:
+                    report["revenue_projections"] = output_data["revenue_projections"]
+                
+                # Extract expense analysis
+                if "expense_analysis" in output_data:
+                    report["expense_analysis"] = output_data["expense_analysis"]
+                
+                # Extract ROI analysis
+                if "roi_analysis" in output_data:
+                    report["roi_analysis"] = output_data["roi_analysis"]
+                
+                # Extract recommendations
+                if "recommendations" in output_data:
+                    if isinstance(output_data["recommendations"], list):
+                        report["recommendations"].extend(output_data["recommendations"])
+                    elif isinstance(output_data["recommendations"], str):
+                        report["recommendations"].append(output_data["recommendations"])
+        
+        # Deduplicate recommendations
+        report["recommendations"] = list(set(report["recommendations"]))
+        
+        return report
+    
+    async def _generate_research_report(self, outputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate research report"""
+        report = {
+            "title": "Market Research Report",
+            "generated_at": datetime.now().isoformat(),
+            "summary": "This report provides comprehensive market research and competitive analysis.",
+            "market_overview": "",
+            "target_audience": {},
+            "competitor_analysis": [],
+            "swot_analysis": {
+                "strengths": [],
+                "weaknesses": [],
+                "opportunities": [],
+                "threats": []
+            },
+            "trends": [],
+            "recommendations": []
+        }
+        
+        # Extract data from outputs
+        for output_id, output_data in outputs.items():
+            if isinstance(output_data, dict):
+                # Extract market overview
+                if "market_overview" in output_data:
+                    report["market_overview"] = output_data["market_overview"]
+                
+                # Extract target audience
+                if "target_audience" in output_data:
+                    report["target_audience"] = output_data["target_audience"]
+                
+                # Extract competitor analysis
+                if "competitor_analysis" in output_data:
+                    if isinstance(output_data["competitor_analysis"], list):
+                        report["competitor_analysis"].extend(output_data["competitor_analysis"])
+                
+                # Extract SWOT analysis
+                if "swot_analysis" in output_data:
+                    swot = output_data["swot_analysis"]
+                    if isinstance(swot, dict):
+                        for key in ["strengths", "weaknesses", "opportunities", "threats"]:
+                            if key in swot and isinstance(swot[key], list):
+                                report["swot_analysis"][key].extend(swot[key])
+                
+                # Extract trends
+                if "trends" in output_data:
+                    if isinstance(output_data["trends"], list):
+                        report["trends"].extend(output_data["trends"])
+                
+                # Extract recommendations
+                if "recommendations" in output_data:
+                    if isinstance(output_data["recommendations"], list):
+                        report["recommendations"].extend(output_data["recommendations"])
+                    elif isinstance(output_data["recommendations"], str):
+                        report["recommendations"].append(output_data["recommendations"])
+        
+        # Deduplicate lists
+        report["trends"] = list(set(report["trends"]))
+        report["recommendations"] = list(set(report["recommendations"]))
+        for key in ["strengths", "weaknesses", "opportunities", "threats"]:
+            report["swot_analysis"][key] = list(set(report["swot_analysis"][key]))
+        
+        return report
+    
+    async def _generate_comprehensive_report(self, outputs: Dict[str, Any]) -> Dict[str, Any]:
+        """Generate comprehensive report combining all report types"""
+        # Generate individual reports
+        executive_report = await self._generate_executive_report(outputs)
+        marketing_report = await self._generate_marketing_report(outputs)
+        financial_report = await self._generate_financial_report(outputs)
+        research_report = await self._generate_research_report(outputs)
+        
+        # Combine into comprehensive report
+        report = {
+            "title": "Comprehensive Business Report",
+            "generated_at": datetime.now().isoformat(),
+            "summary": "This report provides a comprehensive analysis of all business aspects.",
+            "executive_summary": executive_report,
+            "market_research": research_report,
+            "marketing_strategy": marketing_report,
+            "financial_analysis": financial_report
+        }
+        
+        return report
     
     def _create_timestamp(self) -> str:
-        """Create timestamp for reports"""
-        return datetime.now().isoformat()
+        """Create a formatted timestamp"""
+        return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
-    async def _generate_executive_dashboard(self, agent_outputs: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate executive dashboard data"""
+    async def list_reports(self) -> List[Dict[str, Any]]:
+        """List all generated reports"""
+        reports = []
+        
+        # Find all report files
+        report_files = list(self.report_dir.glob("*.json"))
+        
+        for report_path in report_files:
+            try:
+                # Load report
+                with open(report_path, "r") as f:
+                    report_data = json.load(f)
+                
+                # Extract report info
+                report_id = report_path.stem
+                report_type = report_id.split("_")[0]
+                
+                reports.append({
+                    "id": report_id,
+                    "type": report_type,
+                    "title": report_data.get("title", report_type.title()),
+                    "generated_at": report_data.get("generated_at", ""),
+                    "path": str(report_path),
+                    "has_pdf": (self.report_dir / f"{report_id}.pdf").exists()
+                })
+            except Exception as e:
+                logger.error(f"Failed to process report file {report_path}: {e}")
+        
+        # Sort by generation date (newest first)
+        reports.sort(key=lambda x: x["generated_at"], reverse=True)
+        
+        return reports
+    
+    async def get_report(self, report_id: str) -> Dict[str, Any]:
+        """Get a report by ID"""
+        report_path = self.report_dir / f"{report_id}.json"
+        
+        if not report_path.exists():
+            raise ValueError(f"Report not found: {report_id}")
+            
+        # Load report
+        with open(report_path, "r") as f:
+            report_data = json.load(f)
+            
+        # Check if PDF exists
+        pdf_path = self.report_dir / f"{report_id}.pdf"
+        has_pdf = pdf_path.exists()
         
         return {
-            "kpi_dashboard": {
-                "revenue_metrics": {
-                    "current_mrr": 0,
-                    "projected_arr": "$500K",
-                    "growth_rate": "25% MoM target",
-                    "churn_rate": "5% monthly"
-                },
-                "product_metrics": {
-                    "feature_completion": "75%",
-                    "user_satisfaction": "4.2/5",
-                    "technical_debt": "Low"
-                }
-            }
+            "id": report_id,
+            "data": report_data,
+            "has_pdf": has_pdf,
+            "pdf_path": str(pdf_path) if has_pdf else None
         }
     
-    async def _generate_marketing_report(self, agent_outputs: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate marketing intelligence report"""
+    async def delete_report(self, report_id: str) -> bool:
+        """Delete a report"""
+        report_path = self.report_dir / f"{report_id}.json"
         
-        marketing_data = agent_outputs.get("marketing", {})
-        
-        return {
-            "content_strategy": marketing_data.get("content_strategy", {}),
-            "campaign_projections": {
-                "cac_prediction": "$45",
-                "ltv_projection": "$2400",
-                "roi_projection": "400%"
-            }
-        }
-    
-    async def _generate_financial_report(self, agent_outputs: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate financial projections and analysis"""
-        
-        finance_data = agent_outputs.get("finance", {})
-        
-        return {
-            "revenue_model": finance_data.get("revenue_model", {}),
-            "financial_projections": finance_data.get("financial_projections", {}),
-            "funding_requirements": finance_data.get("funding_requirements", {})
-        }
-    
-    async def _generate_legal_report(self, agent_outputs: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate legal compliance report"""
-        
-        legal_data = agent_outputs.get("legal", {})
-        
-        return {
-            "compliance_status": {
-                "gdpr_compliance": 85,
-                "ccpa_compliance": 90,
-                "data_protection": 88
-            },
-            "legal_documents": {
-                "terms_of_service": "Generated",
-                "privacy_policy": "Generated"
-            },
-            "risk_assessment": legal_data.get("identified_risks", [])
-        }
-    
-    async def _generate_sales_report(self, agent_outputs: Dict[str, Any]) -> Dict[str, Any]:
-        """Generate sales forecast and strategy"""
-        
-        sales_data = agent_outputs.get("sales", {})
-        
-        return {
-            "sales_projections": sales_data.get("sales_forecast", {}),
-            "customer_segments": sales_data.get("customer_segments", {}),
-            "sales_strategy": sales_data.get("sales_strategy", {})
-        }
-    
-    def _calculate_project_health(self, agent_outputs: Dict) -> int:
-        """Calculate overall project health score"""
-        scores = [data.get("confidence", 0.5) * 100 for data in agent_outputs.values()]
-        return int(sum(scores) / len(scores)) if scores else 75
-    
-    def _assess_overall_risk(self, agent_outputs: Dict) -> str:
-        """Assess overall risk level"""
-        health_score = self._calculate_project_health(agent_outputs)
-        return "low" if health_score >= 80 else "medium" if health_score >= 60 else "high"
-    
-    def _calculate_overall_confidence(self, agent_outputs: Dict) -> float:
-        """Calculate overall confidence"""
-        confidences = [data.get("confidence", 0.5) for data in agent_outputs.values()]
-        return round(sum(confidences) / len(confidences), 2) if confidences else 0.75
-    
-    def _extract_market_size(self, cofounder_data: Dict) -> str:
-        """Extract market size from cofounder data"""
-        market_data = cofounder_data.get("market_opportunity_assessment", {})
-        return market_data.get("serviceable_obtainable_market", "$2.5B TAM")
-    
-    async def generate_pdf_report(self, report_data: Dict[str, Any], report_type: str = "comprehensive") -> str:
-        """Generate PDF report from report data"""
-        try:
-            # Try to import WeasyPrint for PDF generation
-            from weasyprint import HTML, CSS
+        if not report_path.exists():
+            return False
             
-            # Generate HTML content
-            html_content = self._generate_html_report(report_data, report_type)
+        # Delete JSON file
+        report_path.unlink()
+        
+        # Delete PDF if exists
+        pdf_path = self.report_dir / f"{report_id}.pdf"
+        if pdf_path.exists():
+            pdf_path.unlink()
             
-            # Create PDF
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            pdf_filename = f"outputs/pdfs/{report_type}_report_{timestamp}.pdf"
-            
-            HTML(string=html_content).write_pdf(pdf_filename)
-            
-            return pdf_filename
-            
-        except ImportError:
-            # Fallback: Generate HTML file instead
-            return await self._generate_html_fallback(report_data, report_type)
-    
-    def _generate_html_report(self, report_data: Dict[str, Any], report_type: str) -> str:
-        """Generate HTML content for PDF report"""
-        
-        html_template = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>AgentFlow {report_type.title()} Report</title>
-            <style>
-                body {{ font-family: Arial, sans-serif; margin: 40px; }}
-                .header {{ background: #1f2937; color: white; padding: 20px; margin-bottom: 30px; }}
-                .section {{ margin-bottom: 30px; }}
-                .metric {{ background: #f3f4f6; padding: 15px; margin: 10px 0; border-radius: 5px; }}
-                .kpi {{ display: inline-block; margin: 10px; padding: 15px; background: #dbeafe; border-radius: 5px; }}
-                table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
-                th, td {{ border: 1px solid #ddd; padding: 12px; text-align: left; }}
-                th {{ background-color: #f2f2f2; }}
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h1>🚀 AgentFlow Business Report</h1>
-                <p>Generated: {report_data.get('report_metadata', {}).get('generated_at', datetime.now().isoformat())}</p>
-            </div>
-            
-            <div class="section">
-                <h2>📊 Executive Summary</h2>
-                {self._format_executive_summary_html(report_data.get('executive_summary', {}))}
-            </div>
-            
-            <div class="section">
-                <h2>📈 Key Performance Indicators</h2>
-                {self._format_kpi_section_html(report_data.get('sections', {}).get('executive_dashboard', {}))}
-            </div>
-            
-            <div class="section">
-                <h2>💰 Financial Projections</h2>
-                {self._format_financial_section_html(report_data.get('sections', {}).get('financial_projections', {}))}
-            </div>
-            
-            <div class="section">
-                <h2>📱 Marketing Intelligence</h2>
-                {self._format_marketing_section_html(report_data.get('sections', {}).get('marketing_intelligence', {}))}
-            </div>
-            
-            <div class="section">
-                <h2>⚖️ Legal & Compliance</h2>
-                {self._format_legal_section_html(report_data.get('sections', {}).get('legal_compliance', {}))}
-            </div>
-        </body>
-        </html>
-        """
-        
-        return html_template
-    
-    def _format_executive_summary_html(self, summary: Dict[str, Any]) -> str:
-        """Format executive summary as HTML"""
-        project_health = summary.get('project_health', {})
-        key_metrics = summary.get('key_metrics', {})
-        
-        return f"""
-        <div class="metric">
-            <h3>Project Health Score: {project_health.get('overall_score', 'N/A')}/100</h3>
-            <p><strong>Risk Level:</strong> {project_health.get('risk_level', 'Unknown').title()}</p>
-            <p><strong>Confidence:</strong> {project_health.get('confidence', 'N/A')}</p>
-            <p><strong>Next Milestone:</strong> {project_health.get('next_milestone', 'TBD')}</p>
-        </div>
-        
-        <div class="kpi">
-            <strong>Market Opportunity:</strong><br>
-            {key_metrics.get('market_opportunity', 'TBD')}
-        </div>
-        <div class="kpi">
-            <strong>Revenue Projection:</strong><br>
-            {key_metrics.get('revenue_projection', 'TBD')}
-        </div>
-        <div class="kpi">
-            <strong>Product Readiness:</strong><br>
-            {key_metrics.get('product_readiness', 'TBD')}
-        </div>
-        """
-    
-    def _format_kpi_section_html(self, kpi_data: Dict[str, Any]) -> str:
-        """Format KPI section as HTML"""
-        dashboard = kpi_data.get('kpi_dashboard', {})
-        revenue_metrics = dashboard.get('revenue_metrics', {})
-        product_metrics = dashboard.get('product_metrics', {})
-        
-        return f"""
-        <table>
-            <tr><th>Metric</th><th>Current</th><th>Target</th></tr>
-            <tr><td>Monthly Recurring Revenue</td><td>{revenue_metrics.get('current_mrr', '$0')}</td><td>$50K</td></tr>
-            <tr><td>Annual Recurring Revenue</td><td>{revenue_metrics.get('projected_arr', 'TBD')}</td><td>$500K</td></tr>
-            <tr><td>Growth Rate</td><td>{revenue_metrics.get('growth_rate', 'TBD')}</td><td>25% MoM</td></tr>
-            <tr><td>Feature Completion</td><td>{product_metrics.get('feature_completion', 'TBD')}</td><td>100%</td></tr>
-            <tr><td>User Satisfaction</td><td>{product_metrics.get('user_satisfaction', 'TBD')}</td><td>4.5/5</td></tr>
-        </table>
-        """
-    
-    def _format_financial_section_html(self, financial_data: Dict[str, Any]) -> str:
-        """Format financial section as HTML"""
-        return f"""
-        <div class="metric">
-            <h3>Revenue Model</h3>
-            <p>{json.dumps(financial_data.get('revenue_model', {}), indent=2)}</p>
-        </div>
-        <div class="metric">
-            <h3>Financial Projections</h3>
-            <p>{json.dumps(financial_data.get('financial_projections', {}), indent=2)}</p>
-        </div>
-        """
-    
-    def _format_marketing_section_html(self, marketing_data: Dict[str, Any]) -> str:
-        """Format marketing section as HTML"""
-        projections = marketing_data.get('campaign_projections', {})
-        
-        return f"""
-        <div class="metric">
-            <h3>Campaign Projections</h3>
-            <p><strong>Customer Acquisition Cost:</strong> {projections.get('cac_prediction', 'TBD')}</p>
-            <p><strong>Lifetime Value:</strong> {projections.get('ltv_projection', 'TBD')}</p>
-            <p><strong>ROI Projection:</strong> {projections.get('roi_projection', 'TBD')}</p>
-        </div>
-        """
-    
-    def _format_legal_section_html(self, legal_data: Dict[str, Any]) -> str:
-        """Format legal section as HTML"""
-        compliance = legal_data.get('compliance_status', {})
-        
-        return f"""
-        <div class="metric">
-            <h3>Compliance Status</h3>
-            <p><strong>GDPR Compliance:</strong> {compliance.get('gdpr_compliance', 'N/A')}%</p>
-            <p><strong>CCPA Compliance:</strong> {compliance.get('ccpa_compliance', 'N/A')}%</p>
-            <p><strong>Data Protection:</strong> {compliance.get('data_protection', 'N/A')}%</p>
-        </div>
-        """
-    
-    async def _generate_html_fallback(self, report_data: Dict[str, Any], report_type: str) -> str:
-        """Generate HTML file as fallback when PDF generation fails"""
-        html_content = self._generate_html_report(report_data, report_type)
-        
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        html_filename = f"outputs/reports/{report_type}_report_{timestamp}.html"
-        
-        with open(html_filename, 'w', encoding='utf-8') as f:
-            f.write(html_content)
-        
-        return html_filename
+        logger.info(f"Deleted report: {report_id}")
+        return True
+
+# Global instance
+report_generator = ReportGenerator()

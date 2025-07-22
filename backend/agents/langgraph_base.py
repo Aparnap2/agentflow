@@ -8,6 +8,9 @@ from typing import Dict, List, Any, Optional, TypedDict
 from datetime import datetime
 from loguru import logger
 
+# Import text generation mixin
+from agents.text_generation_mixin import TextGenerationMixin
+
 try:
     from langgraph.graph import StateGraph, END
 except ImportError as e:
@@ -58,8 +61,8 @@ class AgentState(TypedDict):
     retry_count: int
 
 
-class LangGraphAgent:
-    """Base LangGraph agent following PRD specifications"""
+class LangGraphAgent(TextGenerationMixin):
+    """Base LangGraph agent following PRD specifications with text generation capabilities"""
     
     def __init__(self, name: str, role: str, memory_manager: MemoryManager, 
                  approval_manager: ApprovalManager, personality: Dict[str, Any] = None):
@@ -79,11 +82,17 @@ class LangGraphAgent:
         self.max_tokens = self.personality.get("max_tokens", 2000)
         self.confidence_threshold = self.personality.get("confidence_threshold", 0.7)
         
+        # Role-specific capabilities
+        self.role_tools = self.personality.get("role_tools", [])
+        self.role_interfaces = self.personality.get("role_interfaces", [])
+        self.role_capabilities = self.personality.get("role_capabilities", [])
+        self.role_actions = {}  # Will be populated by subclasses
+        
         # Agent-specific tools (to be overridden)
         self.tools = []
         
         self.tool_registry = ToolRegistry(self.name)
-        logger.info(f"Initialized LangGraph agent: {name}")
+        logger.info(f"Initialized LangGraph agent: {name} with role capabilities: {self.role_capabilities}")
     
     def _get_api_key(self) -> str:
         """Get API key from environment"""
@@ -176,9 +185,79 @@ class LangGraphAgent:
             selected_tools.append(BaseTool())
         return selected_tools
 
+    async def execute_role_action(self, action_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute a role-specific action
+        
+        Args:
+            action_name: Name of the action to execute
+            params: Parameters for the action
+            
+        Returns:
+            Action result
+        """
+        if not hasattr(self, 'role_actions') or action_name not in self.role_actions:
+            logger.warning(f"{self.name}: Attempted to execute unknown role action: {action_name}")
+            return {
+                "error": f"Unknown role action: {action_name}",
+                "success": False,
+                "timestamp": datetime.now().isoformat()
+            }
+        
+        try:
+            # Execute the role-specific action
+            action_method = self.role_actions[action_name]
+            result = await action_method(params)
+            
+            # Add metadata to result
+            if isinstance(result, dict):
+                result["action"] = action_name
+                result["timestamp"] = datetime.now().isoformat()
+                result["success"] = True
+            else:
+                result = {
+                    "result": result,
+                    "action": action_name,
+                    "timestamp": datetime.now().isoformat(),
+                    "success": True
+                }
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"{self.name}: Error executing role action {action_name}: {e}")
+            return {
+                "error": str(e),
+                "action": action_name,
+                "success": False,
+                "timestamp": datetime.now().isoformat()
+            }
+    
     async def execute(self, task: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the agent workflow with proper memory integration"""
         try:
+            # Check if this is a role-specific action
+            if "action" in task and hasattr(self, 'role_actions') and task["action"] in self.role_actions:
+                logger.info(f"{self.name}: Executing role-specific action: {task['action']}")
+                action_results = await self.execute_role_action(task["action"], task.get("params", {}))
+                
+                # Calculate confidence
+                confidence = action_results.get("confidence", self._calculate_confidence(action_results))
+                
+                # Store in memory
+                await self._store_in_memory_systems(task, action_results, confidence)
+                
+                return {
+                    "status": "completed",
+                    "output": action_results,
+                    "confidence": confidence,
+                    "requires_approval": confidence < self.confidence_threshold,
+                    "agent": self.name,
+                    "task_id": task.get("id"),
+                    "action": task["action"],
+                    "completed_at": datetime.now().isoformat()
+                }
+            
             # Add task to queue if not already queued
             if not task.get("queued") and hasattr(queue_manager, 'redis') and queue_manager.redis:
                 await queue_manager.add_task(
