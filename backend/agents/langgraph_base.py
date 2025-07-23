@@ -142,25 +142,39 @@ class LangGraphAgent(TextGenerationMixin):
             raise Exception("No API key configured")
             
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=60)) as session:
-            async with session.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://agentflow.ai",
-                    "X-Title": "AgentFlow"
-                },
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                    "temperature": self.temperature,
-                    "max_tokens": self.max_tokens
-                }
-            ) as response:
-                if response.status != 200:
-                    error_text = await response.text()
-                    raise Exception(f"OpenRouter API error: {error_text}")
-                return await response.json()
+            try:
+                async with session.post(
+                    "https://openrouter.ai/api/v1/chat/completions",  # Fixed endpoint URL
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://agentflow.ai",
+                        "X-Title": "AgentFlow"
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": messages,
+                        "temperature": self.temperature,
+                        "max_tokens": self.max_tokens
+                    }
+                ) as response:
+                    if response.status != 200:
+                        error_text = await response.text()
+                        raise Exception(f"OpenRouter API error: {response.status} - {error_text}")
+                    
+                    # Check content type to ensure it's JSON
+                    content_type = response.headers.get('Content-Type', '')
+                    if 'application/json' not in content_type:
+                        error_text = await response.text()
+                        raise Exception(f"Unexpected content type: {content_type} - {error_text[:100]}")
+                        
+                    return await response.json()
+            except aiohttp.ClientError as e:
+                raise Exception(f"API request failed: {str(e)}")
+            except ValueError as e:
+                raise Exception(f"JSON parsing failed: {str(e)}")
+            except Exception as e:
+                raise Exception(f"LLM call failed: {str(e)}")
 
     def get_config(self) -> Dict[str, Any]:
         """Get current agent configuration"""
@@ -261,11 +275,9 @@ class LangGraphAgent(TextGenerationMixin):
             # Add task to queue if not already queued
             if not task.get("queued") and hasattr(queue_manager, 'redis') and queue_manager.redis:
                 await queue_manager.add_task(
-                    queue_name="agent_tasks",
                     task_type=f"{self.name.lower()}_execution",
-                    payload={**task, "agent_name": self.name, "queued": True},
-                    priority=TaskPriority.NORMAL,
-                    agent_id=self.name
+                    task_data={**task, "agent_name": self.name, "queued": True},
+                    priority=TaskPriority.NORMAL
                 )
             
             # Get shared context from Qdrant (global)
@@ -357,10 +369,12 @@ class LangGraphAgent(TextGenerationMixin):
             
             async with aiohttp.ClientSession() as session:
                 async with session.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
+                    "https://openrouter.ai/api/v1/chat/completions",  # Fixed endpoint URL
                     headers={
                         "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://agentflow.ai",
+                        "X-Title": "AgentFlow"
                     },
                     json={
                         "model": self.model,
