@@ -1,0 +1,38 @@
+# FastAPI & Core
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+pydantic==2.5.0
+python-multipart==0.0.6
+
+# Agent Framework
+langgraph==0.4.8
+langchain==0.1.0
+langchain-community==0.0.10
+langchain-core==0.1.0
+crewai==0.22.5
+
+# Memory & Storage
+neo4j==5.28.1
+qdrant-client==1.7.0
+graphiti-core==0.3.0
+redis==5.0.1
+redis[asyncio]==5.0.1
+upstash-redis==1.0.0
+
+# Tools & Integrations
+crawl4ai==0.2.77
+aiohttp==3.9.0
+httpx==0.25.2
+requests==2.31.0
+
+# Utilities
+python-dotenv==1.0.0
+pyyaml==6.0.2
+loguru==0.7.3
+aiofiles==23.2.1
+sentence-transformers==2.2.2
+
+# Report Generation
+weasyprint==62.3
+matplotlib==3.8.2
+seaborn==0.13.0

@@ -1,0 +1,22 @@
+{
+  "project_id": "project_20250627_194105",
+  "execution_timeline": [
+    {
+      "agent": "Cofounder",
+      "timestamp": "2025-06-27T19:41:06.944191",
+      "status": "failed",
+      "confidence": 0.0,
+      "summary": "",
+      "error": null
+    },
+    {
+      "agent": "Manager",
+      "timestamp": "2025-06-27T19:41:09.483304",
+      "status": "failed",
+      "confidence": 0.0,
+      "summary": "",
+      "error": null
+    }
+  ],
+  "generated_at": "2025-06-27T19:41:09.483491"
+}
