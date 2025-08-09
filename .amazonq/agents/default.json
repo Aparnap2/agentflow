@@ -1,0 +1,67 @@
+{
+  "name": "default-agent",
+  "version": "1.0.0",
+  "description": "Default agent configuration",
+  "mcpServers": {
+    "sequentialthinking": {
+      "command": "npx",
+      "disabled": false,
+      "timeout": 10000000000,
+      "args": [
+        "-y @modelcontextprotocol/server-sequential-thinking"
+      ]
+    },
+    "context7": {
+      "command": "/home/aparna/.nvm/versions/node/v22.18.0/bin/npx",
+      "disabled": false,
+      "timeout": 1200000,
+      "args": [
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ]
+    }
+  },
+  "tools": [
+    "fsRead",
+    "fsWrite",
+    "fsReplace",
+    "listDirectory",
+    "fileSearch",
+    "executeBash",
+    "codeReview",
+    "displayFindings",
+    "@context7"
+  ],
+  "allowedTools": [
+    "fsRead",
+    "listDirectory",
+    "fileSearch",
+    "codeReview",
+    "displayFindings",
+    "@context7/resolve-library-id",
+    "@context7/get-library-docs"
+  ],
+  "toolsSettings": {
+    "execute_bash": {
+      "alwaysAllow": [
+        {
+          "preset": "readOnly"
+        }
+      ]
+    },
+    "use_aws": {
+      "alwaysAllow": [
+        {
+          "preset": "readOnly"
+        }
+      ]
+    }
+  },
+  "includedFiles": [
+    "AmazonQ.md",
+    "README.md",
+    ".amazonq/rules/**/*.md"
+  ],
+  "resources": [],
+  "promptHooks": []
+}

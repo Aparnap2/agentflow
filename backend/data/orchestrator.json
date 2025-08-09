@@ -1,0 +1,32 @@
+{
+  "agent": "Orchestrator",
+  "outputs": {
+    "project_completion": {
+      "content": {
+        "project_id": "project_20250629_192021",
+        "agents_executed": [
+          "cofounder",
+          "manager",
+          "product",
+          "finance",
+          "marketing",
+          "legal"
+        ],
+        "exported_files": {
+          "cofounder": "data/vision.yml",
+          "manager": "data/plan.yml",
+          "product": "data/product.yml",
+          "finance": "data/finance.yml",
+          "marketing": "data/marketing.yml",
+          "legal": "data/legal.yml",
+          "timeline": "data/timeline.json",
+          "graph": "data/graph.graphml"
+        },
+        "completion_time": "2025-06-29T19:21:04.982622"
+      },
+      "confidence": 1.0,
+      "timestamp": "2025-06-29T13:51:05.072000000+00:00"
+    }
+  },
+  "exported_at": "2025-06-29T20:02:43.288795"
+}

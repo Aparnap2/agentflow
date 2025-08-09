@@ -1,0 +1,370 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://graphml.graphdrawing.org/xmlns
+         http://graphml.graphdrawing.org/xmlns/1.0/graphml.xsd">
+  <key id="label" for="node" attr.name="label" attr.type="string"/>
+  <key id="type" for="node" attr.name="type" attr.type="string"/>
+  <key id="content" for="node" attr.name="content" attr.type="string"/>
+  <key id="relationship" for="edge" attr.name="relationship" attr.type="string"/>
+  <graph id="AgentFlowMemory" edgedefault="directed">
+    <node id="140536892889936">
+      <data key="label">Agent</data>
+      <data key="type">unknown</data>
+    </node>
+    <node id="140536880168848">
+      <data key="label">SharedMemory</data>
+      <data key="type">cofounder_output</data>
+      <data key="content">{"vision_statement": "Empower small and medium businesses (SMBs) to effortlessly create, customize, and deploy intelligent chatbots without any coding expertise, enabling them to enhance customer enga...</data>
+    </node>
+    <node id="140536893140944">
+      <data key="label">Agent</data>
+      <data key="type">unknown</data>
+    </node>
+    <node id="140536891760208">
+      <data key="label">SharedMemory</data>
+      <data key="type">manager_output</data>
+      <data key="content">{"project_roadmap": {"phase_1": {"name": "Foundation & Planning", "duration": "2-3 weeks", "deliverables": ["Product requirements", "Financial model", "Legal framework"]}, "phase_2": {"name": "Develop...</data>
+    </node>
+    <node id="140536880447376">
+      <data key="label">Agent</data>
+      <data key="type">unknown</data>
+    </node>
+    <node id="140536880967760">
+      <data key="label">PrivateMemory</data>
+      <data key="type">marketing_analysis</data>
+      <data key="content">{"market_positioning": {"unique_value_proposition": "", "target_market_size": "To be researched", "competitive_advantage": "Innovation and user experience", "brand_personality": ["innovative", "reliab...</data>
+    </node>
+    <node id="140536880445136">
+      <data key="label">SharedMemory</data>
+      <data key="type">marketing_output</data>
+      <data key="content">{"market_positioning": {"unique_value_proposition": "", "target_market_size": "To be researched", "competitive_advantage": "Innovation and user experience", "brand_personality": ["innovative", "reliab...</data>
+    </node>
+    <node id="140536880963536">
+      <data key="label">Agent</data>
+      <data key="type">unknown</data>
+    </node>
+    <node id="140536881027664">
+      <data key="label">PrivateMemory</data>
+      <data key="type">legal_analysis</data>
+      <data key="content">{"business_overview": {"model": "", "target_users": "", "risk_profile": "Low"}, "identified_risks": [], "general_recommendations": ["Establish clear terms of service and privacy policy", "Implement pr...</data>
+    </node>
+    <node id="140536880967184">
+      <data key="label">SharedMemory</data>
+      <data key="type">legal_output</data>
+      <data key="content">{"business_overview": {"model": "", "target_users": "", "risk_profile": "Low"}, "identified_risks": [], "general_recommendations": ["Establish clear terms of service and privacy policy", "Implement pr...</data>
+    </node>
+    <node id="140536881035216">
+      <data key="label">Agent</data>
+      <data key="type">unknown</data>
+    </node>
+    <node id="140536881025936">
+      <data key="label">SharedMemory</data>
+      <data key="type">project_completion</data>
+      <data key="content">{"project_id": "project_20250628_121818", "agents_executed": ["cofounder", "manager", "product", "finance", "marketing", "legal"], "exported_files": {"cofounder": "data/vision.yml", "manager": "data/p...</data>
+    </node>
+    <node id="140536891757456">
+      <data key="label">SharedMemory</data>
+      <data key="type">cofounder_output</data>
+      <data key="content">{"vision_statement": "Empower small and medium-sized businesses (SMBs) to effortlessly create, deploy, and manage intelligent chatbots without the need for coding expertise, enabling them to enhance c...</data>
+    </node>
+    <node id="140536880728976">
+      <data key="label">SharedMemory</data>
+      <data key="type">manager_output</data>
+      <data key="content">{"project_roadmap": {"phase_1": {"name": "Foundation & Planning", "duration": "2-3 weeks", "deliverables": ["Product requirements", "Financial model", "Legal framework"]}, "phase_2": {"name": "Develop...</data>
+    </node>
+    <node id="140536880968080">
+      <data key="label">PrivateMemory</data>
+      <data key="type">marketing_analysis</data>
+      <data key="content">{"market_positioning": {"unique_value_proposition": "", "target_market_size": "To be researched", "competitive_advantage": "Innovation and user experience", "brand_personality": ["innovative", "reliab...</data>
+    </node>
+    <node id="140536880969040">
+      <data key="label">SharedMemory</data>
+      <data key="type">marketing_output</data>
+      <data key="content">{"market_positioning": {"unique_value_proposition": "", "target_market_size": "To be researched", "competitive_advantage": "Innovation and user experience", "brand_personality": ["innovative", "reliab...</data>
+    </node>
+    <node id="140536881031120">
+      <data key="label">PrivateMemory</data>
+      <data key="type">legal_analysis</data>
+      <data key="content">{"business_overview": {"model": "", "target_users": "", "risk_profile": "Low"}, "identified_risks": [], "general_recommendations": ["Establish clear terms of service and privacy policy", "Implement pr...</data>
+    </node>
+    <node id="140536881023632">
+      <data key="label">SharedMemory</data>
+      <data key="type">legal_output</data>
+      <data key="content">{"business_overview": {"model": "", "target_users": "", "risk_profile": "Low"}, "identified_risks": [], "general_recommendations": ["Establish clear terms of service and privacy policy", "Implement pr...</data>
+    </node>
+    <node id="140536880495888">
+      <data key="label">SharedMemory</data>
+      <data key="type">project_completion</data>
+      <data key="content">{"project_id": "project_20250628_121855", "agents_executed": ["cofounder", "manager", "product", "finance", "marketing", "legal"], "exported_files": {"cofounder": "data/vision.yml", "manager": "data/p...</data>
+    </node>
+    <node id="140536891756880">
+      <data key="label">SharedMemory</data>
+      <data key="type">cofounder_output</data>
+      <data key="content">{"vision_statement": "Empower non-technical users to create, customize, and deploy intelligent chatbots effortlessly, enabling seamless automation and enhanced customer engagement across industries.",...</data>
+    </node>
+    <node id="140536880438352">
+      <data key="label">SharedMemory</data>
+      <data key="type">manager_output</data>
+      <data key="content">{"project_roadmap": {"phase_1": {"name": "Foundation & Planning", "duration": "2-3 weeks", "deliverables": ["Product requirements", "Financial model", "Legal framework"]}, "phase_2": {"name": "Develop...</data>
+    </node>
+    <node id="140536881033744">
+      <data key="label">Agent</data>
+      <data key="type">unknown</data>
+    </node>
+    <node id="140536880972368">
+      <data key="label">PrivateMemory</data>
+      <data key="type">product_definition</data>
+      <data key="content">{"mvp_definition": {"core_features": ["User onboarding and authentication", "Core value proposition delivery", "Basic user dashboard", "Essential integrations"], "scope": "Minimum viable product focus...</data>
+    </node>
+    <node id="140536891783248">
+      <data key="label">SharedMemory</data>
+      <data key="type">product_output</data>
+      <data key="content">{"mvp_definition": {"core_features": ["User onboarding and authentication", "Core value proposition delivery", "Basic user dashboard", "Essential integrations"], "scope": "Minimum viable product focus...</data>
+    </node>
+    <node id="140536880958032">
+      <data key="label">Agent</data>
+      <data key="type">unknown</data>
+    </node>
+    <node id="140536880985936">
+      <data key="label">PrivateMemory</data>
+      <data key="type">financial_model</data>
+      <data key="content">{"revenue_model": {"primary_model": "SaaS Subscription", "pricing_tiers": [{"tier": "Starter", "price": 29, "billing": "monthly", "features": ["Basic features", "Email support"], "target_segment": "In...</data>
+    </node>
+    <node id="140536880979920">
+      <data key="label">SharedMemory</data>
+      <data key="type">finance_output</data>
+      <data key="content">{"revenue_model": {"primary_model": "SaaS Subscription", "pricing_tiers": [{"tier": "Starter", "price": 29, "billing": "monthly", "features": ["Basic features", "Email support"], "target_segment": "In...</data>
+    </node>
+    <node id="140536880960272">
+      <data key="label">PrivateMemory</data>
+      <data key="type">marketing_analysis</data>
+      <data key="content">{"market_positioning": {"unique_value_proposition": "", "target_market_size": "To be researched", "competitive_advantage": "Innovation and user experience", "brand_personality": ["innovative", "reliab...</data>
+    </node>
+    <node id="140536880961360">
+      <data key="label">SharedMemory</data>
+      <data key="type">marketing_output</data>
+      <data key="content">{"market_positioning": {"unique_value_proposition": "", "target_market_size": "To be researched", "competitive_advantage": "Innovation and user experience", "brand_personality": ["innovative", "reliab...</data>
+    </node>
+    <node id="140536881034576">
+      <data key="label">PrivateMemory</data>
+      <data key="type">legal_analysis</data>
+      <data key="content">{"business_overview": {"model": "", "target_users": "", "risk_profile": "Low"}, "identified_risks": [], "general_recommendations": ["Establish clear terms of service and privacy policy", "Implement pr...</data>
+    </node>
+    <node id="140536881031568">
+      <data key="label">SharedMemory</data>
+      <data key="type">legal_output</data>
+      <data key="content">{"business_overview": {"model": "", "target_users": "", "risk_profile": "Low"}, "identified_risks": [], "general_recommendations": ["Establish clear terms of service and privacy policy", "Implement pr...</data>
+    </node>
+    <node id="140536891864272">
+      <data key="label">SharedMemory</data>
+      <data key="type">project_completion</data>
+      <data key="content">{"project_id": "project_20250628_122638", "agents_executed": ["cofounder", "manager", "product", "finance", "marketing", "legal"], "exported_files": {"cofounder": "data/vision.yml", "manager": "data/p...</data>
+    </node>
+    <node id="140536893246416">
+      <data key="label">SharedMemory</data>
+      <data key="type">cofounder_output</data>
+      <data key="content">{"vision_statement": "Empower organizations to enhance their security posture by deploying a self-hosted, local AI copilot that provides real-time, intelligent, and context-aware security insights and...</data>
+    </node>
+    <node id="140536880432208">
+      <data key="label">SharedMemory</data>
+      <data key="type">manager_output</data>
+      <data key="content">{"project_roadmap": {"phase_1": {"name": "Foundation & Planning", "duration": "2-3 weeks", "deliverables": ["Product requirements", "Financial model", "Legal framework"]}, "phase_2": {"name": "Develop...</data>
+    </node>
+    <node id="140536880973712">
+      <data key="label">PrivateMemory</data>
+      <data key="type">product_definition</data>
+      <data key="content">{"mvp_definition": {"core_features": ["User onboarding and authentication", "Core value proposition delivery", "Basic user dashboard", "Essential integrations"], "scope": "Minimum viable product focus...</data>
+    </node>
+    <node id="140536880793232">
+      <data key="label">SharedMemory</data>
+      <data key="type">product_output</data>
+      <data key="content">{"mvp_definition": {"core_features": ["User onboarding and authentication", "Core value proposition delivery", "Basic user dashboard", "Essential integrations"], "scope": "Minimum viable product focus...</data>
+    </node>
+    <node id="140536880986512">
+      <data key="label">PrivateMemory</data>
+      <data key="type">financial_model</data>
+      <data key="content">{"revenue_model": {"primary_model": "SaaS Subscription", "pricing_tiers": [{"tier": "Starter", "price": 29, "billing": "monthly", "features": ["Basic features", "Email support"], "target_segment": "In...</data>
+    </node>
+    <node id="140536880982096">
+      <data key="label">SharedMemory</data>
+      <data key="type">finance_output</data>
+      <data key="content">{"revenue_model": {"primary_model": "SaaS Subscription", "pricing_tiers": [{"tier": "Starter", "price": 29, "billing": "monthly", "features": ["Basic features", "Email support"], "target_segment": "In...</data>
+    </node>
+    <node id="140536880964880">
+      <data key="label">PrivateMemory</data>
+      <data key="type">marketing_analysis</data>
+      <data key="content">{"market_positioning": {"unique_value_proposition": "", "target_market_size": "To be researched", "competitive_advantage": "Innovation and user experience", "brand_personality": ["innovative", "reliab...</data>
+    </node>
+    <node id="140536880962896">
+      <data key="label">SharedMemory</data>
+      <data key="type">marketing_output</data>
+      <data key="content">{"market_positioning": {"unique_value_proposition": "", "target_market_size": "To be researched", "competitive_advantage": "Innovation and user experience", "brand_personality": ["innovative", "reliab...</data>
+    </node>
+    <node id="140536881027088">
+      <data key="label">PrivateMemory</data>
+      <data key="type">legal_analysis</data>
+      <data key="content">{"business_overview": {"model": "", "target_users": "", "risk_profile": "Low"}, "identified_risks": [], "general_recommendations": ["Establish clear terms of service and privacy policy", "Implement pr...</data>
+    </node>
+    <node id="140536881028240">
+      <data key="label">SharedMemory</data>
+      <data key="type">legal_output</data>
+      <data key="content">{"business_overview": {"model": "", "target_users": "", "risk_profile": "Low"}, "identified_risks": [], "general_recommendations": ["Establish clear terms of service and privacy policy", "Implement pr...</data>
+    </node>
+    <node id="140536880349712">
+      <data key="label">SharedMemory</data>
+      <data key="type">project_completion</data>
+      <data key="content">{"project_id": "project_20250628_184518", "agents_executed": ["cofounder", "manager", "product", "finance", "marketing", "legal"], "exported_files": {"cofounder": "data/vision.yml", "manager": "data/p...</data>
+    </node>
+    <node id="140536893245264">
+      <data key="label">SharedMemory</data>
+      <data key="type">cofounder_output</data>
+      <data key="content">{"vision_statement": "Empower individuals and organizations to automate and streamline their workflows without the need for coding, enabling seamless process optimization and innovation through an int...</data>
+    </node>
+    <node id="140536880971152">
+      <data key="label">SharedMemory</data>
+      <data key="type">manager_output</data>
+      <data key="content">{"project_roadmap": {"phase_1": {"name": "Foundation & Planning", "duration": "2-3 weeks", "deliverables": ["Product requirements", "Financial model", "Legal framework"]}, "phase_2": {"name": "Develop...</data>
+    </node>
+    <node id="140536880963216">
+      <data key="label">PrivateMemory</data>
+      <data key="type">marketing_analysis</data>
+      <data key="content">{"market_positioning": {"unique_value_proposition": "", "target_market_size": "To be researched", "competitive_advantage": "Innovation and user experience", "brand_personality": ["innovative", "reliab...</data>
+    </node>
+    <node id="140536880956816">
+      <data key="label">SharedMemory</data>
+      <data key="type">marketing_output</data>
+      <data key="content">{"market_positioning": {"unique_value_proposition": "", "target_market_size": "To be researched", "competitive_advantage": "Innovation and user experience", "brand_personality": ["innovative", "reliab...</data>
+    </node>
+    <node id="140536881023696">
+      <data key="label">PrivateMemory</data>
+      <data key="type">legal_analysis</data>
+      <data key="content">{"business_overview": {"model": "", "target_users": "", "risk_profile": "Low"}, "identified_risks": [], "general_recommendations": ["Establish clear terms of service and privacy policy", "Implement pr...</data>
+    </node>
+    <node id="140536881036944">
+      <data key="label">SharedMemory</data>
+      <data key="type">legal_output</data>
+      <data key="content">{"business_overview": {"model": "", "target_users": "", "risk_profile": "Low"}, "identified_risks": [], "general_recommendations": ["Establish clear terms of service and privacy policy", "Implement pr...</data>
+    </node>
+    <node id="140536878065232">
+      <data key="label">PrivateMemory</data>
+      <data key="type">financial_model</data>
+      <data key="content">{"revenue_model": {"primary_model": "SaaS Subscription", "pricing_tiers": [{"tier": "Starter", "price": 29, "billing": "monthly", "features": ["Basic features", "Email support"], "target_segment": "In...</data>
+    </node>
+    <node id="140536880979024">
+      <data key="label">SharedMemory</data>
+      <data key="type">finance_output</data>
+      <data key="content">{"revenue_model": {"primary_model": "SaaS Subscription", "pricing_tiers": [{"tier": "Starter", "price": 29, "billing": "monthly", "features": ["Basic features", "Email support"], "target_segment": "In...</data>
+    </node>
+    <node id="140536880975184">
+      <data key="label">PrivateMemory</data>
+      <data key="type">product_definition</data>
+      <data key="content">{"mvp_definition": {"core_features": ["User onboarding and authentication", "Core value proposition delivery", "Basic user dashboard", "Essential integrations"], "scope": "Minimum viable product focus...</data>
+    </node>
+    <node id="140536880978192">
+      <data key="label">SharedMemory</data>
+      <data key="type">product_output</data>
+      <data key="content">{"mvp_definition": {"core_features": ["User onboarding and authentication", "Core value proposition delivery", "Basic user dashboard", "Essential integrations"], "scope": "Minimum viable product focus...</data>
+    </node>
+    <node id="140536891783056">
+      <data key="label">SharedMemory</data>
+      <data key="type">project_completion</data>
+      <data key="content">{"project_id": "project_20250629_190317", "agents_executed": ["cofounder", "manager", "product", "finance", "marketing", "legal"], "exported_files": {"cofounder": "data/vision.yml", "manager": "data/p...</data>
+    </node>
+    <node id="140536892746000">
+      <data key="label">SharedMemory</data>
+      <data key="type">cofounder_output</data>
+      <data key="content">{"vision_statement": "To revolutionize the way businesses interact with their customers by providing an AI-powered chatbot builder with Retrieval-Augmented Generation (RAG) capabilities, enabling seam...</data>
+    </node>
+    <node id="140536880969936">
+      <data key="label">SharedMemory</data>
+      <data key="type">manager_output</data>
+      <data key="content">{"project_roadmap": {"phase_1": {"name": "Foundation & Planning", "duration": "2-3 weeks", "deliverables": ["Product requirements", "Financial model", "Legal framework"]}, "phase_2": {"name": "Develop...</data>
+    </node>
+    <node id="140536878105232">
+      <data key="label">PrivateMemory</data>
+      <data key="type">marketing_analysis</data>
+      <data key="content">{"market_positioning": {"unique_value_proposition": "", "target_market_size": "To be researched", "competitive_advantage": "Innovation and user experience", "brand_personality": ["innovative", "reliab...</data>
+    </node>
+    <node id="140536880961232">
+      <data key="label">SharedMemory</data>
+      <data key="type">marketing_output</data>
+      <data key="content">{"market_positioning": {"unique_value_proposition": "", "target_market_size": "To be researched", "competitive_advantage": "Innovation and user experience", "brand_personality": ["innovative", "reliab...</data>
+    </node>
+    <node id="140536881033104">
+      <data key="label">PrivateMemory</data>
+      <data key="type">legal_analysis</data>
+      <data key="content">{"business_overview": {"model": "", "target_users": "", "risk_profile": "Low"}, "identified_risks": [], "general_recommendations": ["Establish clear terms of service and privacy policy", "Implement pr...</data>
+    </node>
+    <node id="140536880987664">
+      <data key="label">PrivateMemory</data>
+      <data key="type">product_definition</data>
+      <data key="content">{"mvp_definition": {"core_features": ["User onboarding and authentication", "Core value proposition delivery", "Basic user dashboard", "Essential integrations"], "scope": "Minimum viable product focus...</data>
+    </node>
+    <node id="140536880987792">
+      <data key="label">SharedMemory</data>
+      <data key="type">product_output</data>
+      <data key="content">{"mvp_definition": {"core_features": ["User onboarding and authentication", "Core value proposition delivery", "Basic user dashboard", "Essential integrations"], "scope": "Minimum viable product focus...</data>
+    </node>
+    <node id="140536880101264">
+      <data key="label">PrivateMemory</data>
+      <data key="type">financial_model</data>
+      <data key="content">{"revenue_model": {"primary_model": "SaaS Subscription", "pricing_tiers": [{"tier": "Starter", "price": 29, "billing": "monthly", "features": ["Basic features", "Email support"], "target_segment": "In...</data>
+    </node>
+    <node id="140536880982928">
+      <data key="label">SharedMemory</data>
+      <data key="type">finance_output</data>
+      <data key="content">{"revenue_model": {"primary_model": "SaaS Subscription", "pricing_tiers": [{"tier": "Starter", "price": 29, "billing": "monthly", "features": ["Basic features", "Email support"], "target_segment": "In...</data>
+    </node>
+    <node id="140536881036624">
+      <data key="label">SharedMemory</data>
+      <data key="type">legal_output</data>
+      <data key="content">{"business_overview": {"model": "", "target_users": "", "risk_profile": "Low"}, "identified_risks": [], "general_recommendations": ["Establish clear terms of service and privacy policy", "Implement pr...</data>
+    </node>
+    <node id="140536486018064">
+      <data key="label">SharedMemory</data>
+      <data key="type">project_completion</data>
+      <data key="content">{"project_id": "project_20250629_192021", "agents_executed": ["cofounder", "manager", "product", "finance", "marketing", "legal"], "exported_files": {"cofounder": "data/vision.yml", "manager": "data/p...</data>
+    </node>
+    <node id="140536880976528">
+      <data key="label">PrivateMemory</data>
+      <data key="type">product_definition</data>
+      <data key="content">{"mvp_definition": {"core_features": ["User onboarding and authentication", "Core value proposition delivery", "Basic user dashboard", "Essential integrations"], "scope": "Minimum viable product focus...</data>
+    </node>
+    <node id="140536880972560">
+      <data key="label">SharedMemory</data>
+      <data key="type">product_output</data>
+      <data key="content">{"mvp_definition": {"core_features": ["User onboarding and authentication", "Core value proposition delivery", "Basic user dashboard", "Essential integrations"], "scope": "Minimum viable product focus...</data>
+    </node>
+    <node id="140536881036048">
+      <data key="label">PrivateMemory</data>
+      <data key="type">legal_analysis</data>
+      <data key="content">{"business_overview": {"model": "", "target_users": "", "risk_profile": "Low"}, "identified_risks": [], "general_recommendations": ["Establish clear terms of service and privacy policy", "Implement pr...</data>
+    </node>
+    <node id="140536878109840">
+      <data key="label">PrivateMemory</data>
+      <data key="type">marketing_analysis</data>
+      <data key="content">{"market_positioning": {"unique_value_proposition": "", "target_market_size": "To be researched", "competitive_advantage": "Innovation and user experience", "brand_personality": ["innovative", "reliab...</data>
+    </node>
+    <node id="140536880968720">
+      <data key="label">SharedMemory</data>
+      <data key="type">marketing_output</data>
+      <data key="content">{"market_positioning": {"unique_value_proposition": "", "target_market_size": "To be researched", "competitive_advantage": "Innovation and user experience", "brand_personality": ["innovative", "reliab...</data>
+    </node>
+    <node id="140536881034640">
+      <data key="label">SharedMemory</data>
+      <data key="type">legal_output</data>
+      <data key="content">{"business_overview": {"model": "", "target_users": "", "risk_profile": "Low"}, "identified_risks": [], "general_recommendations": ["Establish clear terms of service and privacy policy", "Implement pr...</data>
+    </node>
+    <node id="140536880095952">
+      <data key="label">PrivateMemory</data>
+      <data key="type">financial_model</data>
+      <data key="content">{"revenue_model": {"primary_model": "SaaS Subscription", "pricing_tiers": [{"tier": "Starter", "price": 29, "billing": "monthly", "features": ["Basic features", "Email support"], "target_segment": "In...</data>
+    </node>
+    <node id="140536880988048">
+      <data key="label">SharedMemory</data>
+      <data key="type">finance_output</data>
+      <data key="content">{"revenue_model": {"primary_model": "SaaS Subscription", "pricing_tiers": [{"tier": "Starter", "price": 29, "billing": "monthly", "features": ["Basic features", "Email support"], "target_segment": "In...</data>
+    </node>
+  </graph>
+</graphml>

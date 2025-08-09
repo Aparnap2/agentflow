@@ -1,0 +1,101 @@
+agent: Finance
+outputs:
+  finance_output:
+    content:
+      revenue_model:
+        primary_model: SaaS Subscription
+        pricing_tiers:
+        - tier: Starter
+          price: 29
+          billing: monthly
+          features:
+          - Basic features
+          - Email support
+          target_segment: Individual users
+        - tier: Professional
+          price: 99
+          billing: monthly
+          features:
+          - Advanced features
+          - Priority support
+          - Integrations
+          target_segment: Small businesses
+        - tier: Enterprise
+          price: 299
+          billing: monthly
+          features:
+          - All features
+          - Custom integrations
+          - Dedicated support
+          target_segment: Large organizations
+        revenue_streams:
+        - Subscription fees (80%)
+        - Setup/onboarding fees (15%)
+        - Professional services (5%)
+      financial_projections:
+        year_1:
+          revenue: 120000
+          costs: 180000
+          net_income: -60000
+          customers: 150
+        year_2:
+          revenue: 480000
+          costs: 320000
+          net_income: 160000
+          customers: 600
+        year_3:
+          revenue: 1200000
+          costs: 720000
+          net_income: 480000
+          customers: 1500
+      cost_structure:
+        development:
+          percentage: 40
+          annual_cost: 120000
+          description: Engineering and product development
+        marketing:
+          percentage: 25
+          annual_cost: 75000
+          description: Customer acquisition and marketing
+        operations:
+          percentage: 20
+          annual_cost: 60000
+          description: Infrastructure and operations
+        sales:
+          percentage: 15
+          annual_cost: 45000
+          description: Sales team and processes
+      roi_analysis:
+        break_even_point: Month 18
+        customer_acquisition_cost: 150
+        customer_lifetime_value: 2400
+        ltv_cac_ratio: 16
+        payback_period: 6 months
+        scenarios:
+          conservative:
+            revenue_growth: 15% monthly
+            churn_rate: 8%
+          realistic:
+            revenue_growth: 25% monthly
+            churn_rate: 5%
+          optimistic:
+            revenue_growth: 40% monthly
+            churn_rate: 3%
+      funding_requirements:
+        seed_funding: 250000
+        series_a: 1500000
+        use_of_funds:
+          product_development: 40%
+          marketing_sales: 35%
+          operations: 15%
+          working_capital: 10%
+        runway: 18 months with seed funding
+        milestones:
+        - Product-market fit validation
+        - 100 paying customers
+        - $50K MRR
+        - Series A readiness
+    confidence: 0.8
+    timestamp: '2025-06-28T06:57:19.894000000+00:00'
+exported_at: '2025-06-29T20:02:40.862265'
+format_version: '1.0'

@@ -1,0 +1,62 @@
+{
+  "agent": "Marketing",
+  "outputs": {
+    "marketing_output": {
+      "content": {
+        "market_positioning": {
+          "unique_value_proposition": "",
+          "target_market_size": "To be researched",
+          "competitive_advantage": "Innovation and user experience",
+          "brand_personality": [
+            "innovative",
+            "reliable",
+            "user-focused"
+          ]
+        },
+        "marketing_mix": {
+          "product": "Core offering with unique features",
+          "price": "Competitive pricing",
+          "place": "Digital-first distribution",
+          "promotion": "Content marketing and social media"
+        },
+        "customer_journey": {
+          "awareness": [
+            "SEO",
+            "social media",
+            "content marketing"
+          ],
+          "consideration": [
+            "free trial",
+            "demos",
+            "case studies"
+          ],
+          "decision": [
+            "testimonials",
+            "pricing transparency",
+            "support"
+          ],
+          "retention": [
+            "onboarding",
+            "customer success",
+            "feature updates"
+          ],
+          "advocacy": [
+            "referral program",
+            "user community",
+            "testimonials"
+          ]
+        },
+        "recommended_channels": [
+          "Content marketing (blog, guides)",
+          "Social media marketing",
+          "Email marketing",
+          "SEO and organic search",
+          "Partnership marketing"
+        ]
+      },
+      "confidence": 0.8,
+      "timestamp": "2025-06-29T14:31:17.733000000+00:00"
+    }
+  },
+  "exported_at": "2025-06-29T20:02:42.920482"
+}
